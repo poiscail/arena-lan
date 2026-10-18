@@ -5,9 +5,17 @@ FPS à la première personne en réseau local, fait avec Godot 4.7.
 - **Modes** : *Équipes* (de 1 contre 1 jusqu'à 6 contre 6) ou *Chacun pour soi* (2 à 12 combattants).
 - **Bots** : ils complètent les places vides, en 3 niveaux de difficulté.
 
-## Lancer le jeu
-- Double-clique sur **`Lancer.bat`**.
+## Télécharger (Windows, rien à installer)
+1. Va dans **[Releases](https://github.com/poiscail/arena-lan/releases/latest)** et télécharge **`ArenaLAN.exe`**.
+2. Double-clique dessus.
+   - Si Windows affiche « Windows a protégé votre ordinateur » : clique sur **Informations complémentaires**, puis sur **Exécuter quand même**. Le message apparaît parce que l'exécutable n'est pas signé.
+
+Tout le monde doit avoir **la même version** du jeu.
+
+## Lancer depuis le code source
+- Double-clique sur **`Lancer.bat`** (Godot 4.7 doit être installé).
 - Ou bien ouvre `project.godot` dans Godot, puis appuie sur **F5**.
+- Pour refaire le `.exe` : dans Godot, menu **Projet > Exporter…**, choisis le préréglage *Windows Desktop*. Les modèles d'export de Godot 4.7.2 doivent être installés.
 
 ## Jouer en LAN
 1. **L'hôte** clique sur *Héberger une partie*. Le salon affiche son adresse IP (par ex. `192.168.1.20`).
@@ -20,10 +28,6 @@ Quelqu'un peut rejoindre en cours de partie. Il remplace alors un bot.
 **Pare-feu Windows** : au premier lancement, Windows demande s'il faut autoriser Godot. Coche **Réseaux privés**, puis *Autoriser*. Fais-le sur le PC de l'hôte en priorité.
 
 **Jouer seul contre des bots** : héberge une partie, puis lance-la directement.
-
-## Installer sur les autres PC
-Copie tout le dossier `ArenaLAN` sur chaque PC. Ajoute dedans `Godot_v4.7.2-stable_win64.exe`, renommé en `Godot.exe`, puis lance `Lancer.bat`.
-Tout le monde doit avoir **la même version** du jeu.
 
 ## Commandes (positions des touches : ZQSD sur AZERTY)
 | Touche | Action |
