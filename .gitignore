@@ -1,0 +1,7 @@
+# Cache de l'éditeur Godot
+.godot/
+*.import
+# Exécutables / exports
+Godot.exe
+export/
+*.tmp
