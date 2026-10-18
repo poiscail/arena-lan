@@ -4,6 +4,7 @@ extends CharacterBody3D
 
 const BotScript := preload("res://scripts/bot.gd")
 const Data := preload("res://scripts/data.gd")
+const Models := preload("res://scripts/models.gd")
 
 const GRAVITY := 20.0
 const JUMP_VELOCITY := 7.0
@@ -12,7 +13,8 @@ const SPRINT_SPEED := 9.0
 const EYE_HEIGHT := 1.6
 const FOV := 80.0
 const ZOOM_FOV := 25.0
-const VIEWMODEL_POS := Vector3(0.2, -0.17, -0.55)
+const VIEWMODEL_POS := Vector3(0.2, -0.2, -0.5)
+const DEATH_SHOW_TIME := 1.6
 
 var game
 var char_id := ""
@@ -27,21 +29,28 @@ var bot = null
 
 var head: Node3D
 var camera: Camera3D
-var viewmodel: MeshInstance3D
 
 var weapon := 0
 var ammo := []
 var reloading := 0.0
 var zoomed := false
 
-var _body: MeshInstance3D
-var _visor: MeshInstance3D
-var _gun: MeshInstance3D
+var _model: Node3D
+var _anim: AnimationPlayer
+var _anim_name := ""
+var _gun: Node3D
+var _ring: MeshInstance3D
 var _label: Label3D
 var _shape: CollisionShape3D
+var _viewmodel: Node3D
+var _view_guns := []
 var _fire_cd := 0.0
 var _trigger_released := true
 var _kick := 0.0
+var _bob := 0.0
+var _hide_t := 0.0
+var _prev_pos := Vector3.ZERO
+var _speed := 0.0
 var _net_pos := Vector3.ZERO
 var _net_yaw := 0.0
 var _net_pitch := 0.0
@@ -61,28 +70,35 @@ func _ready() -> void:
 	_shape.position.y = 0.9
 	add_child(_shape)
 
-	_body = MeshInstance3D.new()
-	var cm := CapsuleMesh.new()
-	cm.radius = 0.4
-	cm.height = 1.8
-	_body.mesh = cm
-	_body.position.y = 0.9
-	_body.material_override = _mat(color)
-	add_child(_body)
+	_model = Models.character(_model_name(), 1.8)
+	add_child(_model)
+	_anim = _model.find_child("AnimationPlayer", true, false)
+
+	# Anneau de couleur au sol pour repérer l'équipe
+	_ring = MeshInstance3D.new()
+	var torus := TorusMesh.new()
+	torus.inner_radius = 0.45
+	torus.outer_radius = 0.55
+	_ring.mesh = torus
+	_ring.scale = Vector3(1, 0.15, 1)
+	_ring.position.y = 0.04
+	var ring_mat := StandardMaterial3D.new()
+	ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ring_mat.albedo_color = color
+	_ring.material_override = ring_mat
+	_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_ring)
 
 	head = Node3D.new()
 	head.position.y = EYE_HEIGHT
 	add_child(head)
-	_visor = _box_mesh(Vector3(0.46, 0.14, 0.2), Color(0.08, 0.08, 0.1))
-	_visor.position = Vector3(0, 0, -0.3)
-	head.add_child(_visor)
-	_gun = _box_mesh(Data.GUN_LOOKS[0][0], Data.GUN_LOOKS[0][1])
-	_gun.position = Vector3(0.3, -0.3, -0.5)
+	_gun = Models.weapon(Data.WEAPON_MODELS[0][0], 0.6)
+	_gun.position = Vector3(0.22, -0.5, -0.45)
 	head.add_child(_gun)
 
 	_label = Label3D.new()
 	_label.text = display_name
-	_label.position.y = 2.2
+	_label.position.y = 2.15
 	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_label.font_size = 40
 	_label.outline_size = 10
@@ -94,6 +110,8 @@ func _ready() -> void:
 	face_center()
 	_net_pos = position
 	_net_yaw = rotation.y
+	_prev_pos = position
+	_play("holding-both")
 
 	if is_bot and multiplayer.is_server():
 		bot = BotScript.new()
@@ -103,21 +121,30 @@ func _ready() -> void:
 		bot.difficulty = clampi(int(game.settings.difficulty), 0, 2)
 
 	if is_local:
-		_body.visible = false
-		_visor.visible = false
+		_model.visible = false
 		_gun.visible = false
 		_label.visible = false
+		_ring.visible = false
 		camera = Camera3D.new()
 		camera.fov = FOV
-		camera.near = 0.05
+		camera.near = 0.03
 		head.add_child(camera)
 		camera.make_current()
-		viewmodel = MeshInstance3D.new()
-		viewmodel.position = VIEWMODEL_POS
-		viewmodel.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		camera.add_child(viewmodel)
+		_viewmodel = Node3D.new()
+		_viewmodel.position = VIEWMODEL_POS
+		camera.add_child(_viewmodel)
+		for wm in Data.WEAPON_MODELS:
+			var g := Models.weapon(wm[0], wm[1])
+			_viewmodel.add_child(g)
+			_view_guns.append(g)
 		_update_viewmodel()
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _model_name() -> String:
+	if team >= 0:
+		return Data.TEAM_MODELS[team]
+	return Data.FFA_MODELS[absi(char_id.hash()) % Data.FFA_MODELS.size()]
 
 
 func get_color() -> Color:
@@ -131,10 +158,10 @@ func eye_position() -> Vector3:
 
 
 func muzzle_position() -> Vector3:
-	if is_local and viewmodel != null and viewmodel.visible:
-		var length: float = Data.GUN_LOOKS[weapon][0].z
-		return viewmodel.global_position - camera.global_transform.basis.z * (length / 2.0)
-	return _gun.global_position - head.global_transform.basis.z * 0.35
+	if is_local and _viewmodel != null and _viewmodel.visible:
+		var length: float = Data.WEAPON_MODELS[weapon][1]
+		return _viewmodel.global_position - camera.global_transform.basis.z * (length / 2.0)
+	return _gun.global_position - head.global_transform.basis.z * 0.3
 
 
 func face_center() -> void:
@@ -155,16 +182,32 @@ func net_target(pos: Vector3, yaw: float, pitch: float) -> void:
 
 func set_dead(dead: bool) -> void:
 	alive = not dead
-	visible = not dead
 	_shape.set_deferred("disabled", dead)
 	if dead:
 		zoomed = false
 		velocity = Vector3.ZERO
+		if is_local:
+			visible = false
+		else:
+			_play("die")
+			_gun.visible = false
+			_label.visible = false
+			_ring.visible = false
+			_hide_t = DEATH_SHOW_TIME
+	else:
+		visible = true
+		_hide_t = 0.0
+		if not is_local:
+			_gun.visible = true
+			_label.visible = true
+			_ring.visible = true
+		_play("holding-both")
 
 
 func respawn(pos: Vector3) -> void:
 	position = pos
 	_net_pos = pos
+	_prev_pos = pos
 	velocity = Vector3.ZERO
 	hp = 100
 	_net_ignore_until = Time.get_ticks_msec() + 300
@@ -195,6 +238,34 @@ func _physics_process(delta: float) -> void:
 		position = position.lerp(_net_pos, k)
 		rotation.y = lerp_angle(rotation.y, _net_yaw, k)
 		head.rotation.x = lerpf(head.rotation.x, _net_pitch, k)
+
+	if not is_local:
+		_update_animation(delta)
+
+
+func _update_animation(delta: float) -> void:
+	var moved := Vector2(position.x - _prev_pos.x, position.z - _prev_pos.z).length() / maxf(delta, 0.001)
+	_prev_pos = position
+	_speed = lerpf(_speed, moved, minf(1.0, delta * 10.0))
+	if not alive:
+		if _hide_t > 0.0:
+			_hide_t -= delta
+			if _hide_t <= 0.0:
+				visible = false
+		return
+	if _speed > 7.5:
+		_play("sprint")
+	elif _speed > 0.8:
+		_play("walk")
+	else:
+		_play("holding-both")
+
+
+func _play(anim: String) -> void:
+	if _anim == null or _anim_name == anim or not _anim.has_animation(anim):
+		return
+	_anim_name = anim
+	_anim.play(anim, 0.15)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -256,6 +327,7 @@ func switch_weapon(i: int) -> void:
 	reloading = 0.0
 	zoomed = false
 	_fire_cd = 0.25
+	_kick = 0.15
 	_update_viewmodel()
 
 
@@ -278,8 +350,16 @@ func _weapons(delta: float, captured: bool) -> void:
 			ammo[weapon] = w.mag
 	zoomed = captured and weapon == 2 and reloading <= 0.0 and Input.is_action_pressed("zoom")
 	camera.fov = lerpf(camera.fov, ZOOM_FOV if zoomed else FOV, minf(1.0, delta * 18.0))
-	viewmodel.visible = not zoomed
-	viewmodel.position = VIEWMODEL_POS + Vector3(0, 0, _kick)
+	_viewmodel.visible = not zoomed
+
+	# Balancement de l'arme en marchant, recul et abaissement pendant le rechargement
+	var hspeed := Vector2(velocity.x, velocity.z).length()
+	if is_on_floor() and hspeed > 0.5:
+		_bob += delta * hspeed * 1.6
+	var bob := Vector3(sin(_bob) * 0.012, -absf(cos(_bob)) * 0.012, 0) * minf(hspeed / WALK_SPEED, 1.5)
+	var reload_drop := Vector3(0, -0.12, 0.05) if reloading > 0.0 else Vector3.ZERO
+	_viewmodel.position = _viewmodel.position.lerp(VIEWMODEL_POS + bob + reload_drop + Vector3(0, 0, _kick), minf(1.0, delta * 20.0))
+	_viewmodel.rotation.x = lerpf(_viewmodel.rotation.x, _kick * 2.0 + (-0.5 if reloading > 0.0 else 0.0), minf(1.0, delta * 15.0))
 
 	var trigger := captured and Input.is_action_pressed("shoot")
 	if not trigger:
@@ -297,7 +377,7 @@ func _weapons(delta: float, captured: bool) -> void:
 	var spread: float = w.spread
 	if weapon == 2 and not zoomed:
 		spread = 6.0
-	if weapon != 1 and (not is_on_floor() or Vector2(velocity.x, velocity.z).length() > 6.5):
+	if weapon != 1 and (not is_on_floor() or hspeed > 6.5):
 		spread += 2.5
 	var b := camera.global_transform.basis
 	var dirs := PackedVector3Array()
@@ -306,7 +386,7 @@ func _weapons(delta: float, captured: bool) -> void:
 	game.local_fire(self, weapon, camera.global_position, dirs)
 
 	head.rotation.x = clampf(head.rotation.x + Data.RECOIL[weapon], -1.5, 1.5)
-	_kick = 0.08
+	_kick = 0.06 if weapon == 0 else 0.12
 	if ammo[weapon] <= 0:
 		start_reload()
 
@@ -318,26 +398,5 @@ func _spread_dir(b: Basis, degrees: float) -> Vector3:
 
 
 func _update_viewmodel() -> void:
-	if viewmodel == null:
-		return
-	var look: Array = Data.GUN_LOOKS[weapon]
-	var bm := BoxMesh.new()
-	bm.size = look[0]
-	viewmodel.mesh = bm
-	viewmodel.material_override = _mat(look[1])
-
-
-func _mat(color: Color) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = color
-	m.roughness = 0.6
-	return m
-
-
-func _box_mesh(size: Vector3, color: Color) -> MeshInstance3D:
-	var mi := MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	bm.size = size
-	mi.mesh = bm
-	mi.material_override = _mat(color)
-	return mi
+	for i in _view_guns.size():
+		_view_guns[i].visible = i == weapon

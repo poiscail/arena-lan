@@ -13,12 +13,14 @@ const WEAPONS := [
 	{"name": "Sniper", "damage": 80, "rate": 1.3, "mag": 5, "reload": 2.6, "spread": 0.0, "pellets": 1, "range": 300.0, "auto": false, "head": 2.0},
 ]
 
-# Apparence de l'arme en vue à la première personne : [taille, couleur]
-const GUN_LOOKS := [
-	[Vector3(0.045, 0.065, 0.4), Color(0.15, 0.15, 0.17)],
-	[Vector3(0.06, 0.07, 0.34), Color(0.4, 0.25, 0.12)],
-	[Vector3(0.04, 0.06, 0.55), Color(0.25, 0.3, 0.18)],
-]
+# Modèle 3D de chaque arme (Kenney Blaster Kit) et sa longueur en vue à la première personne
+const WEAPON_MODELS := [["blaster-d", 0.4], ["blaster-b", 0.32], ["blaster-e", 0.55]]
+
+# Modèles des personnages (Kenney Blocky Characters) : un robot par équipe, au hasard en mêlée
+const TEAM_MODELS := ["character-h", "character-g"]
+const FFA_MODELS := ["character-a", "character-b", "character-c", "character-d", "character-e",
+		"character-f", "character-i", "character-j", "character-k", "character-l", "character-m",
+		"character-n", "character-o", "character-p", "character-q", "character-r"]
 
 # Recul vertical de la caméra (radians) par tir
 const RECOIL := [0.012, 0.05, 0.09]

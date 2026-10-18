@@ -2,26 +2,40 @@ extends CanvasLayer
 ## Interface en jeu : viseur, vie, munitions, scores, fil des éliminations, pause.
 
 const Data := preload("res://scripts/data.gd")
+const UiTheme := preload("res://scripts/ui_theme.gd")
 
 var game
 var paused := false
 
 var _crosshair: Control
 var _scope: Control
-var _hp: Label
-var _ammo: Label
+var _hp_value: Label
+var _hp_bar: ProgressBar
+var _hp_fill: StyleBoxFlat
+var _weapon_name: Label
+var _ammo_value: Label
+var _ammo_max: Label
+var _reload_label: Label
+var _slots := []
 var _timer: Label
-var _top: RichTextLabel
+var _score_left: Label
+var _score_right: Label
+var _score_left_box: PanelContainer
+var _score_right_box: PanelContainer
+var _goal: Label
 var _feed: VBoxContainer
+var _center_box: PanelContainer
 var _center: Label
 var _big: Label
 var _board: PanelContainer
 var _board_text: RichTextLabel
-var _damage: ColorRect
+var _vignette: TextureRect
 var _pause: PanelContainer
+var _bottom: Control
 
 var _hit_t := 0.0
 var _hit_color := Color.WHITE
+var _damage_a := 0.0
 var _death_t := 0.0
 var _death_by := ""
 
@@ -32,10 +46,22 @@ func _ready() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
 
-	_damage = ColorRect.new()
-	_damage.color = Color(1, 0, 0, 0)
-	_place(_damage, 0, 0, 1, 1)
-	root.add_child(_damage)
+	# Vignette rouge quand on prend des dégâts
+	_vignette = TextureRect.new()
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0.8, 0, 0, 0))
+	grad.set_color(1, Color(0.8, 0, 0, 0.85))
+	grad.add_point(0.55, Color(0.8, 0, 0, 0))
+	var gtex := GradientTexture2D.new()
+	gtex.gradient = grad
+	gtex.fill = GradientTexture2D.FILL_RADIAL
+	gtex.fill_from = Vector2(0.5, 0.5)
+	gtex.fill_to = Vector2(1.0, 1.0)
+	_vignette.texture = gtex
+	_vignette.stretch_mode = TextureRect.STRETCH_SCALE
+	_vignette.modulate.a = 0.0
+	_place(_vignette, 0, 0, 1, 1)
+	root.add_child(_vignette)
 
 	_scope = Control.new()
 	_place(_scope, 0, 0, 1, 1)
@@ -48,72 +74,180 @@ func _ready() -> void:
 	_crosshair.draw.connect(_draw_crosshair)
 	root.add_child(_crosshair)
 
-	_hp = _label(30)
-	_place(_hp, 0, 1, 0, 1, 28, -70, 400, -20)
-	root.add_child(_hp)
-
-	_ammo = _label(30)
-	_ammo.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_place(_ammo, 1, 1, 1, 1, -600, -70, -28, -20)
-	root.add_child(_ammo)
-
-	_timer = _label(26)
-	_timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_place(_timer, 0.5, 0, 0.5, 0, -100, 10, 100, 44)
-	root.add_child(_timer)
-
-	_top = _rich(22)
-	_place(_top, 0.5, 0, 0.5, 0, -400, 48, 400, 90)
-	root.add_child(_top)
+	_build_bottom(root)
+	_build_top(root)
 
 	_feed = VBoxContainer.new()
-	_place(_feed, 1, 0, 1, 0, -480, 12, -16, 320)
+	_feed.add_theme_constant_override("separation", 4)
+	_feed.alignment = BoxContainer.ALIGNMENT_BEGIN
+	_place(_feed, 1, 0, 1, 0, -470, 16, -16, 320)
 	root.add_child(_feed)
 
-	_center = _label(26)
+	_center_box = PanelContainer.new()
+	_center_box.add_theme_stylebox_override("panel", UiTheme.panel(Color(0.03, 0.04, 0.07, 0.75), Color(1, 1, 1, 0.08), 14))
+	_place(_center_box, 0.5, 0.5, 0.5, 0.5, -260, 70, 260, 120)
+	_center_box.visible = false
+	root.add_child(_center_box)
+	_center = _label(24, UiTheme.font_bold())
 	_center.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_place(_center, 0, 0.5, 1, 0.5, 0, 50, 0, 100)
-	root.add_child(_center)
+	_center_box.add_child(_center)
 
-	_big = _label(46)
+	_big = _label(48, UiTheme.font_title())
 	_big.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_big.modulate = Color(1, 0.9, 0.45)
-	_place(_big, 0, 0.18, 1, 0.18, 0, -40, 0, 30)
+	_big.add_theme_color_override("font_color", UiTheme.ACCENT)
+	_place(_big, 0, 0.13, 1, 0.13, 0, -40, 0, 30)
 	root.add_child(_big)
 
 	_board = PanelContainer.new()
-	_board.add_theme_stylebox_override("panel", _panel_style(Color(0.05, 0.06, 0.09, 0.85)))
-	_place(_board, 0.5, 0.5, 0.5, 0.5, -340, -230, 340, 250)
+	_board.add_theme_stylebox_override("panel", UiTheme.accent_panel(Color(0.03, 0.05, 0.09, 0.9), UiTheme.ACCENT, 22))
+	_place(_board, 0.5, 0.5, 0.5, 0.5, -360, -220, 360, 260)
 	_board.visible = false
 	root.add_child(_board)
-	_board_text = _rich(18)
+	_board_text = _rich(19)
 	_board.add_child(_board_text)
 
 	_build_pause(root)
 	refresh_scores()
 
 
+func _build_bottom(root: Control) -> void:
+	_bottom = Control.new()
+	_place(_bottom, 0, 1, 1, 1, 24, -112, -24, -20)
+	root.add_child(_bottom)
+
+	# Santé (bas gauche)
+	var hp_box := PanelContainer.new()
+	hp_box.add_theme_stylebox_override("panel", UiTheme.accent_panel(Color(0.03, 0.05, 0.09, 0.78), Color(0.35, 0.9, 0.5), 14))
+	_place(hp_box, 0, 0, 0, 1, 0, 0, 320, 0)
+	_bottom.add_child(hp_box)
+	var hp_v := VBoxContainer.new()
+	hp_v.add_theme_constant_override("separation", 2)
+	hp_box.add_child(hp_v)
+	var hp_row := HBoxContainer.new()
+	hp_v.add_child(hp_row)
+	var hp_title := _label(15, UiTheme.font_bold())
+	hp_title.text = "SANTÉ"
+	hp_title.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
+	hp_title.size_flags_vertical = Control.SIZE_SHRINK_END
+	hp_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hp_row.add_child(hp_title)
+	_hp_value = _label(40, UiTheme.font_title())
+	hp_row.add_child(_hp_value)
+	_hp_bar = ProgressBar.new()
+	_hp_bar.show_percentage = false
+	_hp_bar.custom_minimum_size = Vector2(0, 10)
+	_hp_bar.max_value = 100
+	var bar_bg := StyleBoxFlat.new()
+	bar_bg.bg_color = Color(1, 1, 1, 0.1)
+	_hp_fill = StyleBoxFlat.new()
+	_hp_fill.bg_color = Color(0.35, 0.9, 0.5)
+	_hp_bar.add_theme_stylebox_override("background", bar_bg)
+	_hp_bar.add_theme_stylebox_override("fill", _hp_fill)
+	hp_v.add_child(_hp_bar)
+
+	# Arme et munitions (bas droite)
+	var ammo_box := PanelContainer.new()
+	ammo_box.add_theme_stylebox_override("panel", UiTheme.accent_panel(Color(0.03, 0.05, 0.09, 0.78), UiTheme.ACCENT, 14))
+	_place(ammo_box, 1, 0, 1, 1, -360, 0, 0, 0)
+	_bottom.add_child(ammo_box)
+	var ammo_v := VBoxContainer.new()
+	ammo_v.add_theme_constant_override("separation", 0)
+	ammo_box.add_child(ammo_v)
+	var top_row := HBoxContainer.new()
+	ammo_v.add_child(top_row)
+	_weapon_name = _label(22, UiTheme.font_bold())
+	_weapon_name.add_theme_color_override("font_color", UiTheme.ACCENT)
+	_weapon_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_weapon_name.size_flags_vertical = Control.SIZE_SHRINK_END
+	top_row.add_child(_weapon_name)
+	_reload_label = _label(18, UiTheme.font_bold())
+	_reload_label.size_flags_vertical = Control.SIZE_SHRINK_END
+	_reload_label.add_theme_color_override("font_color", Color(1, 0.85, 0.3))
+	top_row.add_child(_reload_label)
+	_ammo_value = _label(40, UiTheme.font_title())
+	_ammo_value.size_flags_vertical = Control.SIZE_SHRINK_END
+	top_row.add_child(_ammo_value)
+	_ammo_max = _label(20, UiTheme.font_bold())
+	_ammo_max.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
+	_ammo_max.size_flags_vertical = Control.SIZE_SHRINK_END
+	top_row.add_child(_ammo_max)
+	var slots_row := HBoxContainer.new()
+	slots_row.add_theme_constant_override("separation", 14)
+	ammo_v.add_child(slots_row)
+	for i in Data.WEAPONS.size():
+		var s := _label(15, UiTheme.font_bold())
+		s.text = "%d  %s" % [i + 1, String(Data.WEAPONS[i].name).to_upper()]
+		slots_row.add_child(s)
+		_slots.append(s)
+
+
+func _build_top(root: Control) -> void:
+	var top := HBoxContainer.new()
+	top.alignment = BoxContainer.ALIGNMENT_CENTER
+	top.add_theme_constant_override("separation", 6)
+	_place(top, 0, 0, 1, 0, 0, 14, 0, 70)
+	root.add_child(top)
+
+	_score_left_box = _score_box()
+	_score_left = _label(30, UiTheme.font_title())
+	_score_left.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_score_left_box.add_child(_score_left)
+	top.add_child(_score_left_box)
+
+	var timer_box := PanelContainer.new()
+	timer_box.add_theme_stylebox_override("panel", UiTheme.panel(Color(0.03, 0.05, 0.09, 0.82), Color(1, 1, 1, 0.12), 10))
+	timer_box.custom_minimum_size = Vector2(130, 0)
+	_timer = _label(28, UiTheme.font_title())
+	_timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	timer_box.add_child(_timer)
+	top.add_child(timer_box)
+
+	_score_right_box = _score_box()
+	_score_right = _label(30, UiTheme.font_title())
+	_score_right.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_score_right_box.add_child(_score_right)
+	top.add_child(_score_right_box)
+
+	_goal = _label(15, UiTheme.font_bold())
+	_goal.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_goal.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
+	_place(_goal, 0, 0, 1, 0, 0, 72, 0, 96)
+	root.add_child(_goal)
+
+	if game.settings.mode == "team":
+		_score_left_box.add_theme_stylebox_override("panel", UiTheme.panel(Color(Data.TEAM_COLORS[0].darkened(0.45), 0.85), Data.TEAM_COLORS[0], 10))
+		_score_right_box.add_theme_stylebox_override("panel", UiTheme.panel(Color(Data.TEAM_COLORS[1].darkened(0.45), 0.85), Data.TEAM_COLORS[1], 10))
+
+
+func _score_box() -> PanelContainer:
+	var p := PanelContainer.new()
+	p.custom_minimum_size = Vector2(220, 0)
+	p.add_theme_stylebox_override("panel", UiTheme.panel(Color(0.03, 0.05, 0.09, 0.82), Color(1, 1, 1, 0.12), 10))
+	return p
+
+
 func _build_pause(root: Control) -> void:
 	_pause = PanelContainer.new()
-	_pause.add_theme_stylebox_override("panel", _panel_style(Color(0.1, 0.11, 0.15, 0.95)))
-	_place(_pause, 0.5, 0.5, 0.5, 0.5, -200, -150, 200, 150)
+	_pause.add_theme_stylebox_override("panel", UiTheme.accent_panel(Color(0.04, 0.06, 0.1, 0.96), UiTheme.ACCENT, 26))
+	_place(_pause, 0.5, 0.5, 0.5, 0.5, -220, -170, 220, 170)
 	_pause.mouse_filter = Control.MOUSE_FILTER_STOP
 	_pause.visible = false
 	root.add_child(_pause)
 
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 12)
+	v.add_theme_constant_override("separation", 14)
 	_pause.add_child(v)
-	var title := _label(30)
-	title.text = "Pause"
+	var title := _label(30, UiTheme.font_title())
+	title.text = "PAUSE"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(title)
 	var resume := Button.new()
 	resume.text = "Reprendre"
 	resume.pressed.connect(toggle_pause)
 	v.add_child(resume)
-	var sens := _label(18)
-	sens.text = "Sensibilité de la souris"
+	var sens := _label(16, UiTheme.font_bold())
+	sens.text = "SENSIBILITÉ DE LA SOURIS"
+	sens.add_theme_color_override("font_color", UiTheme.ACCENT)
 	v.add_child(sens)
 	var slider := HSlider.new()
 	slider.min_value = 0.5
@@ -147,7 +281,7 @@ func hit_marker(head: bool, killed: bool) -> void:
 
 
 func damage_flash() -> void:
-	_damage.color.a = 0.35
+	_damage_a = 0.9
 
 
 func show_death(killer: String) -> void:
@@ -156,11 +290,15 @@ func show_death(killer: String) -> void:
 
 
 func add_kill(bbcode: String) -> void:
+	var box := PanelContainer.new()
+	box.add_theme_stylebox_override("panel", UiTheme.panel(Color(0.03, 0.05, 0.09, 0.72), Color(1, 1, 1, 0.06), 6))
+	box.size_flags_horizontal = Control.SIZE_SHRINK_END
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var r := _rich(18)
-	r.text = "[right]%s[/right]" % bbcode
-	r.custom_minimum_size = Vector2(460, 0)
-	r.set_meta("t", 6.0)
-	_feed.add_child(r)
+	r.text = bbcode
+	box.add_child(r)
+	box.set_meta("t", 6.0)
+	_feed.add_child(box)
 	if _feed.get_child_count() > 6:
 		_feed.get_child(0).queue_free()
 
@@ -175,19 +313,19 @@ func refresh_scores() -> void:
 		rows.append(s)
 	rows.sort_custom(func(a, b): return a["kills"] > b["kills"] or (a["kills"] == b["kills"] and a["deaths"] < b["deaths"]))
 	var me: String = game.local_char.char_id if game.local_char != null else ""
-	var txt := "[center][font_size=26]Scores[/font_size][/center]\n"
+	var txt := "[center][font_size=28][b]SCORES[/b][/font_size][/center]\n"
 	var groups := [0, 1] if game.settings.mode == "team" else [-1]
 	var totals: Array = game.team_scores()
 	for g in groups:
 		if g >= 0:
-			txt += "\n[color=%s][b]%s   %d[/b][/color]\n" % [Data.TEAM_HEX[g], Data.TEAM_NAMES[g], totals[g]]
-		txt += "[table=3][cell][color=#999999]Joueur          [/color][/cell][cell][color=#999999]Élim.   [/color][/cell][cell][color=#999999]Morts[/color][/cell]"
+			txt += "\n[color=%s][b][font_size=22]%s   %d[/font_size][/b][/color]\n" % [Data.TEAM_HEX[g], Data.TEAM_NAMES[g], totals[g]]
+		txt += "[table=3][cell][color=#8890a0]JOUEUR                    [/color][/cell][cell][color=#8890a0]ÉLIM.     [/color][/cell][cell][color=#8890a0]MORTS[/color][/cell]"
 		for s in rows:
 			if g >= 0 and s["team"] != g:
 				continue
 			var n := Data.esc(s["name"])
 			if s["id"] == me:
-				n = "[color=#ffd75e][b]%s[/b][/color]" % n
+				n = "[color=#ffa64d][b]%s[/b][/color]" % n
 			txt += "[cell]%s[/cell][cell]%d[/cell][cell]%d[/cell]" % [n, s["kills"], s["deaths"]]
 		txt += "[/table]\n"
 	_board_text.text = txt
@@ -198,17 +336,25 @@ func refresh_scores() -> void:
 func _process(delta: float) -> void:
 	var c = game.local_char
 	if c != null:
-		_hp.text = "PV  %d" % c.hp
-		_hp.modulate = Color(1, 0.35, 0.3) if c.hp <= 30 else Color.WHITE
+		_hp_value.text = str(c.hp)
+		_hp_bar.value = c.hp
+		var hp_col := Color(0.35, 0.9, 0.5) if c.hp > 60 else (Color(1, 0.75, 0.25) if c.hp > 30 else Color(1, 0.3, 0.25))
+		_hp_fill.bg_color = hp_col
+		_hp_value.add_theme_color_override("font_color", hp_col if c.hp <= 30 else Color.WHITE)
 		var w: Dictionary = Data.WEAPONS[c.weapon]
-		if c.reloading > 0.0:
-			_ammo.text = "%s   rechargement..." % w.name
-		else:
-			_ammo.text = "%s   %d / %d" % [w.name, c.ammo[c.weapon], w.mag]
+		_weapon_name.text = String(w.name).to_upper()
+		_ammo_value.text = str(c.ammo[c.weapon])
+		_ammo_max.text = " / %d" % w.mag
+		_reload_label.text = "RECHARGEMENT  " if c.reloading > 0.0 else ""
+		_ammo_value.add_theme_color_override("font_color", Color(1, 0.35, 0.3) if c.ammo[c.weapon] <= w.mag / 4 else Color.WHITE)
+		for i in _slots.size():
+			_slots[i].add_theme_color_override("font_color", UiTheme.ACCENT if i == c.weapon else Color(1, 1, 1, 0.35))
 		_scope.visible = c.zoomed and c.alive
+		_bottom.visible = c.alive and not c.zoomed
 	var t := int(ceil(game.time_left))
 	_timer.text = "%d:%02d" % [t / 60, t % 60]
-	_top.text = "[center]%s[/center]" % game.score_summary()
+	_timer.add_theme_color_override("font_color", Color(1, 0.4, 0.3) if t <= 30 else Color.WHITE)
+	_update_scores_top()
 	_board.visible = game.match_over or Input.is_action_pressed("scoreboard")
 	_big.text = game.end_text if game.match_over else ""
 
@@ -216,13 +362,18 @@ func _process(delta: float) -> void:
 		_center.text = "Retour au salon dans quelques secondes..."
 	elif _death_t > 0.0:
 		_death_t -= delta
-		var by := ("Éliminé par %s  —  " % _death_by) if _death_by != "" else ""
-		_center.text = by + "réapparition dans %d" % int(ceil(maxf(_death_t, 0.0)))
+		var by := ("Éliminé par %s\n" % _death_by) if _death_by != "" else ""
+		_center.text = by + "Réapparition dans %d" % int(ceil(maxf(_death_t, 0.0)))
 	else:
 		_center.text = ""
+	_center_box.visible = _center.text != ""
 
 	_hit_t = maxf(0.0, _hit_t - delta)
-	_damage.color.a = move_toward(_damage.color.a, 0.0, delta * 1.5)
+	_damage_a = move_toward(_damage_a, 0.0, delta * 1.6)
+	var low := 0.0
+	if c != null and c.alive and c.hp <= 30:
+		low = 0.35 + 0.15 * sin(Time.get_ticks_msec() / 200.0)
+	_vignette.modulate.a = maxf(_damage_a, low)
 	_crosshair.queue_redraw()
 	if _scope.visible:
 		_scope.queue_redraw()
@@ -235,20 +386,42 @@ func _process(delta: float) -> void:
 			e.modulate.a = left
 
 
+func _update_scores_top() -> void:
+	var limit: int = game.settings.score_limit
+	if game.settings.mode == "team":
+		var t: Array = game.team_scores()
+		_score_left.text = "%s  %d" % [Data.TEAM_NAMES[0], t[0]]
+		_score_right.text = "%d  %s" % [t[1], Data.TEAM_NAMES[1]]
+	else:
+		var mine := 0
+		if game.local_char != null and game.scores.has(game.local_char.char_id):
+			mine = game.scores[game.local_char.char_id]["kills"]
+		var best := 0
+		for id in game.scores:
+			best = maxi(best, int(game.scores[id]["kills"]))
+		_score_left.text = "TOI  %d" % mine
+		_score_right.text = "%d  MENEUR" % best
+	_goal.text = "PREMIER À %d ÉLIMINATIONS" % limit
+
+
 func _draw_crosshair() -> void:
 	var c = game.local_char
 	if c != null and c.alive and not c.zoomed and not game.match_over:
-		var gap := 6.0
-		var col := Color(1, 1, 1, 0.9)
+		var gap := 7.0
+		if c.weapon == 1:
+			gap = 16.0
+		var spd: float = Vector2(c.velocity.x, c.velocity.z).length()
+		gap += minf(spd, 9.0) * 0.8
+		var col := Color(1, 1, 1, 0.95)
 		for d in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN]:
-			_crosshair.draw_line(d * gap, d * (gap + 9.0), Color(0, 0, 0, 0.7), 4.0)
-			_crosshair.draw_line(d * gap, d * (gap + 9.0), col, 2.0)
-		_crosshair.draw_circle(Vector2.ZERO, 1.5, col)
+			_crosshair.draw_line(d * gap, d * (gap + 10.0), Color(0, 0, 0, 0.6), 4.0)
+			_crosshair.draw_line(d * gap, d * (gap + 10.0), col, 2.0)
+		_crosshair.draw_circle(Vector2.ZERO, 1.6, UiTheme.ACCENT)
 	if _hit_t > 0.0:
 		var hc := _hit_color
 		hc.a = _hit_t / 0.25
 		for d in [Vector2(1, 1), Vector2(-1, 1), Vector2(1, -1), Vector2(-1, -1)]:
-			_crosshair.draw_line(d * 6.0, d * 14.0, hc, 2.5)
+			_crosshair.draw_line(d * 7.0, d * 16.0, hc, 3.0)
 
 
 func _draw_scope() -> void:
@@ -278,11 +451,13 @@ func _place(c: Control, al: float, at: float, ar: float, ab: float, ol := 0.0, o
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
-func _label(size: int) -> Label:
+func _label(size: int, font: Font = null) -> Label:
 	var l := Label.new()
+	if font != null:
+		l.add_theme_font_override("font", font)
 	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_constant_override("outline_size", 6)
-	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	l.add_theme_constant_override("outline_size", 5)
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.6))
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
 
@@ -295,15 +470,7 @@ func _rich(size: int) -> RichTextLabel:
 	r.autowrap_mode = TextServer.AUTOWRAP_OFF
 	r.add_theme_font_size_override("normal_font_size", size)
 	r.add_theme_font_size_override("bold_font_size", size)
-	r.add_theme_constant_override("outline_size", 6)
-	r.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	r.add_theme_constant_override("outline_size", 4)
+	r.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.6))
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return r
-
-
-func _panel_style(color: Color) -> StyleBoxFlat:
-	var st := StyleBoxFlat.new()
-	st.bg_color = color
-	st.set_corner_radius_all(10)
-	st.set_content_margin_all(20)
-	return st

@@ -459,7 +459,6 @@ func on_died(victim_id: String, killer_id: String, weapon: int) -> void:
 		return
 	var k = chars.get(killer_id)
 	v.set_dead(true)
-	_death_fx(v.position, v.get_color())
 	var kname := "?"
 	var khex := "#ffffff"
 	if k != null:
@@ -601,22 +600,3 @@ func _spawn_tracer(from: Vector3, to: Vector3) -> void:
 	impact.global_position = to
 	get_tree().create_timer(0.15).timeout.connect(impact.queue_free)
 
-
-func _death_fx(pos: Vector3, color: Color) -> void:
-	var m := MeshInstance3D.new()
-	var sm := SphereMesh.new()
-	sm.radius = 0.5
-	sm.height = 1.0
-	m.mesh = sm
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.albedo_color = color
-	m.material_override = mat
-	add_child(m)
-	m.global_position = pos + Vector3(0, 1, 0)
-	var tw := m.create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(m, "scale", Vector3.ONE * 2.5, 0.35)
-	tw.tween_property(mat, "albedo_color:a", 0.0, 0.35)
-	tw.chain().tween_callback(m.queue_free)

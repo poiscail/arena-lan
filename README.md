@@ -54,11 +54,20 @@ Quelqu'un peut rejoindre en cours de partie. Il remplace alors un bot.
 |---|---|
 | `net.gd` | Connexion, salon, paramètres (chargé en permanence sous le nom `Net`) |
 | `main.gd` | Menu et salon |
+| `menu_bg.gd` | Fond 3D animé du menu |
 | `game.gd` | Règles de la partie, réseau en jeu, tirs, scores, effets |
-| `character.gd` | Joueur et bot : déplacement, armes, caméra |
+| `character.gd` | Joueur et bot : déplacement, armes, caméra, animations |
 | `bot.gd` | Intelligence des bots (vision, combat, déplacement sur la carte) |
 | `map.gd` | Construction de l'arène, points d'apparition, chemins des bots |
 | `hud.gd` | Interface en jeu |
-| `data.gd` | Réglages des armes et des équipes |
+| `ui_theme.gd` | Thème visuel (polices, panneaux, boutons) |
+| `models.gd` | Chargement des modèles 3D |
+| `data.gd` | Réglages des armes, des équipes et des modèles |
 
 Toute la partie est décidée par l'hôte : dégâts, morts, scores et bots. Chaque joueur envoie seulement sa position et ses tirs.
+
+## Crédits
+- **Personnages** : [Blocky Characters](https://kenney.nl/assets/blocky-characters) de Kenney, licence CC0.
+- **Armes** : [Blaster Kit](https://kenney.nl/assets/blaster-kit) de Kenney, licence CC0.
+- **Polices** : [Rajdhani](https://fonts.google.com/specimen/Rajdhani) et [Orbitron](https://fonts.google.com/specimen/Orbitron), licence SIL Open Font.
+- **Moteur** : [Godot 4.7](https://godotengine.org).

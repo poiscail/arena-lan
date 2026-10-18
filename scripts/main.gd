@@ -3,8 +3,11 @@ extends Node
 
 const GameScript := preload("res://scripts/game.gd")
 const Data := preload("res://scripts/data.gd")
+const UiTheme := preload("res://scripts/ui_theme.gd")
+const MenuBgScript := preload("res://scripts/menu_bg.gd")
 
 var game: Node = null
+var _background: Node3D = null
 
 var _ui: Control
 var _menu: VBoxContainer
@@ -40,42 +43,85 @@ func _ready() -> void:
 # --- Construction de l'interface ----------------------------------------------
 
 func _build_ui() -> void:
+	get_tree().root.theme = UiTheme.make_theme()
 	_ui = Control.new()
 	_ui.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(_ui)
 
-	var bg := ColorRect.new()
-	bg.color = Color(0.07, 0.08, 0.11)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_ui.add_child(bg)
+	# Dégradé sombre à gauche pour la lisibilité, la scène 3D reste visible à droite
+	var shade := TextureRect.new()
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0.02, 0.03, 0.06, 0.92))
+	grad.set_color(1, Color(0.02, 0.03, 0.06, 0.0))
+	grad.add_point(0.45, Color(0.02, 0.03, 0.06, 0.75))
+	var gtex := GradientTexture2D.new()
+	gtex.gradient = grad
+	gtex.fill_from = Vector2(0, 0)
+	gtex.fill_to = Vector2(1, 0)
+	shade.texture = gtex
+	shade.stretch_mode = TextureRect.STRETCH_SCALE
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ui.add_child(shade)
 
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_ui.add_child(center)
+	var scroll := ScrollContainer.new()
+	scroll.anchor_bottom = 1.0
+	scroll.offset_left = 56
+	scroll.offset_top = 36
+	scroll.offset_right = 56 + 600
+	scroll.offset_bottom = -20
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_ui.add_child(scroll)
+
+	var column := VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.add_theme_constant_override("separation", 12)
+	scroll.add_child(column)
+
+	var title := Label.new()
+	title.text = "ARENA"
+	title.add_theme_font_override("font", UiTheme.font_title())
+	title.add_theme_font_size_override("font_size", 64)
+	title.add_theme_color_override("font_color", Color.WHITE)
+	column.add_child(title)
+	var subtitle := Label.new()
+	subtitle.text = "L A N   ·   F P S   M U L T I J O U E U R"
+	subtitle.add_theme_font_override("font", UiTheme.font_bold())
+	subtitle.add_theme_font_size_override("font_size", 18)
+	subtitle.add_theme_color_override("font_color", UiTheme.ACCENT)
+	column.add_child(subtitle)
+	var spacer := Control.new()
+	spacer.custom_minimum_size.y = 10
+	column.add_child(spacer)
 
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(620, 0)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.13, 0.14, 0.19)
-	style.set_corner_radius_all(12)
-	style.set_content_margin_all(28)
-	panel.add_theme_stylebox_override("panel", style)
-	center.add_child(panel)
+	panel.add_theme_stylebox_override("panel", UiTheme.accent_panel(Color(0.04, 0.06, 0.1, 0.82), UiTheme.ACCENT, 24))
+	column.add_child(panel)
 
 	var stack := VBoxContainer.new()
 	stack.add_theme_constant_override("separation", 14)
 	panel.add_child(stack)
 
-	var title := _label("ARENA LAN", 44)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	stack.add_child(title)
+	var credits := Label.new()
+	credits.text = "Modèles et interface : Kenney (CC0)  ·  Polices : Rajdhani, Orbitron (OFL)  ·  Godot 4.7"
+	credits.add_theme_font_size_override("font_size", 14)
+	credits.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
+	credits.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	credits.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	credits.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	credits.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	credits.offset_left = -700
+	credits.offset_top = -34
+	credits.offset_right = -16
+	credits.offset_bottom = -10
+	_ui.add_child(credits)
 
 	# Menu principal
 	_menu = VBoxContainer.new()
 	_menu.add_theme_constant_override("separation", 10)
 	stack.add_child(_menu)
 
-	_menu.add_child(_label("Pseudo", 16))
+	_menu.add_child(_section("PSEUDO"))
 	_name_edit = LineEdit.new()
 	_name_edit.max_length = 16
 	_name_edit.text = "Joueur%d" % randi_range(10, 99)
@@ -93,7 +139,7 @@ func _build_ui() -> void:
 
 	_menu.add_child(_button("Héberger une partie", _on_host_pressed))
 	_menu.add_child(HSeparator.new())
-	_menu.add_child(_label("Rejoindre : adresse IP de l'hôte", 16))
+	_menu.add_child(_section("REJOINDRE  ·  ADRESSE IP DE L'HÔTE"))
 
 	var join_row := HBoxContainer.new()
 	join_row.add_theme_constant_override("separation", 10)
@@ -105,8 +151,9 @@ func _build_ui() -> void:
 	join_row.add_child(_button("Rejoindre", _on_join_pressed))
 	_menu.add_child(join_row)
 
-	var help := _label("ZQSD : bouger    Souris : viser    Clic gauche : tirer    Clic droit : zoom (sniper)\nEspace : sauter    Maj : sprint    R : recharger    1 / 2 / 3 ou molette : armes\nTab : scores    Échap : pause", 14)
-	help.modulate = Color(0.7, 0.72, 0.8)
+	_menu.add_child(HSeparator.new())
+	var help := _label("ZQSD : bouger   ·   Souris : viser   ·   Clic gauche : tirer   ·   Clic droit : zoom\nEspace : sauter   ·   Maj : sprint   ·   R : recharger   ·   1/2/3 ou molette : armes\nTab : scores   ·   Échap : pause", 15)
+	help.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
 	_menu.add_child(help)
 
 	# Salon
@@ -168,10 +215,30 @@ func _build_ui() -> void:
 	buttons.add_child(_button("Quitter", Net.quit_to_menu))
 	_lobby.add_child(buttons)
 
-	_status = _label("", 16)
-	_status.modulate = Color(1, 0.65, 0.55)
+	_status = _label("", 17)
+	_status.add_theme_color_override("font_color", Color(1, 0.62, 0.5))
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(_status)
+
+
+func _section(text: String) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_override("font", UiTheme.font_bold())
+	l.add_theme_font_size_override("font_size", 15)
+	l.add_theme_color_override("font_color", UiTheme.ACCENT)
+	return l
+
+
+func _set_background(on: bool) -> void:
+	if on and _background == null:
+		_background = MenuBgScript.new()
+		add_child(_background)
+		move_child(_background, 0)
+	elif not on and _background != null:
+		remove_child(_background)
+		_background.queue_free()
+		_background = null
 
 
 func _label(text: String, size: int) -> Label:
@@ -210,6 +277,7 @@ func _add_row(grid: GridContainer, text: String, control: Control) -> Label:
 # --- Écrans ---------------------------------------------------------------------
 
 func _show_menu(message: String) -> void:
+	_set_background(true)
 	_ui.show()
 	_menu.visible = true
 	_lobby.visible = false
@@ -218,6 +286,7 @@ func _show_menu(message: String) -> void:
 
 
 func _show_lobby() -> void:
+	_set_background(true)
 	_ui.show()
 	_menu.visible = false
 	_lobby.visible = true
@@ -344,6 +413,7 @@ func _on_lobby_changed() -> void:
 
 func _on_game_started() -> void:
 	_remove_game()
+	_set_background(false)
 	_ui.hide()
 	game = GameScript.new()
 	game.name = "Game"
