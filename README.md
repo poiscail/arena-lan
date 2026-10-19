@@ -49,7 +49,7 @@ Quelqu'un peut rejoindre en cours de partie. Il remplace alors un bot.
 | X ou clic molette | Signaler un endroit à ton équipe |
 | L | Lampe torche (cartes de nuit) |
 | Tab | Tableau des scores |
-| Échap | Pause (classe, options, quitter) |
+| Échap | Pause (classe, armes, armurerie, options, quitter) |
 
 Toutes les touches se changent dans **Options > Touches**.
 
@@ -97,7 +97,7 @@ L'hôte choisit le jeu dans le salon :
 À la fin du match, un tableau donne les **récompenses** (meilleur joueur, plus précis, plus longue série, plus de dégâts, tirs à la tête) et **tes statistiques**.
 
 ## Classes
-Choisis ta classe dans le menu. En partie, tu peux la changer dans la pause (Échap) : elle s'applique à ta prochaine réapparition.
+Choisis ta classe dans le menu. Avec **Classes et armes**, choisis toi-même l'arme 1, l'arme 2 et l'arme 3 de chaque classe, parmi les 42 armes. En partie, la pause (Échap) permet de changer de classe, d'armes, de skins et d'accessoires : tout s'applique à ta prochaine réapparition.
 
 | Classe | Armes (1 / 2 / 3) | Bonus |
 |---|---|---|
@@ -158,6 +158,7 @@ Si le jeu rame, choisis **Basse**.
 | `spectator.gd` | Caméra spectateur après la mort (coéquipier ou caméra libre) |
 | `modes.gd` | Modes de jeu : drapeau, colline, course aux armes, élimination |
 | `armory.gd` | Écran Armurerie (skins, accessoires, aperçu 3D) |
+| `loadout.gd` | Écran Classes et armes (armes 1, 2 et 3 de chaque classe) |
 | `items.gd` | Trousses, bonus, barils explosifs, grenades et fumigènes |
 | `options.gd` | Fenêtre d'options (graphismes, souris) |
 | `ui_theme.gd` | Thème visuel (polices, panneaux, boutons) |

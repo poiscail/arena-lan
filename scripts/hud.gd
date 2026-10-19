@@ -4,6 +4,8 @@ extends CanvasLayer
 const Data := preload("res://scripts/data.gd")
 const UiTheme := preload("res://scripts/ui_theme.gd")
 const OptionsScript := preload("res://scripts/options.gd")
+const LoadoutScript := preload("res://scripts/loadout.gd")
+const ArmoryScript := preload("res://scripts/armory.gd")
 
 var game
 var paused := false
@@ -33,6 +35,9 @@ var _board_text: RichTextLabel
 var _vignette: TextureRect
 var _pause: PanelContainer
 var _options: Control
+var _loadout: Control
+var _armory: Control
+var _pause_cls: OptionButton
 var _fps: Label
 var _armor_bar: ProgressBar
 var _grenade_label: Label
@@ -202,6 +207,25 @@ func _ready() -> void:
 	_options = OptionsScript.new()
 	_options.visible = false
 	root.add_child(_options)
+	# Classes et armes / armurerie en pleine partie : envoyés à l'hôte, appliqués à la prochaine apparition
+	_loadout = LoadoutScript.new()
+	_loadout.in_game = true
+	_loadout.visible = false
+	_loadout.changed.connect(func() -> void:
+		_pause_cls.select(Net.player_class)
+		game.request_class(Net.player_class)
+		game.send_armory(Net.armory))
+	_loadout.open_armory.connect(func(wi: int) -> void:
+		_armory._wi = wi
+		_armory.open())
+	root.add_child(_loadout)
+	_armory = ArmoryScript.new()
+	_armory.visible = false
+	_armory.closed.connect(func() -> void:
+		game.send_armory(Net.armory)
+		if _loadout.visible:
+			_loadout.open())
+	root.add_child(_armory)
 	refresh_scores()
 
 
@@ -337,7 +361,7 @@ func _score_box() -> PanelContainer:
 func _build_pause(root: Control) -> void:
 	_pause = PanelContainer.new()
 	_pause.add_theme_stylebox_override("panel", UiTheme.accent_panel(Color(0.04, 0.06, 0.1, 0.96), UiTheme.ACCENT, 26))
-	_place(_pause, 0.5, 0.5, 0.5, 0.5, -220, -180, 220, 180)
+	_place(_pause, 0.5, 0.5, 0.5, 0.5, -230, -230, 230, 230)
 	_pause.mouse_filter = Control.MOUSE_FILTER_STOP
 	_pause.visible = false
 	root.add_child(_pause)
@@ -357,15 +381,23 @@ func _build_pause(root: Control) -> void:
 	cls_title.text = "CLASSE (À LA PROCHAINE APPARITION)"
 	cls_title.add_theme_color_override("font_color", UiTheme.ACCENT)
 	v.add_child(cls_title)
-	var cls := OptionButton.new()
+	_pause_cls = OptionButton.new()
 	for cl in Data.CLASSES:
-		cls.add_item(cl["name"])
-	cls.select(Net.player_class)
-	cls.item_selected.connect(func(i: int) -> void:
+		_pause_cls.add_item(cl["name"])
+	_pause_cls.select(Net.player_class)
+	_pause_cls.item_selected.connect(func(i: int) -> void:
 		Net.player_class = i
 		Net.save_options()
 		game.request_class(i))
-	v.add_child(cls)
+	v.add_child(_pause_cls)
+	var weapons := Button.new()
+	weapons.text = "Classes et armes (armes 1, 2, 3)"
+	weapons.pressed.connect(func() -> void: _loadout.open())
+	v.add_child(weapons)
+	var armory := Button.new()
+	armory.text = "Armurerie (skins et accessoires)"
+	armory.pressed.connect(func() -> void: _armory.open())
+	v.add_child(armory)
 	var opts := Button.new()
 	opts.text = "Options"
 	opts.pressed.connect(func() -> void: _options.open())
@@ -383,6 +415,10 @@ func toggle_pause() -> void:
 	_pause.visible = paused
 	if not paused:
 		_options.visible = false
+		_loadout.visible = false
+		if _armory.visible:
+			_armory.visible = false
+			game.send_armory(Net.armory)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if paused else Input.MOUSE_MODE_CAPTURED
 
 

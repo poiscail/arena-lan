@@ -34,6 +34,7 @@ var skin := 0
 var class_id := 0
 var armory := {}  # personnalisation des armes du joueur (voir Net.armory)
 var next_class := -1  # classe demandée pour la prochaine réapparition (serveur)
+var next_armory := {}  # armes / accessoires modifiés en jeu, appliqués à la prochaine réapparition (serveur)
 var loadout: Array = [0, 1, 2]
 var slot := 0
 var hp := 100
@@ -246,8 +247,13 @@ func set_dead(dead: bool) -> void:
 		_set_state("alive")
 
 
-func respawn(pos: Vector3, cls := -1) -> void:
-	if cls >= 0 and cls != class_id:
+func respawn(pos: Vector3, cls := -1, arm := {}) -> void:
+	var changed := false
+	if not arm.is_empty():
+		armory = arm  # armes / accessoires modifiés pendant la partie
+		changed = true
+		_gun = null  # force le nouveau skin / accessoires sur l'arme tenue
+	if cls >= 0 and (cls != class_id or changed):
 		_set_loadout(cls)
 	position = pos
 	_net_pos = pos
@@ -611,9 +617,7 @@ func _zoom_fov() -> float:
 ## Change de classe : 3 nouvelles armes, chargeurs pleins.
 func _set_loadout(cls: int) -> void:
 	class_id = clampi(cls, 0, Data.CLASSES.size() - 1)
-	loadout = []
-	for wi in Data.CLASSES[class_id]["weapons"]:
-		loadout.append(Data.resolve_weapon(wi, armory if armory is Dictionary else {}))
+	loadout = Data.class_weapons(class_id, armory if armory is Dictionary else {})
 	slot = 0
 	weapon = bot_weapon() if is_bot else loadout[0]
 	slot = loadout.find(weapon)

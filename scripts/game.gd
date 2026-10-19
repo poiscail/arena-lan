@@ -241,6 +241,32 @@ func req_class(cls: int) -> void:
 		_set_next_class(_pid(multiplayer.get_remote_sender_id()), cls)
 
 
+## Armes de classe / skins / accessoires modifiés en jeu par le joueur local : envoyés à l'hôte,
+## appliqués à sa prochaine réapparition.
+func send_armory(arm: Dictionary) -> void:
+	if multiplayer.is_server():
+		_set_next_armory(_pid(1), arm)
+	else:
+		req_armory.rpc_id(1, arm)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func req_armory(arm: Dictionary) -> void:
+	if multiplayer.is_server():
+		_set_next_armory(_pid(multiplayer.get_remote_sender_id()), arm)
+
+
+func _set_next_armory(id: String, arm: Dictionary) -> void:
+	if arm.size() > 200:
+		return
+	var c = chars.get(id)
+	if c != null:
+		c.next_armory = arm
+	var peer := int(id.substr(1))
+	if Net.players.has(peer):
+		Net.players[peer]["armory"] = arm
+
+
 func _set_next_class(id: String, cls: int) -> void:
 	var c = chars.get(id)
 	if c != null:
@@ -600,7 +626,11 @@ func _respawn(id: String) -> void:
 	if rules == "gungame":
 		cls = -1
 	c.next_class = -1
-	_broadcast("on_respawn", [id, _pick_spawn(c.team), cls])
+	var arm: Dictionary = c.next_armory
+	c.next_armory = {}
+	if rules == "gungame" and not arm.is_empty():
+		c.armory = arm  # course aux armes : seulement skins / accessoires
+	_broadcast("on_respawn", [id, _pick_spawn(c.team), cls, arm])
 
 
 func check_win() -> void:
@@ -789,10 +819,10 @@ func on_died(victim_id: String, killer_id: String, weapon: int) -> void:
 
 
 @rpc("authority", "call_remote", "reliable")
-func on_respawn(id: String, pos: Vector3, cls: int) -> void:
+func on_respawn(id: String, pos: Vector3, cls: int, arm: Dictionary = {}) -> void:
 	var c = chars.get(id)
 	if c != null:
-		c.respawn(pos, cls)
+		c.respawn(pos, cls, arm)
 		if c == local_char:
 			spectator.stop()
 

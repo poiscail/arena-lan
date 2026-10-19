@@ -7,6 +7,7 @@ const UiTheme := preload("res://scripts/ui_theme.gd")
 const MenuBgScript := preload("res://scripts/menu_bg.gd")
 const OptionsScript := preload("res://scripts/options.gd")
 const ArmoryScript := preload("res://scripts/armory.gd")
+const LoadoutScript := preload("res://scripts/loadout.gd")
 
 var game: Node = null
 var _background: Node3D = null
@@ -20,6 +21,7 @@ var _skin_opt: OptionButton
 var _class_opt: OptionButton
 var _class_desc: Label
 var _armory: Control
+var _loadout: Control
 var _level_label: Label
 var _level_bar: ProgressBar
 var _games_box: VBoxContainer
@@ -163,10 +165,11 @@ func _build_ui() -> void:
 	_class_opt.select(Net.player_class)
 	_class_opt.item_selected.connect(_on_class_selected)
 	_menu.add_child(_class_opt)
-	_class_desc = _label(Data.CLASSES[Net.player_class]["desc"], 15)
+	_class_desc = _label(Data.class_text(Net.player_class, Net.armory), 15)
 	_class_desc.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
 	_menu.add_child(_class_desc)
 
+	_menu.add_child(_button("Classes et armes : choisir les armes 1, 2 et 3", func() -> void: _loadout.open()))
 	_menu.add_child(_button("Armurerie : skins et accessoires des armes", func() -> void: _armory.open()))
 	_refresh_profile()
 
@@ -294,9 +297,21 @@ Tab : scores   ·   Échap : pause   ·   Touches modifiables dans Options", 15)
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(_status)
 
+	_loadout = LoadoutScript.new()
+	_loadout.visible = false
+	_loadout.changed.connect(func() -> void:
+		_class_opt.select(Net.player_class)
+		_on_class_selected(Net.player_class))
+	_loadout.open_armory.connect(func(wi: int) -> void:
+		_armory._wi = wi
+		_armory.open())
+	_ui.add_child(_loadout)
 	_armory = ArmoryScript.new()
 	_armory.visible = false
 	_armory.closed.connect(func() -> void:
+		_class_desc.text = Data.class_text(Net.player_class, Net.armory)
+		if _loadout.visible:
+			_loadout.open()
 		if _background != null:
 			_background.show_class(Net.player_class))
 	_ui.add_child(_armory)
@@ -502,7 +517,7 @@ func _refresh_profile() -> void:
 func _on_class_selected(index: int) -> void:
 	Net.player_class = index
 	Net.save_options()
-	_class_desc.text = Data.CLASSES[index]["desc"]
+	_class_desc.text = Data.class_text(index, Net.armory)
 	if _background != null:
 		_background.show_class(index)
 
@@ -651,6 +666,39 @@ func _apply_cmdline() -> void:
 	elif opts.has("join"):
 		_ip_edit.text = opts["join"]
 		_on_join_pressed()
+	if opts.has("weapons"):
+		var ws := []
+		for s in String(opts["weapons"]).split(",", false):
+			ws.append(int(s))
+		Net.armory["loadouts"] = {str(Net.player_class): ws}
+		_on_class_selected(Net.player_class)
+	if opts.has("loadout"):
+		_loadout.open()
+	if opts.has("ingame-loadout"):
+		get_tree().create_timer(float(opts["ingame-loadout"])).timeout.connect(func() -> void:
+			game.hud.toggle_pause()
+			game.hud._loadout.open())
+	if opts.has("set-weapons"):
+		# En partie : change les armes de la classe (appliquées à la prochaine apparition)
+		get_tree().create_timer(float(opts.get("set-at", "2"))).timeout.connect(func() -> void:
+			var ws := []
+			for s in String(opts["set-weapons"]).split(",", false):
+				ws.append(int(s))
+			Net.armory["loadouts"] = {str(Net.player_class): ws}
+			game.send_armory(Net.armory))
+	if opts.has("kill-humans"):
+		# Hôte : élimine tous les joueurs humains (pour tester leur réapparition)
+		get_tree().create_timer(float(opts["kill-humans"])).timeout.connect(func() -> void:
+			for id in game.chars.keys():
+				var c = game.chars[id]
+				if not c.is_bot and c.alive:
+					game._deal_damage(c, {c.char_id: 500.0}, 0))
+	if opts.has("print-loadout"):
+		get_tree().create_timer(float(opts["print-loadout"])).timeout.connect(func() -> void:
+			for id in game.chars:
+				var c = game.chars[id]
+				if not c.is_bot:
+					print("[test] ", c.display_name, " armes : ", c.loadout, " alive=", c.alive))
 	if opts.has("armory"):
 		_armory._wi = int(opts["armory"]) if opts["armory"] != "" else 0
 		_armory.open()

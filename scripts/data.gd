@@ -255,6 +255,37 @@ const CAT_ORDER := ["ar", "smg", "pistol", "revolver", "shotgun", "sawed", "snip
 
 
 ## Arme réellement utilisée à la place de l'arme « wi » d'une classe : le choix du joueur pour cette famille.
+## Les 3 armes d'une classe pour un joueur : celles qu'il a choisies (armory["loadouts"][classe]),
+## sinon celles de la classe (avec l'arme préférée de chaque famille).
+static func class_weapons(cls: int, armory: Dictionary) -> Array:
+	cls = clampi(cls, 0, CLASSES.size() - 1)
+	var lo = armory.get("loadouts", {})
+	if lo is Dictionary and lo.has(str(cls)):
+		var arr = lo[str(cls)]
+		if arr is Array and arr.size() == 3:
+			var out := []
+			for wi in arr:
+				var i := int(wi)
+				if i < 0 or i >= WEAPONS.size() or out.has(i):
+					out = []
+					break
+				out.append(i)
+			if out.size() == 3:
+				return out
+	var def := []
+	for wi in CLASSES[cls]["weapons"]:
+		def.append(resolve_weapon(wi, armory))
+	return def
+
+
+## Texte court des armes d'une classe (« AK-47 · Pistolet · Lance-grenades »).
+static func class_text(cls: int, armory: Dictionary) -> String:
+	var names := []
+	for wi in class_weapons(cls, armory):
+		names.append(WEAPONS[wi].name)
+	return " · ".join(names)
+
+
 static func resolve_weapon(wi: int, armory: Dictionary) -> int:
 	var picks = armory.get("pick", {})
 	if not (picks is Dictionary):

@@ -312,8 +312,9 @@ func _check_round() -> void:
 	round_over = false
 	for id in game.chars:
 		var c = game.chars[id]
-		game._broadcast("on_respawn", [id, game._pick_spawn(c.team), c.next_class if c.next_class >= 0 else c.class_id])
+		game._broadcast("on_respawn", [id, game._pick_spawn(c.team), c.next_class if c.next_class >= 0 else c.class_id, c.next_armory])
 		c.next_class = -1
+		c.next_armory = {}
 	_event("Manche %d : c'est parti !" % round_num, -1)
 
 
