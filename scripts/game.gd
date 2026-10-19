@@ -227,6 +227,26 @@ func local_fire(c, weapon: int, origin: Vector3, dirs: PackedVector3Array) -> vo
 		req_shoot.rpc_id(1, weapon, origin, dirs)
 
 
+## Touche d'action du joueur local (poser / désamorcer la bombe), envoyée à l'hôte.
+func send_interact(held: bool) -> void:
+	if multiplayer.is_server():
+		_set_interact(_pid(1), held)
+	else:
+		req_interact.rpc_id(1, held)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func req_interact(held: bool) -> void:
+	if multiplayer.is_server():
+		_set_interact(_pid(multiplayer.get_remote_sender_id()), held)
+
+
+func _set_interact(id: String, held: bool) -> void:
+	var c = chars.get(id)
+	if c != null:
+		c.interacting = held
+
+
 ## Changement de classe demandé par le joueur local : appliqué à sa prochaine réapparition.
 func request_class(cls: int) -> void:
 	if multiplayer.is_server():
@@ -892,7 +912,7 @@ func _award_xp() -> void:
 	var m: Dictionary = scores[local_char.char_id]
 	var gain := 25 + int(m["kills"]) * 10
 	var pts := int(m.get("pts", 0))
-	gain += pts * {"ctf": 50, "koth": 1, "gungame": 10, "elim": 0, "dm": 0}.get(rules, 0)
+	gain += pts * {"ctf": 50, "koth": 1, "gungame": 10, "elim": 0, "dm": 0, "snd": 30}.get(rules, 0)
 	var won := false
 	if settings.mode == "team":
 		var t := team_scores()

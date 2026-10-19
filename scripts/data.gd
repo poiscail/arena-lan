@@ -85,7 +85,8 @@ const KILL_GRENADE := 100
 const KILL_KNIFE := 101
 const KILL_BARREL := 102
 const KILL_AIRSTRIKE := 103
-const KILL_NAMES := {100: "Grenade", 101: "Couteau", 102: "Baril", 103: "Frappe aérienne"}
+const KILL_BOMB := 104
+const KILL_NAMES := {100: "Grenade", 101: "Couteau", 102: "Baril", 103: "Frappe aérienne", 104: "Bombe"}
 
 # Grenades : [explosives, fumigènes] au début de chaque vie
 const GRENADES_START := [2, 1]
@@ -127,8 +128,10 @@ const RULES := {
 		"desc": "Chaque élimination donne l'arme suivante. Le couteau fait reculer la victime."},
 	"elim": {"name": "Élimination", "unit": "manches", "limit": 5, "teams": true,
 		"desc": "Une vie par manche. La dernière équipe debout gagne la manche."},
+	"snd": {"name": "Recherche et destruction", "unit": "manches", "limit": 4, "teams": true,
+		"desc": "Une vie par manche. L'attaque pose la bombe sur A ou B (touche F), la défense la désamorce. Changement de camp toutes les 2 manches."},
 }
-const RULE_ORDER := ["dm", "ctf", "koth", "gungame", "elim"]
+const RULE_ORDER := ["dm", "ctf", "koth", "gungame", "elim", "snd"]
 # Course aux armes : ordre des armes (indices dans WEAPONS)
 const GUNGAME_LADDER := [0, 3, 1, 6, 2, 7, 5, 8, 9, 4]
 

@@ -36,6 +36,7 @@ var class_id := 0
 var armory := {}  # personnalisation des armes du joueur (voir Net.armory)
 var next_class := -1  # classe demandée pour la prochaine réapparition (serveur)
 var next_armory := {}  # armes / accessoires modifiés en jeu, appliqués à la prochaine réapparition (serveur)
+var interacting := false  # (serveur) touche d'action maintenue (poser / désamorcer la bombe)
 var loadout: Array = [0, 1, 2]
 var slot := 0
 var hp := 100

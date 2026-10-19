@@ -47,6 +47,7 @@ Quelqu'un peut rejoindre en cours de partie. Il remplace alors un bot.
 | A / E | Se pencher à gauche / à droite |
 | T | Chat |
 | X ou clic molette | Signaler un endroit à ton équipe |
+| F | Action : poser / désamorcer la bombe |
 | L | Lampe torche (cartes de nuit) |
 | Tab | Tableau des scores |
 | Échap | Pause (classe, armes, armurerie, options, quitter) |
@@ -95,6 +96,7 @@ L'hôte choisit le jeu dans le salon :
 - **Roi de la colline** : reste seul (ou avec ton équipe) dans la zone du centre, 1 point par seconde. Premier à 100.
 - **Course aux armes** : chaque élimination donne l'arme suivante (10 niveaux). Un coup de couteau fait reculer la victime d'un niveau.
 - **Élimination** (équipes) : une vie par manche, la dernière équipe debout gagne la manche. Premier à 5 manches.
+- **Recherche et destruction** (équipes) : une vie par manche. Les attaquants posent la bombe sur le site A ou B (maintenir F 3 s), elle explose au bout de 35 s ; les défenseurs la désamorcent (maintenir F 6 s). Si le porteur meurt, la bombe tombe au sol et un attaquant peut la ramasser. Changement de camp toutes les 2 manches, premier à 4 manches.
 
 À la fin du match, un tableau donne les **récompenses** (meilleur joueur, plus précis, plus longue série, plus de dégâts, tirs à la tête) et **tes statistiques**.
 
