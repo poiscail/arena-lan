@@ -98,6 +98,7 @@ L'hôte choisit le jeu dans le salon :
 - **Élimination** (équipes) : une vie par manche, la dernière équipe debout gagne la manche. Premier à 5 manches.
 - **Recherche et destruction** (équipes) : une vie par manche. Les attaquants posent la bombe sur le site A ou B (maintenir F 3 s), elle explose au bout de 35 s ; les défenseurs la désamorcent (maintenir F 6 s). Si le porteur meurt, la bombe tombe au sol et un attaquant peut la ramasser. Changement de camp toutes les 2 manches, premier à 4 manches.
 - **Zombies** (coopération) : tous les joueurs ensemble contre des vagues de zombies de plus en plus nombreux, résistants et rapides (zombies coureurs à partir de la vague 4). Chaque touche rapporte 10 points, chaque zombie 100 (130 au couteau). Achète des armes, des munitions ou de l'armure aux postes lumineux (touche F) ; une arme déjà en main se recharge pour un tiers du prix. Les joueurs morts reviennent au pistolet à la vague suivante ; la partie s'arrête quand tout le monde est mort. Des bots alliés complètent l'équipe.
+- **Battle Royale** (chacun pour soi) : une seule vie, tout le monde commence au pistolet. Des armes sont posées au sol (touche F pour ramasser ; l'arme lâchée reste par terre). La zone bleue rétrécit en 5 phases ; hors de la zone, le mur devient rouge et on perd de la vie de plus en plus vite. Le dernier debout gagne.
 
 À la fin du match, un tableau donne les **récompenses** (meilleur joueur, plus précis, plus longue série, plus de dégâts, tirs à la tête) et **tes statistiques**.
 

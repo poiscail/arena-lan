@@ -61,6 +61,21 @@ var _zatk := {}                 # (serveur) zombie -> recharge de son attaque
 var _was_inter := {}            # (serveur) joueur -> touche d'action déjà maintenue
 var shops := []                 # [{pos, item}] : achats aux murs (Data.ZOMBIE_SHOP)
 
+# Battle Royale : zone qui rétrécit par phases, armes à ramasser, pas de réapparition
+# Phases : [attente avant de rétrécir (s), durée du rétrécissement (s), rayon visé, dégâts / s hors zone]
+const BR_PHASES := [[25.0, 25.0, 28.0, 2.0], [20.0, 20.0, 16.0, 4.0], [15.0, 20.0, 8.0, 7.0], [10.0, 15.0, 3.0, 12.0], [9999.0, 1.0, 3.0, 20.0]]
+const BR_START_RADIUS := 44.0
+const BR_LOOT := 26
+var zone := {"c0": Vector3.ZERO, "c1": Vector3.ZERO, "r0": BR_START_RADIUS, "r1": BR_START_RADIUS, "t0": 0.0, "dur": 1.0, "phase": 0, "wait": 25.0}
+var zone_clock := 0.0           # temps écoulé (identique sur toutes les machines, recalé par l'hôte)
+var loot := {}                  # id -> {"wi", "pos", "node"}
+var br_alive := 0
+var _zone_wall: MeshInstance3D
+var _zone_mat: StandardMaterial3D
+var _zone_dmg_t := 0.0
+var _loot_serial := 0
+var _br_started := false
+
 
 func setup(p_rules: String) -> void:
 	rules = p_rules
@@ -74,6 +89,8 @@ func setup(p_rules: String) -> void:
 		_make_sites()
 	elif rules == "zombies":
 		_make_shops()
+	elif rules == "br":
+		_make_zone()
 
 
 func limit() -> int:
@@ -646,12 +663,259 @@ func _zombies_text() -> String:
 	return t
 
 
+# --- Battle Royale ------------------------------------------------------------------------
+
+func _make_zone() -> void:
+	_zone_wall = MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 1.0
+	cm.bottom_radius = 1.0
+	cm.height = 40.0
+	cm.radial_segments = 64
+	cm.rings = 1
+	cm.cap_top = false
+	cm.cap_bottom = false
+	_zone_wall.mesh = cm
+	_zone_mat = StandardMaterial3D.new()
+	_zone_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_zone_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_zone_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_zone_mat.albedo_color = Color(0.2, 0.55, 1.0, 0.22)
+	_zone_wall.material_override = _zone_mat
+	_zone_wall.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_zone_wall.position.y = 20.0
+	add_child(_zone_wall)
+
+
+## Centre et rayon actuels de la zone.
+func zone_now() -> Array:
+	var k := clampf((zone_clock - float(zone["t0"])) / maxf(float(zone["dur"]), 0.01), 0.0, 1.0)
+	return [(zone["c0"] as Vector3).lerp(zone["c1"], k), lerpf(zone["r0"], zone["r1"], k)]
+
+
+func in_zone(p: Vector3) -> bool:
+	var z := zone_now()
+	return _dist2d(p, z[0]) <= float(z[1])
+
+
+## (Serveur) Phase suivante : nouveau cercle à l'intérieur de l'actuel, qui reste dans la carte.
+func _next_zone_phase() -> void:
+	var ph: int = int(zone["phase"])
+	if ph >= BR_PHASES.size() - 1:
+		return
+	var cur := zone_now()
+	var r_new: float = BR_PHASES[ph][2]
+	var c_old: Vector3 = cur[0]
+	var c_new := c_old
+	for tries in 30:
+		var a := randf() * TAU
+		var d := randf() * maxf(float(cur[1]) - r_new, 0.0)
+		var p := c_old + Vector3(cos(a), 0, sin(a)) * d
+		var lim: float = Map_HALF() - r_new * 0.6
+		if absf(p.x) < lim and absf(p.z) < lim:
+			c_new = p
+			break
+	zone = {"c0": c_old, "c1": c_new, "r0": float(cur[1]), "r1": r_new, "t0": zone_clock + float(BR_PHASES[ph][0]),
+		"dur": float(BR_PHASES[ph][1]), "phase": ph + 1, "wait": float(BR_PHASES[ph][0])}
+	_broadcast("zone_state", [zone, zone_clock])
+
+
+func Map_HALF() -> float:
+	return 30.0
+
+
+func _update_br(delta: float) -> void:
+	zone_clock += delta
+	if not _br_started:
+		# Début : pistolet pour tous, armes au sol, première zone
+		var any := false
+		for id in game.chars:
+			any = true
+		if not any:
+			return
+		_br_started = true
+		_spawn_loot()
+		zone = {"c0": Vector3.ZERO, "c1": Vector3.ZERO, "r0": BR_START_RADIUS, "r1": BR_START_RADIUS, "t0": 0.0, "dur": 1.0, "phase": 0, "wait": 0.0}
+		_next_zone_phase()
+		_event("BATTLE ROYALE : ramasse des armes, reste dans la zone, sois le dernier debout !", -1)
+	# Phase suivante quand le rétrécissement est fini
+	if zone_clock >= float(zone["t0"]) + float(zone["dur"]):
+		_next_zone_phase()
+		if int(zone["phase"]) < BR_PHASES.size():
+			_event("La zone va se resserrer dans %d s !" % int(zone["wait"]), -1)
+	# Dégâts hors de la zone, chaque seconde
+	_zone_dmg_t -= delta
+	if _zone_dmg_t <= 0.0:
+		_zone_dmg_t = 1.0
+		var dmg: float = BR_PHASES[maxi(int(zone["phase"]) - 1, 0)][3]
+		for id in game.chars.keys():
+			var c = game.chars.get(id)
+			if c != null and c.alive and not in_zone(c.position):
+				game._deal_damage(c, {id: dmg}, Data.KILL_ZONE)
+	# Ramassage : touche d'action (joueurs) ou en passant dessus (bots)
+	for id in game.chars:
+		var c = game.chars[id]
+		if not c.alive:
+			continue
+		var inter: bool = c.interacting
+		var press: bool = inter and not _was_inter.get(id, false)
+		_was_inter[id] = inter
+		if not press and not c.is_bot:
+			continue
+		var l := loot_near(c.position, 1.6 if not c.is_bot else 1.0)
+		if l != "" and (press or not c.loadout.has(int(loot[l]["wi"]))):
+			_pick_loot(c, l)
+	# Survivants
+	var alive := []
+	for id in game.chars:
+		if game.chars[id].alive:
+			alive.append(game.chars[id])
+	if alive.size() != br_alive:
+		br_alive = alive.size()
+		_broadcast("br_tick", [br_alive, zone_clock])
+	if alive.size() <= 1 and game.chars.size() > 1 and not game.match_over:
+		if alive.size() == 1:
+			_add_pts(alive[0], 1)
+			game._end_match("%s remporte le Battle Royale !" % alive[0].display_name)
+		else:
+			game._end_match("Personne n'a survécu")
+
+
+func _spawn_loot() -> void:
+	var pool := []
+	for wi in Data.WEAPONS.size():
+		var cat: String = Data.WEAPONS[wi].cat
+		if cat == "rocket" or cat == "gl":
+			continue
+		pool.append(wi)
+	var used: Array[Vector3] = []
+	for i in BR_LOOT:
+		var p: Vector3 = game.map.random_point()
+		var ok := true
+		for q in used:
+			if q.distance_to(p) < 3.0:
+				ok = false
+		if not ok:
+			continue
+		used.append(p)
+		var wi: int = pool.pick_random()
+		if randf() < 0.06:
+			wi = 9  # lance-roquettes rare
+		_loot_serial += 1
+		_broadcast("loot_add", ["L%d" % _loot_serial, wi, p + Vector3(randf_range(-0.6, 0.6), 0, randf_range(-0.6, 0.6))])
+
+
+func loot_near(pos: Vector3, reach: float) -> String:
+	for id in loot:
+		if _dist2d(pos, loot[id]["pos"]) < reach:
+			return id
+	return ""
+
+
+## (Serveur) Ramasse une arme : elle remplace l'arme en main si on en a déjà 2 ; l'arme lâchée reste au sol.
+func _pick_loot(c, id: String) -> void:
+	var wi: int = loot[id]["wi"]
+	var pos: Vector3 = loot[id]["pos"]
+	_broadcast("loot_remove", [id])
+	var inv: Array = c.loadout.duplicate()
+	inv.erase(wi)
+	if inv.size() >= 2:
+		var dropped: int = c.weapon if inv.has(c.weapon) else inv[0]
+		inv.erase(dropped)
+		_loot_serial += 1
+		_broadcast("loot_add", ["L%d" % _loot_serial, dropped, pos])
+	game._broadcast("set_loadout", [c.char_id, [wi] + inv])
+	if not c.is_bot:
+		_event("Ramassé : %s" % Data.WEAPONS[wi].name, -1, c.char_id)
+
+
+@rpc("authority", "call_remote", "reliable")
+func loot_add(id: String, wi: int, pos: Vector3) -> void:
+	var w: Dictionary = Data.WEAPONS[wi]
+	var root := Node3D.new()
+	root.position = pos + Vector3(0, 0.55, 0)
+	var g := Models.weapon(w.model, float(w.len))
+	g.rotation.y = PI / 2.0
+	root.add_child(g)
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(1.0, 0.8, 0.3)
+	glow.omni_range = 2.0
+	glow.light_energy = 0.7
+	root.add_child(glow)
+	var label := Label3D.new()
+	label.text = w.name
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.font_size = 32
+	label.outline_size = 8
+	label.modulate = Color(1.0, 0.85, 0.4)
+	label.position.y = 0.5
+	root.add_child(label)
+	add_child(root)
+	loot[id] = {"wi": wi, "pos": pos, "node": root}
+	shops.append({"pos": pos, "spin": root, "loot": id})  # même rotation que les postes d'achat
+
+
+@rpc("authority", "call_remote", "reliable")
+func loot_remove(id: String) -> void:
+	if not loot.has(id):
+		return
+	(loot[id]["node"] as Node3D).queue_free()
+	for s in shops.duplicate():
+		if s.get("loot", "") == id:
+			shops.erase(s)
+	loot.erase(id)
+
+
+@rpc("authority", "call_remote", "reliable")
+func zone_state(z: Dictionary, clock: float) -> void:
+	zone = z
+	zone_clock = clock
+
+
+@rpc("authority", "call_remote", "unreliable_ordered")
+func br_tick(n: int, clock: float) -> void:
+	br_alive = n
+	zone_clock = clock
+
+
+func _process_br(delta: float) -> void:
+	if not multiplayer.is_server():
+		zone_clock += delta
+	var z := zone_now()
+	var r: float = z[1]
+	_zone_wall.position = Vector3((z[0] as Vector3).x, 20.0, (z[0] as Vector3).z)
+	_zone_wall.scale = Vector3(r, 1.0, r)
+	var c = game.local_char
+	var outside: bool = c != null and c.alive and not in_zone(c.position)
+	_zone_mat.albedo_color = Color(1.0, 0.25, 0.2, 0.3) if outside else Color(0.2, 0.55, 1.0, 0.22)
+
+
+func _br_text() -> String:
+	var c = game.local_char
+	var t := "BATTLE ROYALE · %d EN VIE" % br_alive
+	var ph: int = int(zone["phase"])
+	var until := float(zone["t0"]) - zone_clock
+	if until > 0.0:
+		t += " · zone dans %d s" % ceili(until)
+	elif zone_clock < float(zone["t0"]) + float(zone["dur"]):
+		t += " · LA ZONE SE RESSERRE"
+	if c != null and c.alive:
+		if not in_zone(c.position):
+			t = "HORS DE LA ZONE ! RENTRE VITE · " + t
+		var l := loot_near(c.position, 1.6)
+		if l != "":
+			t += "  ·  %s : ramasser %s" % [Net.binding_text("interact"), Data.WEAPONS[loot[l]["wi"]].name]
+	return t
+
+
 # --- Boucle -------------------------------------------------------------------------
 
 func _process(delta: float) -> void:
 	if rules == "snd":
 		_process_snd(delta)
-	elif rules == "zombies":
+	elif rules == "br":
+		_process_br(delta)
+	if rules == "zombies" or rules == "br":
 		for s in shops:
 			(s["spin"] as Node3D).rotation.y += delta * 0.8
 		var c = game.local_char
@@ -693,6 +957,8 @@ func _physics_process(delta: float) -> void:
 		_update_snd(delta)
 	elif rules == "zombies":
 		_update_zombies(delta)
+	elif rules == "br":
+		_update_br(delta)
 
 
 ## (Toutes les machines) Bombe visible, bips qui accélèrent, touche d'action envoyée à l'hôte.
@@ -881,12 +1147,12 @@ func _check_snd_teams() -> void:
 
 ## Peut-on réapparaître automatiquement ? (non en manches : on attend la manche suivante)
 func allows_respawn() -> bool:
-	return rules != "elim" and rules != "snd" and rules != "zombies"
+	return not rules in ["elim", "snd", "zombies", "br"]
 
 
 ## (Serveur) Donne à un personnage l'arme de son niveau en course aux armes.
 func gungame_weapon(c) -> void:
-	if rules == "zombies" and c.team == 0:
+	if (rules == "zombies" and c.team == 0) or rules == "br":
 		game._broadcast("set_loadout", [c.char_id, [START_WEAPON]])  # tout le monde commence au pistolet
 		return
 	if rules != "gungame":
@@ -943,6 +1209,21 @@ func bot_goal(c):
 	elif rules == "koth" and randf() < 0.6:
 		var a := randf() * TAU
 		return HILL_POS + Vector3(cos(a), 0, sin(a)) * randf_range(3.5, HILL_RADIUS - 1.0)
+	elif rules == "br":
+		var z := zone_now()
+		var center: Vector3 = zone["c1"]
+		if not in_zone(c.position) or _dist2d(c.position, center) > float(zone["r1"]):
+			return center + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2))  # rentrer dans la (future) zone
+		if c.loadout.size() < 2 or randf() < 0.3:
+			var best := ""
+			var best_d := 25.0
+			for id in loot:
+				var d := _dist2d(c.position, loot[id]["pos"])
+				if d < best_d and not c.loadout.has(int(loot[id]["wi"])) and _dist2d(loot[id]["pos"], z[0]) < float(z[1]):
+					best_d = d
+					best = id
+			if best != "":
+				return loot[best]["pos"]
 	elif rules == "snd" and c.team >= 0 and not sites.is_empty():
 		var att := attackers()
 		var st: String = bomb["state"]
@@ -1016,6 +1297,10 @@ func sync_to(peer: int) -> void:
 			var z = game.chars[id]
 			if z.zombie:
 				make_zombie.rpc_id(peer, id, z.hp, z.zombie_fast)
+	if rules == "br":
+		zone_state.rpc_id(peer, zone, zone_clock)
+		for id in loot:
+			loot_add.rpc_id(peer, id, loot[id]["wi"], loot[id]["pos"])
 	if rules == "gungame":
 		for id in game.chars:
 			var lvl := clampi(int(game.scores.get(id, {}).get("pts", 0)), 0, Data.GUNGAME_LADDER.size() - 1)
@@ -1102,6 +1387,8 @@ func objective_text() -> String:
 			return _snd_text()
 		"zombies":
 			return _zombies_text()
+		"br":
+			return _br_text()
 	return ""
 
 

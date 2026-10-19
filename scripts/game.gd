@@ -64,7 +64,7 @@ func _ready() -> void:
 	add_child(items)
 	items.setup(map)
 	rules = String(settings.get("rules", "dm"))
-	if not Data.RULES.has(rules) or (Data.RULES[rules]["teams"] and settings.mode != "team"):
+	if not Data.RULES.has(rules) or (Data.RULES[rules]["teams"] and settings.mode != "team") or (Data.RULES[rules].get("ffa", false) and settings.mode == "team"):
 		rules = "dm"
 	modes = ModesScript.new()
 	modes.name = "Modes"
@@ -471,7 +471,7 @@ func _apply_damage(t, s, dmg: int, weapon: int) -> bool:
 	t.alive = false  # (évite une double élimination dans la même salve ; set_dead suit par RPC)
 	if scores.has(t.char_id):
 		scores[t.char_id]["deaths"] += 1
-	if scores.has(s.char_id):
+	if scores.has(s.char_id) and s != t:  # (pas de point pour une mort par la zone ou sa propre grenade)
 		var sc: Dictionary = scores[s.char_id]
 		sc["kills"] += 1
 		var wk: Dictionary = sc.get("wkills", {})
@@ -479,7 +479,7 @@ func _apply_damage(t, s, dmg: int, weapon: int) -> bool:
 		sc["wkills"] = wk
 	# Séries d'éliminations sans mourir
 	streaks[t.char_id] = 0
-	streaks[s.char_id] = int(streaks.get(s.char_id, 0)) + 1
+	streaks[s.char_id] = int(streaks.get(s.char_id, 0)) + (1 if s != t else 0)
 	var n: int = streaks[s.char_id]
 	if scores.has(s.char_id):
 		scores[s.char_id]["best_streak"] = maxi(int(scores[s.char_id].get("best_streak", 0)), n)

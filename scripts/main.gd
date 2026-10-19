@@ -550,6 +550,8 @@ func _on_mode_changed(index: int) -> void:
 	s["score_limit"] = 30 if index == 0 else 20
 	if index == 1 and Data.RULES[s.get("rules", "dm")]["teams"]:
 		s["rules"] = "dm"
+	if index == 0 and Data.RULES[s.get("rules", "dm")].get("ffa", false):
+		s["rules"] = "dm"
 	Net.set_settings(s)
 
 
@@ -561,6 +563,9 @@ func _on_rules_changed(index: int) -> void:
 	if Data.RULES[s["rules"]]["teams"] and s["mode"] != "team":
 		s["mode"] = "team"
 		s["slots"] = 3
+	elif Data.RULES[s["rules"]].get("ffa", false) and s["mode"] == "team":
+		s["mode"] = "ffa"  # chacun pour soi uniquement (Battle Royale)
+		s["slots"] = 8
 	Net.set_settings(s)
 
 
