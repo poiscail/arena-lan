@@ -25,6 +25,8 @@ var _address: Label
 var _players: RichTextLabel
 var _mode: OptionButton
 var _map_opt: OptionButton
+var _rules_opt: OptionButton
+var _rules_desc: Label
 var _slots_label: Label
 var _slots: SpinBox
 var _bots: CheckBox
@@ -192,7 +194,8 @@ func _build_ui() -> void:
 	_menu.add_child(HSeparator.new())
 	_menu.add_child(_button("Options (graphismes, souris)", func() -> void: _options.open()))
 	_menu.add_child(HSeparator.new())
-	var help := _label("ZQSD : bouger   ·   Souris : viser   ·   Clic gauche : tirer   ·   Clic droit : zoom\nEspace : sauter   ·   Maj : sprint   ·   Ctrl : glisser   ·   R : recharger   ·   1/2/3 ou molette : armes\nG : grenade   ·   H : fumigène   ·   V : couteau   ·   Tab : scores   ·   Échap : pause", 15)
+	var help := _label("ZQSD : bouger   ·   Souris : viser   ·   Clic gauche : tirer   ·   Clic droit : zoom\nEspace : sauter   ·   Maj : sprint   ·   Ctrl : glisser   ·   R : recharger   ·   1/2/3 ou molette : armes\nG : grenade   ·   H : fumigène   ·   V : couteau   ·   T : chat   ·   X ou clic molette : signaler
+Tab : scores   ·   Échap : pause   ·   Touches modifiables dans Options", 15)
 	help.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
 	_menu.add_child(help)
 
@@ -226,6 +229,12 @@ func _build_ui() -> void:
 	_mode.item_selected.connect(_on_mode_changed)
 	_add_row(grid, "Mode", _mode)
 
+	_rules_opt = OptionButton.new()
+	for r in Data.RULE_ORDER:
+		_rules_opt.add_item(Data.RULES[r]["name"])
+	_rules_opt.item_selected.connect(_on_rules_changed)
+	_add_row(grid, "Jeu", _rules_opt)
+
 	_map_opt = OptionButton.new()
 	for m in Data.MAPS:
 		_map_opt.add_item(m)
@@ -251,6 +260,10 @@ func _build_ui() -> void:
 	_add_row(grid, "Score à atteindre", _score)
 	_time = _spin(1, 60)
 	_add_row(grid, "Durée (minutes)", _time)
+	_rules_desc = _label("", 15)
+	_rules_desc.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
+	_rules_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_lobby.add_child(_rules_desc)
 
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 10)
@@ -384,20 +397,25 @@ func _refresh_lobby() -> void:
 	var team: bool = s.mode == "team"
 	_mode.select(0 if team else 1)
 	_map_opt.select(int(s.get("map", 0)))
+	var rules: String = s.get("rules", "dm")
+	_rules_opt.select(maxi(0, Data.RULE_ORDER.find(rules)))
+	_rules_desc.text = Data.RULES[rules]["desc"]
+	var fixed_limit: int = Data.RULES[rules]["limit"]
 	_slots_label.text = "Joueurs par équipe" if team else "Combattants au total"
 	_slots.min_value = 1 if team else 2
 	_slots.max_value = 6 if team else 12
 	_slots.set_value_no_signal(s.slots)
 	_bots.set_pressed_no_signal(s.bots)
 	_difficulty.select(s.difficulty)
-	_score.set_value_no_signal(s.score_limit)
+	_score.set_value_no_signal(fixed_limit if fixed_limit > 0 else s.score_limit)
 	_time.set_value_no_signal(s.time_limit)
 	_mode.disabled = not is_host
 	_map_opt.disabled = not is_host
+	_rules_opt.disabled = not is_host
 	_difficulty.disabled = not is_host
 	_bots.disabled = not is_host
 	_slots.editable = is_host
-	_score.editable = is_host
+	_score.editable = is_host and fixed_limit == 0
 	_time.editable = is_host
 	_start_btn.visible = is_host
 	_team_btn.visible = team
@@ -484,6 +502,19 @@ func _on_mode_changed(index: int) -> void:
 	s["mode"] = "team" if index == 0 else "ffa"
 	s["slots"] = 3 if index == 0 else 6
 	s["score_limit"] = 30 if index == 0 else 20
+	if index == 1 and Data.RULES[s.get("rules", "dm")]["teams"]:
+		s["rules"] = "dm"
+	Net.set_settings(s)
+
+
+func _on_rules_changed(index: int) -> void:
+	if _updating or not multiplayer.is_server():
+		return
+	var s := Net.settings.duplicate()
+	s["rules"] = Data.RULE_ORDER[index]
+	if Data.RULES[s["rules"]]["teams"] and s["mode"] != "team":
+		s["mode"] = "team"
+		s["slots"] = 3
 	Net.set_settings(s)
 
 
@@ -494,7 +525,8 @@ func _on_setting_changed(_value) -> void:
 	s["slots"] = int(_slots.value)
 	s["bots"] = _bots.button_pressed
 	s["difficulty"] = _difficulty.selected
-	s["score_limit"] = int(_score.value)
+	if int(Data.RULES[s.get("rules", "dm")]["limit"]) == 0:
+		s["score_limit"] = int(_score.value)
 	s["time_limit"] = int(_time.value)
 	s["map"] = _map_opt.selected
 	Net.set_settings(s)
@@ -565,6 +597,8 @@ func _apply_cmdline() -> void:
 			s["slots"] = int(opts["slots"])
 		if opts.has("difficulty"):
 			s["difficulty"] = int(opts["difficulty"])
+		if opts.has("rules"):
+			s["rules"] = opts["rules"]
 		if opts.has("map"):
 			s["map"] = int(opts["map"])
 		if opts.has("time"):
@@ -582,6 +616,12 @@ func _apply_cmdline() -> void:
 		_options.open()
 	if opts.has("slide"):
 		get_tree().create_timer(float(opts["slide"])).timeout.connect(_test_slide)
+	if opts.has("say"):
+		get_tree().create_timer(float(opts.get("say-at", "2.5"))).timeout.connect(func() -> void:
+			game.send_chat(opts["say"])
+			game.send_ping())
+	if opts.has("end"):
+		get_tree().create_timer(float(opts["end"])).timeout.connect(func() -> void: game._end_match())
 	if opts.has("grenade"):
 		get_tree().create_timer(float(opts["grenade"])).timeout.connect(func() -> void: game.local_char.throw_grenade(int(opts.get("kind", "0"))))
 	if opts.has("airstrike"):

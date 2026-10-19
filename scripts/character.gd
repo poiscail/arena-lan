@@ -669,3 +669,18 @@ func apply_pickup(kind: String) -> void:
 			reloading = 0.0
 		"damage":
 			damage_t = Data.DAMAGE_BOOST_TIME
+
+
+## Armes imposées par le mode de jeu (course aux armes) à la place de celles de la classe.
+func set_custom_loadout(weapons: Array) -> void:
+	loadout = weapons.duplicate()
+	slot = 0
+	weapon = loadout[0]
+	reloading = 0.0
+	zoomed = false
+	ammo[weapon] = Data.WEAPONS[weapon].mag
+	show_weapon(weapon)
+	if _viewmodel != null:
+		_build_viewmodel()
+		_update_viewmodel()
+		_draw = 1.0

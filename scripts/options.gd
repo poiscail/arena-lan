@@ -15,6 +15,8 @@ const PRESETS := {
 
 var _controls := {}
 var _refreshing := false
+var _key_buttons := {}
+var _waiting := ""  # action dont on attend la nouvelle touche
 
 
 func _ready() -> void:
@@ -30,7 +32,7 @@ func _ready() -> void:
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
-	panel.custom_minimum_size = Vector2(560, 0)
+	panel.custom_minimum_size = Vector2(600, 0)
 	center.add_child(panel)
 
 	var v := VBoxContainer.new()
@@ -43,6 +45,15 @@ func _ready() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(title)
 
+	var tabs := TabContainer.new()
+	tabs.custom_minimum_size = Vector2(0, 520)
+	v.add_child(tabs)
+	var gv := VBoxContainer.new()
+	gv.name = "Graphismes"
+	gv.add_theme_constant_override("separation", 12)
+	tabs.add_child(gv)
+	_build_keys(tabs)
+
 	var presets := HBoxContainer.new()
 	presets.add_theme_constant_override("separation", 8)
 	var pl := _dim_label("Préréglage")
@@ -53,14 +64,14 @@ func _ready() -> void:
 		b.text = name
 		b.pressed.connect(_apply_preset.bind(name))
 		presets.add_child(b)
-	v.add_child(presets)
-	v.add_child(HSeparator.new())
+	gv.add_child(presets)
+	gv.add_child(HSeparator.new())
 
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 20)
 	grid.add_theme_constant_override("v_separation", 8)
-	v.add_child(grid)
+	gv.add_child(grid)
 
 	_option(grid, "shadows", "Ombres", ["Désactivées", "Basses", "Moyennes", "Hautes"])
 	_option(grid, "msaa", "Anticrénelage", ["Non", "MSAA 2x", "MSAA 4x", "MSAA 8x"])
@@ -187,3 +198,65 @@ func _dim_label(text: String) -> Label:
 	l.add_theme_font_size_override("font_size", 17)
 	l.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
 	return l
+
+
+# --- Touches ---------------------------------------------------------------------------
+
+func _build_keys(tabs: TabContainer) -> void:
+	var scroll := ScrollContainer.new()
+	scroll.name = "Touches"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	tabs.add_child(scroll)
+	var kv := VBoxContainer.new()
+	kv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	kv.add_theme_constant_override("separation", 10)
+	scroll.add_child(kv)
+	var help := _dim_label("Clique sur une touche puis appuie sur la nouvelle (Échap pour annuler).")
+	help.add_theme_font_size_override("font_size", 14)
+	kv.add_child(help)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 20)
+	grid.add_theme_constant_override("v_separation", 6)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	kv.add_child(grid)
+	for a in Net.REBINDABLE:
+		var l := _dim_label(a[1])
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.add_child(l)
+		var b := Button.new()
+		b.custom_minimum_size = Vector2(220, 0)
+		b.pressed.connect(func() -> void:
+			_waiting = a[0]
+			_refresh_keys()
+			b.text = "Appuie sur une touche...")
+		grid.add_child(b)
+		_key_buttons[a[0]] = b
+	var reset := Button.new()
+	reset.text = "Touches par défaut"
+	reset.pressed.connect(func() -> void:
+		Net.reset_bindings()
+		_waiting = ""
+		_refresh_keys())
+	kv.add_child(reset)
+	_refresh_keys()
+
+
+func _refresh_keys() -> void:
+	for a in _key_buttons:
+		_key_buttons[a].text = Net.binding_text(a)
+
+
+func _input(event: InputEvent) -> void:
+	if _waiting == "" or not visible:
+		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode != KEY_ESCAPE:
+			Net.set_binding(_waiting, event)
+	elif event is InputEventMouseButton and event.pressed:
+		Net.set_binding(_waiting, event)
+	else:
+		return
+	get_viewport().set_input_as_handled()
+	_waiting = ""
+	_refresh_keys()

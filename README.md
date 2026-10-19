@@ -44,10 +44,24 @@ Quelqu'un peut rejoindre en cours de partie. Il remplace alors un bot.
 | H | Lancer un fumigène (1 par vie) |
 | V | Coup de couteau (élimine d'un coup dans le dos) |
 | 1 / 2 / 3 ou molette | Changer d'arme |
+| T | Chat |
+| X ou clic molette | Signaler un endroit à ton équipe |
 | Tab | Tableau des scores |
 | Échap | Pause (classe, options, quitter) |
 
+Toutes les touches se changent dans **Options > Touches**.
+
 **Glissade** : en courant, appuie sur Ctrl. Tu glisses vite et bas pendant presque une seconde, et tu restes précis en tirant. Saute pendant la glissade pour garder l'élan.
+
+## Modes de jeu
+L'hôte choisit le jeu dans le salon :
+- **Match à mort** : le plus d'éliminations gagne (en équipes ou chacun pour soi).
+- **Capture du drapeau** (équipes) : prends le drapeau ennemi et ramène-le à ta base pendant que le tien y est. Premier à 3 captures.
+- **Roi de la colline** : reste seul (ou avec ton équipe) dans la zone du centre, 1 point par seconde. Premier à 100.
+- **Course aux armes** : chaque élimination donne l'arme suivante (10 niveaux). Un coup de couteau fait reculer la victime d'un niveau.
+- **Élimination** (équipes) : une vie par manche, la dernière équipe debout gagne la manche. Premier à 5 manches.
+
+À la fin du match, un tableau donne les **récompenses** (meilleur joueur, plus précis, plus longue série, plus de dégâts, tirs à la tête) et **tes statistiques**.
 
 ## Classes
 Choisis ta classe dans le menu. En partie, tu peux la changer dans la pause (Échap) : elle s'applique à ta prochaine réapparition.
@@ -104,6 +118,7 @@ Si le jeu rame, choisis **Basse**.
 | `map.gd` | Construction de l'arène, points d'apparition, chemins des bots |
 | `hud.gd` | Interface en jeu |
 | `sfx.gd` | Sons, flash du canon, douilles, impacts, tremblement de caméra |
+| `modes.gd` | Modes de jeu : drapeau, colline, course aux armes, élimination |
 | `items.gd` | Trousses, bonus, barils explosifs, grenades et fumigènes |
 | `options.gd` | Fenêtre d'options (graphismes, souris) |
 | `ui_theme.gd` | Thème visuel (polices, panneaux, boutons) |

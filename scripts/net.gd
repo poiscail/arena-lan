@@ -22,6 +22,7 @@ var settings := {
 	"score_limit": 30,
 	"time_limit": 10,    # minutes
 	"map": 0,            # 0 base militaire, 1 ville
+	"rules": "dm",       # mode de jeu : voir Data.RULES
 }
 var in_game := false
 var mouse_sensitivity := 0.0025
@@ -70,6 +71,10 @@ func load_options() -> void:
 	for k in gfx:
 		gfx[k] = cfg.get_value("graphics", k, gfx[k])
 	mouse_sensitivity = cfg.get_value("controls", "sensitivity", mouse_sensitivity)
+	if cfg.has_section("keys"):
+		for a in cfg.get_section_keys("keys"):
+			bindings[a] = String(cfg.get_value("keys", a))
+		_apply_bindings()
 	player_class = cfg.get_value("player", "class", player_class)
 	player_skin = cfg.get_value("player", "skin", player_skin)
 
@@ -79,6 +84,8 @@ func save_options() -> void:
 	for k in gfx:
 		cfg.set_value("graphics", k, gfx[k])
 	cfg.set_value("controls", "sensitivity", mouse_sensitivity)
+	for a in bindings:
+		cfg.set_value("keys", a, bindings[a])
 	cfg.set_value("player", "class", player_class)
 	cfg.set_value("player", "skin", player_skin)
 	cfg.save(CONFIG_PATH)
@@ -340,6 +347,72 @@ func _on_server_disconnected() -> void:
 	disconnected.emit("La connexion avec l'hôte a été perdue.")
 
 
+# --- Touches personnalisables ------------------------------------------------------------
+
+const REBINDABLE := [
+	["move_forward", "Avancer"], ["move_back", "Reculer"], ["move_left", "Gauche"], ["move_right", "Droite"],
+	["jump", "Sauter"], ["sprint", "Sprinter"], ["slide", "Glisser"], ["shoot", "Tirer"], ["zoom", "Zoom"],
+	["reload", "Recharger"], ["weapon_1", "Arme 1"], ["weapon_2", "Arme 2"], ["weapon_3", "Arme 3"],
+	["grenade", "Grenade"], ["smoke", "Fumigène"], ["melee", "Couteau"], ["ping", "Signaler"],
+	["chat", "Chat"], ["scoreboard", "Scores"],
+]
+
+var bindings := {}  # action -> "k:<touche physique>" ou "m:<bouton souris>"
+
+
+## Remplace la touche d'une action et sauvegarde.
+func set_binding(action: String, event: InputEvent) -> void:
+	if event is InputEventKey:
+		bindings[action] = "k:%d" % int(event.physical_keycode if event.physical_keycode != 0 else event.keycode)
+	elif event is InputEventMouseButton:
+		bindings[action] = "m:%d" % int(event.button_index)
+	else:
+		return
+	_apply_bindings()
+	save_options()
+
+
+func reset_bindings() -> void:
+	bindings.clear()
+	for a in REBINDABLE:
+		InputMap.action_erase_events(a[0])
+	_setup_inputs()
+	save_options()
+
+
+func _apply_bindings() -> void:
+	for action in bindings:
+		if not InputMap.has_action(action):
+			continue
+		var parts: PackedStringArray = String(bindings[action]).split(":")
+		if parts.size() != 2:
+			continue
+		InputMap.action_erase_events(action)
+		if parts[0] == "k":
+			var ev := InputEventKey.new()
+			ev.physical_keycode = int(parts[1])
+			InputMap.action_add_event(action, ev)
+		else:
+			var mb := InputEventMouseButton.new()
+			mb.button_index = int(parts[1])
+			InputMap.action_add_event(action, mb)
+
+
+## Nom lisible de la touche d'une action (selon la disposition du clavier).
+func binding_text(action: String) -> String:
+	var names := []
+	for ev in InputMap.action_get_events(action):
+		if ev is InputEventKey:
+			var code: int = ev.physical_keycode if ev.physical_keycode != 0 else ev.keycode
+			var shown := code
+			if ev.physical_keycode != 0 and DisplayServer.get_name() != "headless":
+				shown = DisplayServer.keyboard_get_keycode_from_physical(code)
+			names.append(OS.get_keycode_string(shown))
+		elif ev is InputEventMouseButton:
+			names.append({1: "Clic gauche", 2: "Clic droit", 3: "Clic molette", 8: "Souris 4", 9: "Souris 5"}.get(int(ev.button_index), "Souris %d" % ev.button_index))
+	return " / ".join(names) if names.size() > 0 else "—"
+
+
 # --- Touches (positions physiques : ZQSD en AZERTY, WASD en QWERTY) ---------
 
 func _setup_inputs() -> void:
@@ -353,6 +426,9 @@ func _setup_inputs() -> void:
 	_keys("grenade", [KEY_G])
 	_keys("smoke", [KEY_H])
 	_keys("melee", [KEY_V])
+	_keys("chat", [KEY_T])
+	_keys("ping", [KEY_X])
+	_mouse("ping", MOUSE_BUTTON_MIDDLE)
 	_keys("reload", [KEY_R])
 	_keys("weapon_1", [KEY_1])
 	_keys("weapon_2", [KEY_2])

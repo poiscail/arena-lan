@@ -80,7 +80,7 @@ func think(delta: float) -> void:
 			_react = REACTION[difficulty] * randf_range(0.8, 1.3)
 		_enemy = seen
 
-	if _enemy != null and _enemy.alive:
+	if _enemy != null and _enemy.alive and not game.modes.bot_busy(c):
 		_fight(delta)
 	else:
 		_roam(delta)
@@ -176,6 +176,9 @@ func _pick_goal() -> Vector3:
 		var bonus = game.items.nearest_pickup(c.position, ["armor", "damage", "ammo"], 18.0)
 		if bonus != null:
 			return bonus
+	var mode_goal = game.modes.bot_goal(c)
+	if mode_goal != null:
+		return mode_goal
 	if _alert != null and _alert.alive and _alert_t > -3.0:
 		return _alert.position
 	if randf() < 0.3:

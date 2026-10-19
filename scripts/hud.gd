@@ -41,6 +41,10 @@ var _announce: Label
 var _announce_t := 0.0
 var _radar: Control
 var radar_t := 0.0
+var chat_open := false
+var _chat_box: VBoxContainer
+var _chat_edit: LineEdit
+var _pings := []  # {"pos", "name", "enemy", "t"}
 var _bottom: Control
 
 var _hit_t := 0.0
@@ -152,6 +156,27 @@ func _ready() -> void:
 	_radar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_radar.draw.connect(_draw_radar)
 	root.add_child(_radar)
+
+	# Chat (bas gauche, au-dessus des bonus)
+	_chat_box = VBoxContainer.new()
+	_chat_box.alignment = BoxContainer.ALIGNMENT_END
+	_chat_box.add_theme_constant_override("separation", 2)
+	_place(_chat_box, 0, 1, 0, 1, 26, -420, 620, -200)
+	_chat_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_chat_box)
+	_chat_edit = LineEdit.new()
+	_chat_edit.placeholder_text = "Message (Entrée pour envoyer, Échap pour annuler)"
+	_chat_edit.max_length = 120
+	_place(_chat_edit, 0, 1, 0, 1, 26, -196, 620, -164)
+	_chat_edit.visible = false
+	_chat_edit.text_submitted.connect(func(t: String) -> void:
+		game.send_chat(t)
+		close_chat())
+	_chat_edit.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventKey and e.pressed and e.keycode == KEY_ESCAPE:
+			_chat_edit.accept_event()
+			close_chat())
+	root.add_child(_chat_edit)
 
 	_build_pause(root)
 	_options = OptionsScript.new()
@@ -365,6 +390,36 @@ func pickup_flash(text: String, color: Color) -> void:
 	_heal_t = 1.2
 
 
+func open_chat() -> void:
+	chat_open = true
+	_chat_edit.text = ""
+	_chat_edit.visible = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_chat_edit.grab_focus.call_deferred()
+
+
+func close_chat() -> void:
+	chat_open = false
+	_chat_edit.visible = false
+	_chat_edit.release_focus()
+	if not paused:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func add_chat(pname: String, team: int, text: String) -> void:
+	var l := _rich(17)
+	var hex: String = Data.TEAM_HEX[team] if team >= 0 else "#ffa64d"
+	l.text = "[color=%s][b]%s[/b][/color] : %s" % [hex, Data.esc(pname), Data.esc(text)]
+	l.set_meta("t", 10.0)
+	_chat_box.add_child(l)
+	while _chat_box.get_child_count() > 7:
+		_chat_box.get_child(0).free()
+
+
+func add_ping(pos: Vector3, pname: String, enemy: bool) -> void:
+	_pings.append({"pos": pos, "name": pname, "enemy": enemy, "t": 6.0})
+
+
 func announce(text: String) -> void:
 	_announce.text = text
 	_announce_t = 3.0
@@ -372,9 +427,24 @@ func announce(text: String) -> void:
 
 func _draw_radar() -> void:
 	var c = game.local_char
-	if radar_t <= 0.0 or c == null or c.camera == null:
+	if c == null or c.camera == null:
 		return
 	var cam: Camera3D = c.camera
+	# Signalements des coéquipiers
+	for p in _pings:
+		var pos: Vector3 = p["pos"] + Vector3(0, 0.6, 0)
+		if cam.is_position_behind(pos):
+			continue
+		var s := cam.unproject_position(pos)
+		var col := Color(1, 0.3, 0.25) if p["enemy"] else Color(1, 0.85, 0.3)
+		col.a = clampf(p["t"], 0.0, 1.0)
+		_radar.draw_circle(s, 11.0, Color(0, 0, 0, 0.5 * col.a))
+		_radar.draw_arc(s, 11.0, 0.0, TAU, 24, col, 2.5)
+		_radar.draw_string(UiTheme.font_title(), s + Vector2(-5, 7), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, col)
+		var label := "%s%s · %d m" % ["ENNEMI · " if p["enemy"] else "", p["name"], int(c.position.distance_to(p["pos"]))]
+		_radar.draw_string(UiTheme.font_bold(), s + Vector2(16, 6), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, col)
+	if radar_t <= 0.0:
+		return
 	for id in game.chars:
 		var o = game.chars[id]
 		if not o.alive or not game.is_enemy(c, o):
@@ -408,6 +478,52 @@ func add_kill(bbcode: String) -> void:
 		_feed.get_child(0).queue_free()
 
 
+## Récompenses et statistiques personnelles affichées à la fin du match.
+func _stats_text() -> String:
+	var best := {}
+	var acc_best := ["", -1.0]
+	for id in game.scores:
+		var s: Dictionary = game.scores[id]
+		for k in ["dmg", "best_streak", "heads"]:
+			if not best.has(k) or int(s.get(k, 0)) > int(best[k][1]):
+				best[k] = [s["name"], int(s.get(k, 0))]
+		var shots := int(s.get("shots", 0))
+		if shots >= 10:
+			var acc := float(s.get("hits", 0)) / shots
+			if acc > acc_best[1]:
+				acc_best = [s["name"], acc]
+	var leader: Dictionary = game._ffa_leader()
+	var t := "\n[center][font_size=24][b]RÉCOMPENSES[/b][/font_size][/center]\n[table=2]"
+	var line := func(title: String, who: String, val: String) -> String:
+		return "[cell][color=#ffcc55]%s[/color]      [/cell][cell]%s  [color=#8890a0]%s[/color][/cell]" % [title, Data.esc(who), val]
+	if not leader.is_empty():
+		t += line.call("MEILLEUR JOUEUR", leader["name"], "%d %s" % [int(leader[game.score_key()]), Data.RULES[game.rules]["unit"]])
+	if acc_best[1] >= 0.0:
+		t += line.call("PLUS PRÉCIS", acc_best[0], "%d %%" % int(acc_best[1] * 100.0))
+	if best.has("best_streak"):
+		t += line.call("PLUS LONGUE SÉRIE", best["best_streak"][0], "%d d'affilée" % best["best_streak"][1])
+	if best.has("dmg"):
+		t += line.call("PLUS DE DÉGÂTS", best["dmg"][0], "%d" % best["dmg"][1])
+	if best.has("heads") and int(best["heads"][1]) > 0:
+		t += line.call("TIREUR D'ÉLITE", best["heads"][0], "%d tirs à la tête" % best["heads"][1])
+	t += "[/table]\n"
+	var c = game.local_char
+	if c != null and game.scores.has(c.char_id):
+		var m: Dictionary = game.scores[c.char_id]
+		var shots := int(m.get("shots", 0))
+		var acc := 0 if shots == 0 else int(100.0 * float(m.get("hits", 0)) / shots)
+		var fav := "-"
+		var fav_n := 0
+		var wk: Dictionary = m.get("wkills", {})
+		for k in wk:
+			if int(wk[k]) > fav_n:
+				fav_n = int(wk[k])
+				fav = Data.kill_name(int(k))
+		t += "\n[center][color=#ffa64d][b]TOI[/b][/color] :  précision %d %%  ·  %d tirs à la tête  ·  %d dégâts  ·  série max %d  ·  arme préférée : %s[/center]" % [
+			acc, int(m.get("heads", 0)), int(m.get("dmg", 0)), int(m.get("best_streak", 0)), fav]
+	return t
+
+
 func refresh_scores() -> void:
 	if _board_text == null:
 		return
@@ -416,7 +532,9 @@ func refresh_scores() -> void:
 		var s: Dictionary = game.scores[id].duplicate()
 		s["id"] = id
 		rows.append(s)
-	rows.sort_custom(func(a, b): return a["kills"] > b["kills"] or (a["kills"] == b["kills"] and a["deaths"] < b["deaths"]))
+	var key: String = game.score_key()
+	var pts := key == "pts"
+	rows.sort_custom(func(a, b): return int(a[key]) > int(b[key]) or (int(a[key]) == int(b[key]) and a["kills"] > b["kills"]))
 	var me: String = game.local_char.char_id if game.local_char != null else ""
 	var txt := "[center][font_size=28][b]SCORES[/b][/font_size][/center]\n"
 	var groups := [0, 1] if game.settings.mode == "team" else [-1]
@@ -424,15 +542,27 @@ func refresh_scores() -> void:
 	for g in groups:
 		if g >= 0:
 			txt += "\n[color=%s][b][font_size=22]%s   %d[/font_size][/b][/color]\n" % [Data.TEAM_HEX[g], Data.TEAM_NAMES[g], totals[g]]
-		txt += "[table=3][cell][color=#8890a0]JOUEUR                    [/color][/cell][cell][color=#8890a0]ÉLIM.     [/color][/cell][cell][color=#8890a0]MORTS[/color][/cell]"
+		txt += "[table=%d][cell][color=#8890a0]JOUEUR                    [/color][/cell]" % (4 if pts else 3)
+		if pts:
+			txt += "[cell][color=#8890a0]%s     [/color][/cell]" % String(Data.RULES[game.rules]["unit"]).to_upper()
+		txt += "[cell][color=#8890a0]ÉLIM.     [/color][/cell][cell][color=#8890a0]MORTS[/color][/cell]"
 		for s in rows:
 			if g >= 0 and s["team"] != g:
 				continue
 			var n := Data.esc(s["name"])
 			if s["id"] == me:
 				n = "[color=#ffa64d][b]%s[/b][/color]" % n
-			txt += "[cell]%s[/cell][cell]%d[/cell][cell]%d[/cell]" % [n, s["kills"], s["deaths"]]
+			txt += "[cell]%s[/cell]" % n
+			if pts:
+				txt += "[cell]%d[/cell]" % int(s.get("pts", 0))
+			txt += "[cell]%d[/cell][cell]%d[/cell]" % [s["kills"], s["deaths"]]
 		txt += "[/table]\n"
+	if game.match_over:
+		txt += _stats_text() + "\n[center][color=#8890a0]Retour au salon dans quelques secondes...[/color][/center]"
+		_place(_board, 0.5, 0.5, 0.5, 0.5, -450, -248, 450, 354)
+		_board_text.add_theme_font_size_override("normal_font_size", 15)
+		_board_text.add_theme_font_size_override("bold_font_size", 15)
+		txt = txt.replace("[font_size=28][b]SCORES[/b][/font_size]", "[font_size=20][b]SCORES[/b][/font_size]").replace("[font_size=22]", "[font_size=17]").replace("\n\n", "\n")
 	_board_text.text = txt
 
 
@@ -468,10 +598,13 @@ func _process(delta: float) -> void:
 		_reload_label.text = "RECHARGEMENT  " if c.reloading > 0.0 else ""
 		_ammo_value.add_theme_color_override("font_color", Color(1, 0.35, 0.3) if c.ammo[c.weapon] <= w.mag / 4 else Color.WHITE)
 		for i in _slots.size():
+			_slots[i].visible = i < c.loadout.size()
+			if i >= c.loadout.size():
+				continue
 			_slots[i].text = "%d  %s" % [i + 1, String(Data.WEAPONS[c.loadout[i]].name).to_upper()]
 			_slots[i].add_theme_color_override("font_color", UiTheme.ACCENT if i == c.slot else Color(1, 1, 1, 0.35))
 		_scope.visible = c.zoomed and c.alive
-		_bottom.visible = c.alive and not c.zoomed
+		_bottom.visible = c.alive and not c.zoomed and not game.match_over
 	var t := int(ceil(game.time_left))
 	_timer.text = "%d:%02d" % [t / 60, t % 60]
 	_timer.add_theme_color_override("font_color", Color(1, 0.4, 0.3) if t <= 30 else Color.WHITE)
@@ -480,7 +613,7 @@ func _process(delta: float) -> void:
 	_big.text = game.end_text if game.match_over else ""
 
 	if game.match_over:
-		_center.text = "Retour au salon dans quelques secondes..."
+		_center.text = ""
 	elif _death_t > 0.0:
 		_death_t -= delta
 		var by := ("Éliminé par %s\n" % _death_by) if _death_by != "" else ""
@@ -503,6 +636,17 @@ func _process(delta: float) -> void:
 	_crosshair.queue_redraw()
 	radar_t = maxf(0.0, radar_t - delta)
 	_radar.queue_redraw()
+	for i in range(_pings.size() - 1, -1, -1):
+		_pings[i]["t"] -= delta
+		if _pings[i]["t"] <= 0.0:
+			_pings.remove_at(i)
+	for e in _chat_box.get_children():
+		var left: float = e.get_meta("t", 0.0) - delta
+		e.set_meta("t", left)
+		if left <= 0.0 and not chat_open:
+			e.queue_free()
+		elif left < 1.0:
+			e.modulate.a = 1.0 if chat_open else maxf(left, 0.0)
 	_announce_t = maxf(0.0, _announce_t - delta)
 	_announce.visible = _announce_t > 0.0
 	_announce.modulate.a = minf(1.0, _announce_t * 1.5)
@@ -518,7 +662,6 @@ func _process(delta: float) -> void:
 
 
 func _update_scores_top() -> void:
-	var limit: int = game.settings.score_limit
 	if game.settings.mode == "team":
 		var t: Array = game.team_scores()
 		_score_left.text = "%s  %d" % [Data.TEAM_NAMES[0], t[0]]
@@ -526,13 +669,13 @@ func _update_scores_top() -> void:
 	else:
 		var mine := 0
 		if game.local_char != null and game.scores.has(game.local_char.char_id):
-			mine = game.scores[game.local_char.char_id]["kills"]
+			mine = int(game.scores[game.local_char.char_id][game.score_key()])
 		var best := 0
 		for id in game.scores:
-			best = maxi(best, int(game.scores[id]["kills"]))
+			best = maxi(best, int(game.scores[id][game.score_key()]))
 		_score_left.text = "TOI  %d" % mine
 		_score_right.text = "%d  MENEUR" % best
-	_goal.text = "PREMIER À %d ÉLIMINATIONS" % limit
+	_goal.text = game.goal_text()
 
 
 func _draw_crosshair() -> void:

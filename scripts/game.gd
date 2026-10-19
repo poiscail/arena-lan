@@ -11,6 +11,7 @@ const HudScript := preload("res://scripts/hud.gd")
 const Data := preload("res://scripts/data.gd")
 const ItemsScript := preload("res://scripts/items.gd")
 const SfxScript := preload("res://scripts/sfx.gd")
+const ModesScript := preload("res://scripts/modes.gd")
 
 const NET_RATE := 1.0 / 30.0
 const BOT_NAMES := ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel",
@@ -37,6 +38,8 @@ var _sounds := []
 var _no_exclude: Array[RID] = []
 var items
 var sfx
+var modes
+var rules := "dm"
 var streaks := {}  # (serveur) id -> éliminations sans mourir
 
 
@@ -58,6 +61,14 @@ func _ready() -> void:
 	items.game = self
 	add_child(items)
 	items.setup(map)
+	rules = String(settings.get("rules", "dm"))
+	if not Data.RULES.has(rules) or (Data.RULES[rules]["teams"] and settings.mode != "team"):
+		rules = "dm"
+	modes = ModesScript.new()
+	modes.name = "Modes"
+	modes.game = self
+	add_child(modes)
+	modes.setup(rules)
 	hud = HudScript.new()
 	hud.game = self
 	add_child(hud)
@@ -101,8 +112,15 @@ func _physics_process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if hud.chat_open:
+		return
 	if event.is_action_pressed("pause"):
 		hud.toggle_pause()
+	elif event.is_action_pressed("chat") and not hud.paused:
+		get_viewport().set_input_as_handled()
+		hud.open_chat()
+	elif event.is_action_pressed("ping") and not hud.paused and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		send_ping()
 	elif event is InputEventMouseButton and event.pressed and not hud.paused \
 			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -122,13 +140,38 @@ func line_clear(from: Vector3, to: Vector3) -> bool:
 	return _ray(from, to, _no_exclude, 1).is_empty() and not items.smoke_blocks(from, to)
 
 
+## Clé de classement des joueurs : éliminations en match à mort, points sinon.
+func score_key() -> String:
+	return "kills" if rules == "dm" else "pts"
+
+
 func team_scores() -> Array:
+	if rules == "gungame":
+		var best := [0, 0]
+		for id in scores:
+			var team: int = scores[id]["team"]
+			if team >= 0:
+				best[team] = maxi(best[team], int(scores[id].get("pts", 0)))
+		return best
+	if rules != "dm":
+		return modes.team_pts
 	var t := [0, 0]
 	for id in scores:
 		var team: int = scores[id]["team"]
 		if team >= 0:
 			t[team] += int(scores[id]["kills"])
 	return t
+
+
+func goal_text() -> String:
+	if rules == "dm":
+		return "PREMIER À %d ÉLIMINATIONS" % int(settings.score_limit)
+	return modes.objective_text()
+
+
+func _new_score(pname: String, team: int, is_bot: bool) -> Dictionary:
+	return {"name": pname, "team": team, "kills": 0, "deaths": 0, "bot": is_bot, "pts": 0,
+		"shots": 0, "hits": 0, "heads": 0, "dmg": 0, "streak": 0, "best_streak": 0, "wkills": {}}
 
 
 func score_summary() -> String:
@@ -240,6 +283,13 @@ func _server_shoot(shooter_id: String, weapon: int, origin: Vector3, dirs: Packe
 			damage[t.char_id] = damage.get(t.char_id, 0.0) + dmg
 			head_hit = head_hit or head
 	_broadcast("shot_fx", [shooter_id, weapon, ends])
+	if scores.has(shooter_id):
+		var st: Dictionary = scores[shooter_id]
+		st["shots"] = int(st.get("shots", 0)) + 1
+		if not damage.is_empty():
+			st["hits"] = int(st.get("hits", 0)) + 1
+		if head_hit:
+			st["heads"] = int(st.get("heads", 0)) + 1
 	if damage.is_empty():
 		return
 	_deal_damage(s, damage, weapon, head_hit)
@@ -339,30 +389,44 @@ func melee_fx(id: String) -> void:
 
 
 func _apply_damage(t, s, dmg: int, weapon: int) -> bool:
+	if not t.alive:
+		return false
 	# L'armure absorbe la moitié des dégâts tant qu'il en reste
 	var absorbed := mini(t.armor, dmg / 2)
 	t.armor -= absorbed
 	dmg -= absorbed
+	var dealt := mini(dmg, t.hp)
 	t.hp = maxi(0, t.hp - dmg)
+	if scores.has(s.char_id):
+		scores[s.char_id]["dmg"] = int(scores[s.char_id].get("dmg", 0)) + dealt + absorbed
 	_broadcast("on_health", [t.char_id, t.hp, t.armor, true])
 	if t.bot != null:
 		t.bot.alert(s)
 	if t.hp > 0:
 		return false
+	t.alive = false  # (évite une double élimination dans la même salve ; set_dead suit par RPC)
 	if scores.has(t.char_id):
 		scores[t.char_id]["deaths"] += 1
 	if scores.has(s.char_id):
-		scores[s.char_id]["kills"] += 1
+		var sc: Dictionary = scores[s.char_id]
+		sc["kills"] += 1
+		var wk: Dictionary = sc.get("wkills", {})
+		wk[str(weapon)] = int(wk.get(str(weapon), 0)) + 1
+		sc["wkills"] = wk
+	# Séries d'éliminations sans mourir
+	streaks[t.char_id] = 0
+	streaks[s.char_id] = int(streaks.get(s.char_id, 0)) + 1
+	var n: int = streaks[s.char_id]
+	if scores.has(s.char_id):
+		scores[s.char_id]["best_streak"] = maxi(int(scores[s.char_id].get("best_streak", 0)), n)
 	print("[kill] %s -> %s (%s)" % [s.display_name, t.display_name, Data.kill_name(weapon)])
 	_broadcast("on_died", [t.char_id, s.char_id, weapon])
+	modes.on_kill(s, t, weapon)
 	_broadcast_scores()
-	_check_win()
+	check_win()
 	if not match_over:
-		get_tree().create_timer(Data.RESPAWN_TIME).timeout.connect(_respawn.bind(t.char_id))
-		# Séries d'éliminations sans mourir
-		streaks[t.char_id] = 0
-		streaks[s.char_id] = int(streaks.get(s.char_id, 0)) + 1
-		var n: int = streaks[s.char_id]
+		if modes.allows_respawn():
+			get_tree().create_timer(Data.RESPAWN_TIME).timeout.connect(_respawn.bind(t.char_id))
 		if Data.STREAKS.has(n):
 			print("[série] %s : %d (%s)" % [s.display_name, n, Data.STREAKS[n]])
 			_broadcast("on_streak", [s.char_id, n])
@@ -451,8 +515,10 @@ func _server_add_human(peer: int) -> void:
 	var team: int = info["team"] if settings.mode == "team" else -1
 	var id := _pid(peer)
 	if not scores.has(id):
-		scores[id] = {"name": info["name"], "team": team, "kills": 0, "deaths": 0, "bot": false}
+		scores[id] = _new_score(info["name"], team, false)
 	_broadcast("spawn_char", [id, info["name"], team, false, peer, _pick_spawn(team), true, 100, int(info.get("skin", 0)), int(info.get("class", 0))])
+	if chars.has(id):
+		modes.gungame_weapon(chars[id])
 	_broadcast_scores()
 
 
@@ -460,8 +526,9 @@ func _server_add_bot(team: int) -> String:
 	_bot_serial += 1
 	var id := "B%d" % _bot_serial
 	var bname := "%s (bot)" % BOT_NAMES[(_bot_serial - 1) % BOT_NAMES.size()]
-	scores[id] = {"name": bname, "team": team, "kills": 0, "deaths": 0, "bot": true}
+	scores[id] = _new_score(bname, team, true)
 	_broadcast("spawn_char", [id, bname, team, true, 1, _pick_spawn(team), true, 100, randi() % Data.SKINS.size(), randi() % Data.CLASSES.size()])
+	modes.gungame_weapon(chars[id])
 	return id
 
 
@@ -513,26 +580,31 @@ func _respawn(id: String) -> void:
 		return
 	var c = chars[id]
 	var cls: int = c.next_class if c.next_class >= 0 else c.class_id
+	if rules == "gungame":
+		cls = -1
 	c.next_class = -1
 	_broadcast("on_respawn", [id, _pick_spawn(c.team), cls])
 
 
-func _check_win() -> void:
-	var limit: int = settings.score_limit
+func check_win() -> void:
+	if match_over:
+		return
+	var limit: int = modes.limit()
 	if settings.mode == "team":
 		var t := team_scores()
 		if t[0] >= limit or t[1] >= limit:
 			_end_match()
 	else:
 		var leader := _ffa_leader()
-		if not leader.is_empty() and leader["kills"] >= limit:
+		if not leader.is_empty() and int(leader[score_key()]) >= limit:
 			_end_match()
 
 
 func _ffa_leader() -> Dictionary:
+	var key := score_key()
 	var best := {}
 	for id in scores:
-		if best.is_empty() or scores[id]["kills"] > best["kills"]:
+		if best.is_empty() or int(scores[id][key]) > int(best[key]):
 			best = scores[id]
 	return best
 
@@ -541,6 +613,7 @@ func _end_match() -> void:
 	if match_over:
 		return
 	var text := ""
+	var unit: String = Data.RULES[rules]["unit"]
 	if settings.mode == "team":
 		var t := team_scores()
 		if t[0] > t[1]:
@@ -554,8 +627,9 @@ func _end_match() -> void:
 		if leader.is_empty():
 			text = "Fin de la partie"
 		else:
-			text = "%s gagne avec %d éliminations" % [leader["name"], leader["kills"]]
+			text = "%s gagne avec %d %s" % [leader["name"], int(leader[score_key()]), unit]
 	print("[match] " + text)
+	_broadcast_scores()
 	_broadcast("on_match_end", [text])
 	get_tree().create_timer(10.0).timeout.connect(_return_to_lobby)
 
@@ -588,6 +662,7 @@ func client_ready() -> void:
 		spawn_char.rpc_id(peer, id, c.display_name, c.team, c.is_bot, c.owner_peer, c.position, c.alive, c.hp, c.skin, c.class_id)
 	sync_scores.rpc_id(peer, scores, time_left)
 	items.sync_to(peer)
+	modes.sync_to(peer)
 	if match_over:
 		on_match_end.rpc_id(peer, end_text)
 	if not chars.has(_pid(peer)):
@@ -898,3 +973,87 @@ func _spawn_tracer(from: Vector3, to: Vector3) -> void:
 	impact.global_position = to
 	get_tree().create_timer(0.15).timeout.connect(impact.queue_free)
 
+
+
+## Armes imposées par le mode (course aux armes).
+@rpc("authority", "call_remote", "reliable")
+func set_loadout(id: String, weapons: Array) -> void:
+	var c = chars.get(id)
+	if c != null:
+		c.set_custom_loadout(weapons)
+		if c.is_local:
+			sfx.play("drawKnife1", null, -6.0)
+
+
+# --- Chat et signalements (ping) ---------------------------------------------------------
+
+func send_chat(text: String) -> void:
+	text = text.strip_edges().substr(0, 120)
+	if text == "":
+		return
+	if multiplayer.is_server():
+		_server_chat(1, text)
+	else:
+		req_chat.rpc_id(1, text)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func req_chat(text: String) -> void:
+	if multiplayer.is_server():
+		_server_chat(multiplayer.get_remote_sender_id(), text.strip_edges().substr(0, 120))
+
+
+func _server_chat(peer: int, text: String) -> void:
+	if text == "" or not Net.players.has(peer):
+		return
+	var c = chars.get(_pid(peer))
+	var team: int = c.team if c != null else -1
+	print("[chat] %s : %s" % [Net.players[peer]["name"], text])
+	_broadcast("chat_msg", [String(Net.players[peer]["name"]), team, text])
+
+
+@rpc("authority", "call_remote", "reliable")
+func chat_msg(pname: String, team: int, text: String) -> void:
+	hud.add_chat(pname, team, text)
+	sfx.play("select_001", null, -12.0, 0.0)
+
+
+## Le joueur local signale l'endroit qu'il vise à son équipe.
+func send_ping() -> void:
+	var c = local_char
+	if c == null or not c.alive:
+		return
+	var from: Vector3 = c.camera.global_position
+	var to: Vector3 = from - c.camera.global_transform.basis.z * 200.0
+	var hit := _ray(from, to, [c.get_rid()] as Array[RID], 3)
+	var pos: Vector3 = hit.position if not hit.is_empty() else to
+	var enemy: bool = not hit.is_empty() and hit.collider is CharacterScript and is_enemy(c, hit.collider)
+	if multiplayer.is_server():
+		_server_ping(1, pos, enemy)
+	else:
+		req_ping.rpc_id(1, pos, enemy)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func req_ping(pos: Vector3, enemy: bool) -> void:
+	if multiplayer.is_server():
+		_server_ping(multiplayer.get_remote_sender_id(), pos, enemy)
+
+
+func _server_ping(peer: int, pos: Vector3, enemy: bool) -> void:
+	var c = chars.get(_pid(peer))
+	if c == null:
+		return
+	_broadcast("ping_mark", [c.char_id, pos, enemy])
+
+
+@rpc("authority", "call_remote", "reliable")
+func ping_mark(from_id: String, pos: Vector3, enemy: bool) -> void:
+	var c = chars.get(from_id)
+	if c == null or local_char == null:
+		return
+	# Visible par l'auteur et ses coéquipiers seulement
+	if c != local_char and (c.team < 0 or c.team != local_char.team):
+		return
+	hud.add_ping(pos, c.display_name, enemy)
+	sfx.play("select_001", null, -6.0, 0.0)

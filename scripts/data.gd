@@ -82,3 +82,20 @@ static func kill_name(i: int) -> String:
 	if KILL_NAMES.has(i):
 		return KILL_NAMES[i]
 	return String(WEAPONS[clampi(i, 0, WEAPONS.size() - 1)].name)
+
+# Modes de jeu (règles). "teams" : uniquement en équipes. "limit" : 0 = score réglé dans le salon.
+const RULES := {
+	"dm": {"name": "Match à mort", "unit": "éliminations", "limit": 0, "teams": false,
+		"desc": "Le plus d'éliminations gagne."},
+	"ctf": {"name": "Capture du drapeau", "unit": "captures", "limit": 3, "teams": true,
+		"desc": "Rapporte le drapeau ennemi à ta base pendant que le tien y est."},
+	"koth": {"name": "Roi de la colline", "unit": "points", "limit": 100, "teams": false,
+		"desc": "Reste seul dans la zone du centre : 1 point par seconde."},
+	"gungame": {"name": "Course aux armes", "unit": "niveaux", "limit": 10, "teams": false,
+		"desc": "Chaque élimination donne l'arme suivante. Le couteau fait reculer la victime."},
+	"elim": {"name": "Élimination", "unit": "manches", "limit": 5, "teams": true,
+		"desc": "Une vie par manche. La dernière équipe debout gagne la manche."},
+}
+const RULE_ORDER := ["dm", "ctf", "koth", "gungame", "elim"]
+# Course aux armes : ordre des armes (indices dans WEAPONS)
+const GUNGAME_LADDER := [0, 3, 1, 6, 2, 7, 5, 8, 9, 4]
