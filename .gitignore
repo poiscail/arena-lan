@@ -6,3 +6,4 @@ Godot.exe
 export/
 build/
 *.tmp
+override.cfg

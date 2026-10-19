@@ -7,10 +7,10 @@ signal closed
 const UiTheme := preload("res://scripts/ui_theme.gd")
 
 const PRESETS := {
-	"Basse": {"shadows": 0, "msaa": 0, "scale": 70, "fog": false, "view": 0, "post": false},
-	"Moyenne": {"shadows": 1, "msaa": 0, "scale": 100, "fog": true, "view": 1, "post": true},
-	"Haute": {"shadows": 2, "msaa": 1, "scale": 100, "fog": true, "view": 1},
-	"Ultra": {"shadows": 3, "msaa": 2, "scale": 100, "fog": true, "view": 2},
+	"Basse": {"shadows": 0, "msaa": 0, "scale": 70, "fog": false, "view": 0, "post": false, "fx": 0},
+	"Moyenne": {"shadows": 1, "msaa": 0, "scale": 100, "fog": true, "view": 1, "post": true, "fx": 1},
+	"Haute": {"shadows": 2, "msaa": 1, "scale": 100, "fog": true, "view": 1, "fx": 2},
+	"Ultra": {"shadows": 3, "msaa": 2, "scale": 100, "fog": true, "view": 2, "fx": 3},
 }
 
 var _controls := {}
@@ -46,7 +46,7 @@ func _ready() -> void:
 	v.add_child(title)
 
 	var tabs := TabContainer.new()
-	tabs.custom_minimum_size = Vector2(0, 520)
+	tabs.custom_minimum_size = Vector2(0, 600)
 	v.add_child(tabs)
 	var gv := VBoxContainer.new()
 	gv.name = "Graphismes"
@@ -88,6 +88,8 @@ func _ready() -> void:
 	_option(grid, "fps_limit", "Limite d'images", fps_names)
 	_check(grid, "show_fps", "Afficher les IPS")
 	_check(grid, "post", "Effets d'écran (couleurs, vignette)")
+	_option(grid, "fx", "Qualité des effets", ["Basse", "Moyenne (halos)", "Élevée", "Ultra"])
+	_renderer_row(grid)
 
 	grid.add_child(_dim_label("Sensibilité souris"))
 	var sens := _slider_box(0.5, 8.0, 0.1, "%.1f")
@@ -154,6 +156,33 @@ func _option(grid: GridContainer, key: String, text: String, items: Array) -> vo
 	o.item_selected.connect(_changed.bind(key))
 	grid.add_child(o)
 	_controls[key] = o
+
+
+## Moteur de rendu : standard (compatible partout) ou avancé (Forward+ : occlusion ambiante,
+## éclairage indirect, reflets, ombres douces...). Change au prochain lancement du jeu.
+func _renderer_row(grid: GridContainer) -> void:
+	grid.add_child(_dim_label("Rendu"))
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var o := OptionButton.new()
+	o.add_item("Standard")
+	o.add_item("Avancé (plus beau)")
+	o.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	o.select(1 if Net.is_advanced() else 0)
+	box.add_child(o)
+	var restart := Button.new()
+	restart.text = "Redémarrer"
+	restart.visible = false
+	restart.disabled = Net.in_game
+	restart.tooltip_text = "Quitte la partie en cours d'abord" if Net.in_game else ""
+	restart.pressed.connect(Net.restart_game)
+	box.add_child(restart)
+	o.item_selected.connect(func(i: int) -> void:
+		Net.set_renderer(i == 1)
+		restart.visible = (i == 1) != Net.is_advanced()
+		restart.disabled = Net.in_game)
+	grid.add_child(box)
 
 
 func _check(grid: GridContainer, key: String, text: String) -> void:

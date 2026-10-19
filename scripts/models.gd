@@ -147,68 +147,45 @@ static func _local_aabb(top: Node3D) -> AABB:
 	return result
 
 
-## Applique un camouflage (Data.CAMOS) à toutes les pièces d'une arme, par-dessus ses textures.
+const SKIN_SHADER := preload("res://assets/shaders/gun_skin.gdshader")
+static var _skin_mats := {}
+
+## Applique un skin (Data.CAMOS) à toutes les pièces d'une arme (pas aux accessoires) :
+## chaque pièce reçoit le matériau du skin, qui garde un peu de sa couleur d'origine.
 static func apply_camo(node: Node, camo: Dictionary) -> void:
-	var overlay: StandardMaterial3D = null
-	if camo["name"] != "Standard":
-		overlay = StandardMaterial3D.new()
-		overlay.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		overlay.albedo_color = camo["color"]
-		overlay.blend_mode = BaseMaterial3D.BLEND_MODE_ADD if camo["add"] else BaseMaterial3D.BLEND_MODE_MUL
-		if camo.has("pattern"):
-			overlay.albedo_texture = pattern_texture(camo["pattern"])
-			overlay.uv1_triplanar = true
-			overlay.uv1_scale = Vector3.ONE * 3.0
-			overlay.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST if camo["pattern"] in ["digital", "arctic"] else BaseMaterial3D.TEXTURE_FILTER_LINEAR
 	for m in node.find_children("*", "MeshInstance3D", true, false):
-		if not m.has_meta("attachment"):
-			m.material_overlay = overlay
+		if m.has_meta("attachment") or m.mesh == null:
+			continue
+		for s in m.mesh.get_surface_count():
+			var src: Material = m.mesh.surface_get_material(s)
+			var base := Color(0.2, 0.2, 0.2)
+			if src is BaseMaterial3D:
+				base = (src as BaseMaterial3D).albedo_color
+			m.set_surface_override_material(s, skin_material(camo, base))
 
 
-static var _patterns := {}
-
-## Textures de motifs générées une seule fois (mêmes sur toutes les machines grâce à la graine fixe).
-static func pattern_texture(kind: String) -> ImageTexture:
-	if _patterns.has(kind):
-		return _patterns[kind]
-	var n := 128
-	var img := Image.create_empty(n, n, false, Image.FORMAT_RGB8)
-	var noise := FastNoiseLite.new()
-	noise.seed = 7
-	noise.frequency = 0.035
-	var noise2 := FastNoiseLite.new()
-	noise2.seed = 21
-	noise2.frequency = 0.08
-	var pal: Array = {
-		"digital": [Color(0.35, 0.42, 0.3), Color(0.55, 0.6, 0.45), Color(0.22, 0.25, 0.2), Color(0.7, 0.68, 0.55)],
-		"arctic": [Color(0.95, 0.97, 1.0), Color(0.75, 0.82, 0.9), Color(0.55, 0.62, 0.7), Color(1, 1, 1)],
-		"woodland": [Color(0.3, 0.38, 0.2), Color(0.45, 0.35, 0.2), Color(0.15, 0.15, 0.12), Color(0.55, 0.55, 0.35)],
-	}.get(kind, [])
-	for y in n:
-		for x in n:
-			var c := Color.WHITE
-			match kind:
-				"digital", "arctic":
-					# Pixels de 8×8 choisis selon un bruit : motif « numérique »
-					var v := noise.get_noise_2d(float(x / 8) * 8.0, float(y / 8) * 8.0) + noise2.get_noise_2d(float(x / 8) * 8.0, float(y / 8) * 8.0) * 0.5
-					c = pal[clampi(int((v + 1.0) * 2.0), 0, 3)]
-				"woodland":
-					var v := noise.get_noise_2d(x, y)
-					c = pal[clampi(int((v + 0.6) * 3.0), 0, 3)]
-				"tiger":
-					var s := sin((x + noise.get_noise_2d(x, y) * 40.0) * 0.25)
-					c = Color(0.08, 0.06, 0.05) if s > 0.55 else Color(1.0, 0.55, 0.15)
-				"carbon":
-					var cell := ((x / 4) + (y / 4)) % 2
-					var g := 0.12 + 0.1 * float((x if cell == 0 else y) % 4) / 4.0
-					c = Color(g, g, g * 1.1)
-				"lava":
-					var v := noise.get_noise_2d(x, y) + noise2.get_noise_2d(x, y) * 0.4
-					c = Color(0.12, 0.08, 0.07).lerp(Color(1.0, 0.4, 0.05), clampf((v - 0.15) * 3.0, 0.0, 1.0))
-			img.set_pixel(x, y, c)
-	var tex := ImageTexture.create_from_image(img)
-	_patterns[kind] = tex
-	return tex
+## Matériau d'un skin pour une pièce de couleur donnée (partagé entre toutes les armes).
+static func skin_material(camo: Dictionary, base: Color) -> ShaderMaterial:
+	var key := "%s|%s" % [camo["name"], base.to_html(false)]
+	if _skin_mats.has(key):
+		return _skin_mats[key]
+	# Le rendu standard n'a pas de vrais reflets : on y réduit l'aspect métallique (sinon tout noir)
+	var adv := RenderingServer.get_current_rendering_method() != "gl_compatibility"
+	var mat := ShaderMaterial.new()
+	mat.shader = SKIN_SHADER
+	mat.set_shader_parameter("base_color", base)
+	mat.set_shader_parameter("pattern", int(camo.get("p", 0)))
+	mat.set_shader_parameter("c1", camo.get("c1", Color.WHITE))
+	mat.set_shader_parameter("c2", camo.get("c2", Color.BLACK))
+	mat.set_shader_parameter("c3", camo.get("c3", Color.GRAY))
+	mat.set_shader_parameter("scale", float(camo.get("s", 8.0)))
+	mat.set_shader_parameter("detail", float(camo.get("d", 0.35)))
+	mat.set_shader_parameter("metal", minf(float(camo.get("m", 0.15)), 0.7) * (1.0 if adv else 0.45))
+	mat.set_shader_parameter("rough", float(camo.get("ro", 0.5)))
+	mat.set_shader_parameter("emit", float(camo.get("e", 0.0)))
+	mat.set_shader_parameter("speed", float(camo.get("sp", 0.0)))
+	_skin_mats[key] = mat
+	return mat
 
 
 ## Ajoute les accessoires visibles sur un modèle d'arme (dans son repère d'origine).

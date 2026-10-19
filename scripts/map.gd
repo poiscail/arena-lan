@@ -620,8 +620,11 @@ func _build_environment(root: Node3D) -> void:
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.7
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.ambient_light_energy = 0.55
+	env.tonemap_mode = Environment.TONE_MAPPER_AGX
+	env.tonemap_exposure = 1.15
+	env.adjustment_enabled = true
+	env.adjustment_saturation = 1.08
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.72, 0.78, 0.86)
 	env.fog_density = 0.003
@@ -647,6 +650,18 @@ func _build_environment(root: Node3D) -> void:
 	var we := WorldEnvironment.new()
 	we.environment = env
 	we.add_to_group("gfx_env")
+	we.set_meta("sky_ambient", env.ambient_light_source == Environment.AMBIENT_SOURCE_SKY)
+	# Brouillard volumétrique (rendu avancé, ultra) : halos des lampes la nuit, poussière dans l'entrepôt
+	if night:
+		we.set_meta("volfog", 0.012)
+		we.set_meta("volfog_color", Color(0.55, 0.6, 0.75))
+	elif layout == 2:
+		we.set_meta("volfog", 0.02)
+		we.set_meta("volfog_color", Color(0.9, 0.85, 0.75))
+		we.set_meta("indoor", true)
+	elif layout == 3:
+		we.set_meta("volfog", 0.006)
+		we.set_meta("volfog_color", Color(0.85, 0.9, 0.85))
 	root.add_child(we)
 
 	if layout == 2:
@@ -654,7 +669,8 @@ func _build_environment(root: Node3D) -> void:
 		return
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-50, 35, 0)
-	sun.light_energy = 0.9
+	sun.light_energy = 1.35
+	sun.light_color = Color(1.0, 0.95, 0.86)
 	if night:
 		# Lune
 		sun.rotation_degrees = Vector3(-35, -60, 0)

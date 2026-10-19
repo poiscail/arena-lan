@@ -69,11 +69,13 @@ Très pratique en mode Élimination, où l'on attend la manche suivante.
 - **Forêt** : pins et chênes qui bougent avec le vent, rochers, bûches, tentes, cabanes, palissades, un ruisseau et un feu de camp.
 - **Port industriel** : piles de conteneurs, citernes et entrepôts. Autour, la mer animée avec un cargo, des remorqueurs et des bouées.
 
-Shaders maison : eau animée (vagues, reflets, écume), vent dans les arbres, et post-traitement de l'écran (couleurs, vignette, grain, aberration rouge quand on est touché), désactivable dans les options.
+Shaders maison : eau animée (vagues, reflets, écume), vent dans les arbres, skins d'armes, et post-traitement de l'écran (couleurs, vignette, grain, aberration rouge quand on est touché), désactivable dans les options.
+
+Graphismes : éclairage AgX, halos lumineux, et un **rendu avancé** au choix dans Options (Forward+ : occlusion ambiante, éclairage indirect, reflets, ombres douces, illumination globale et brouillard volumétrique en Ultra). Il s'applique au prochain lancement ; si le PC ne le gère pas, le jeu repasse en rendu standard. Les mains et avant-bras gantés sont visibles à la première personne.
 
 ## Armurerie
 Bouton **Armurerie** dans le menu. Pour chaque arme :
-- un **skin** : couleurs (Désert, Forêt, Urbain, Nuit, Rouge, Or, Néon) et motifs (Arctique, Digital, Bois, Tigre, Carbone, Lave), débloqués en montant de niveau ;
+- un **skin** parmi 52 (camouflages, damas, marbre, écailles de dragon, carbone, chrome, galaxie, lave animée, néon, circuit, holographique, diamant, flammes…), classés par rareté (commun à mythique) et débloqués en montant de niveau ;
 - des **accessoires visibles sur l'arme**, un par emplacement : silencieux, baïonnette (couteau plus fort), chargeur étendu, poignée, bipied (immobile : recul et dispersion divisés par 2), lampe tactique, crosse, viseur point rouge (on vise vraiment à travers), lunette x4. Le chargeur étendu prolonge le vrai chargeur de chaque arme.
 
 Un aperçu 3D montre l'arme, et les caractéristiques changent en vert ou en rouge. Les autres joueurs voient ta personnalisation.
@@ -81,7 +83,7 @@ Un aperçu 3D montre l'arme, et les caractéristiques changent en vert ou en rou
 ## Progression et personnalisation
 - Chaque match rapporte de l'**expérience** : participation, éliminations, objectifs et victoire. Elle est sauvegardée sur ton PC.
 - Le menu affiche ton **niveau** et ta barre d'expérience.
-- En montant de niveau, tu débloques des **camouflages d'armes** : Désert, Forêt, Urbain, Nuit, Rouge, Or et Néon. Les autres joueurs les voient sur ton arme.
+- En montant de niveau, tu débloques des **skins d'armes** (52, du commun au mythique). Les autres joueurs les voient sur ton arme.
 
 ## Bots
 Ils se déplacent avec des chemins calculés, glissent, se mettent à l'abri quand ils sont blessés (parfois avec un fumigène), lancent des grenades, donnent des coups de couteau de près, contournent l'ennemi, ramassent les bonus et jouent les objectifs des modes.
@@ -158,6 +160,7 @@ Si le jeu rame, choisis **Basse**.
 | `spectator.gd` | Caméra spectateur après la mort (coéquipier ou caméra libre) |
 | `modes.gd` | Modes de jeu : drapeau, colline, course aux armes, élimination |
 | `armory.gd` | Écran Armurerie (skins, accessoires, aperçu 3D) |
+| `arms.gd` | Mains et avant-bras à la première personne |
 | `loadout.gd` | Écran Classes et armes (armes 1, 2 et 3 de chaque classe) |
 | `items.gd` | Trousses, bonus, barils explosifs, grenades et fumigènes |
 | `options.gd` | Fenêtre d'options (graphismes, souris) |

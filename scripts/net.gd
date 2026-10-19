@@ -53,6 +53,8 @@ var gfx := {
 	"fps_limit": 0,      # index dans FPS_LIMITS (0 = illimité)
 	"show_fps": false,
 	"post": true,       # effets d'écran (couleurs, vignette, grain)
+	"fx": 2,             # qualité des effets : 0 bas, 1 moyen, 2 élevé, 3 ultra
+	"renderer": 0,       # 0 standard (compatibilité), 1 avancé (Forward+, au prochain lancement)
 }
 
 
@@ -132,12 +134,68 @@ func apply_graphics() -> void:
 		sun.shadow_enabled = q > 0
 		sun.directional_shadow_max_distance = SHADOW_DISTANCES[q]
 		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL if q == 1 else DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	var fx := clampi(int(gfx.get("fx", 2)), 0, 3)
+	var adv := is_advanced()
+	for sun in get_tree().get_nodes_in_group("gfx_sun"):
+		# Ombres douces (rendu avancé) : plus floues loin de l'objet qui les projette
+		sun.light_angular_distance = 0.6 if adv and fx >= 2 else 0.0
 	for we in get_tree().get_nodes_in_group("gfx_env"):
 		var env: Environment = we.environment
 		env.fog_enabled = gfx.fog
-		env.adjustment_enabled = int(gfx.brightness) != 100
+		env.adjustment_enabled = true  # saturation de la carte + luminosité du joueur
 		env.adjustment_brightness = float(gfx.brightness) / 100.0
+		if we.get_meta("sky_ambient", false):
+			# Le rendu standard donne une lumière ambiante du ciel trop bleue : on la mélange à un gris neutre
+			env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY if adv else Environment.AMBIENT_SOURCE_BG
+			env.ambient_light_sky_contribution = 1.0 if adv else 0.4
+			env.ambient_light_color = Color(0.74, 0.73, 0.7)
+			env.ambient_light_energy = 0.55 if adv else 0.8
+		# Halo lumineux autour des lumières fortes (lampes, flammes, ciel)
+		env.glow_enabled = fx >= 1
+		env.glow_intensity = 0.55
+		env.glow_bloom = 0.04
+		env.glow_hdr_threshold = 1.0
+		env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
+		# Effets du rendu avancé (Forward+)
+		env.ssao_enabled = adv and fx >= 1
+		env.ssao_radius = 1.2
+		env.ssao_intensity = 1.6
+		env.ssil_enabled = adv and fx >= 2
+		env.ssr_enabled = adv and fx >= 2
+		env.ssr_max_steps = 48
+		env.sdfgi_enabled = adv and fx >= 3 and not we.get_meta("indoor", false)
+		var vf: float = we.get_meta("volfog", 0.0)
+		env.volumetric_fog_enabled = adv and fx >= 3 and vf > 0.0 and gfx.fog
+		env.volumetric_fog_density = vf
+		env.volumetric_fog_albedo = we.get_meta("volfog_color", Color(0.8, 0.8, 0.85))
 	graphics_changed.emit()
+
+
+## Rendu avancé (Forward+) en cours ?
+func is_advanced() -> bool:
+	return RenderingServer.get_current_rendering_method() != "gl_compatibility"
+
+
+## Choisit le moteur de rendu du prochain lancement (fichier override.cfg à côté du jeu).
+## Si le PC ne gère pas le rendu avancé, Godot repasse tout seul en rendu standard.
+func set_renderer(advanced: bool) -> bool:
+	gfx["renderer"] = 1 if advanced else 0
+	save_options()
+	if "--no-save" in OS.get_cmdline_user_args():
+		return true
+	var path := ProjectSettings.globalize_path("res://override.cfg") if OS.has_feature("editor") \
+		else OS.get_executable_path().get_base_dir().path_join("override.cfg")
+	var cfg := ConfigFile.new()
+	cfg.load(path)
+	cfg.set_value("rendering", "renderer/rendering_method", "forward_plus" if advanced else "gl_compatibility")
+	cfg.set_value("rendering", "rendering_device/fallback_to_opengl3", true)
+	return cfg.save(path) == OK
+
+
+## Relance le jeu (après un changement de moteur de rendu).
+func restart_game() -> void:
+	OS.create_process(OS.get_executable_path(), OS.get_cmdline_args())
+	get_tree().quit()
 
 
 # --- Découverte des parties sur le réseau local -------------------------------------

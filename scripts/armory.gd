@@ -104,6 +104,17 @@ func _ready() -> void:
 			_custom()["skin"] = i
 			_save())
 	side.add_child(_skin_opt)
+	var all := Button.new()
+	all.text = "Mettre ce skin sur toutes les armes"
+	all.pressed.connect(func() -> void:
+		var sk := int(_custom().get("skin", 0))
+		for wi in Data.WEAPONS.size():
+			var key := str(wi)
+			if not (Net.armory.get(key) is Dictionary):
+				Net.armory[key] = {"skin": 0, "att": []}
+			Net.armory[key]["skin"] = sk
+		_save())
+	side.add_child(all)
 	side.add_child(_section("ACCESSOIRES"))
 	_att_box = VBoxContainer.new()
 	_att_box.add_theme_constant_override("separation", 6)
@@ -158,7 +169,8 @@ func _select(i: int) -> void:
 	for k in Data.CAMOS.size():
 		var cm: Dictionary = Data.CAMOS[k]
 		var locked: bool = level < int(cm["level"])
-		_skin_opt.add_item(cm["name"] + ("   (niveau %d)" % cm["level"] if locked else ""))
+		var rar: String = Data.RARITIES[int(cm.get("r", 0))]["name"]
+		_skin_opt.add_icon_item(_swatch(k), "%s  ·  %s%s" % [cm["name"], rar, ("   (niveau %d)" % cm["level"] if locked else "")])
 		_skin_opt.set_item_disabled(k, locked)
 	var skin := clampi(int(c.get("skin", 0)), 0, Data.CAMOS.size() - 1)
 	if level < int(Data.CAMOS[skin]["level"]):
@@ -242,6 +254,27 @@ func _refresh() -> void:
 	t += line.call("Dispersion", snappedf(float(w.spread), 0.01), snappedf(float(s.spread), 0.01), true)
 	t += "Cadence : %d tirs/min" % int(60.0 / float(w.rate))
 	_stats.text = t
+
+
+static var _swatches := {}
+
+## Petite pastille du skin : ses couleurs, avec un liseré de la couleur de sa rareté.
+func _swatch(k: int) -> ImageTexture:
+	if _swatches.has(k):
+		return _swatches[k]
+	var cm: Dictionary = Data.CAMOS[k]
+	var img := Image.create_empty(28, 18, false, Image.FORMAT_RGBA8)
+	var cols: Array = [cm.get("c1", Color(0.35, 0.33, 0.3)), cm.get("c2", cm.get("c1", Color(0.25, 0.25, 0.25))), cm.get("c3", cm.get("c2", cm.get("c1", Color(0.2, 0.2, 0.2))))]
+	var rc: Color = Data.RARITIES[int(cm.get("r", 0))]["color"]
+	for y in 18:
+		for x in 28:
+			var c: Color = cols[clampi(int((x + y * 0.5) / 10.0), 0, 2)]
+			if x < 2 or y < 2 or x > 25 or y > 15:
+				c = rc
+			img.set_pixel(x, y, c)
+	var tex := ImageTexture.create_from_image(img)
+	_swatches[k] = tex
+	return tex
 
 
 func _section(text: String) -> Label:

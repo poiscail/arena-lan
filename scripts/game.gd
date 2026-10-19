@@ -1160,7 +1160,7 @@ func _bot_armory() -> Dictionary:
 		for a in Data.attachments_for(wi):
 			if randf() < 0.3:
 				att.append(a)
-		out[str(wi)] = {"skin": randi() % 8, "att": att}
+		out[str(wi)] = {"skin": randi() % Data.CAMOS.size(), "att": att}
 	var picks := {}
 	for cat in Data.CAT_ORDER:
 		var options := []

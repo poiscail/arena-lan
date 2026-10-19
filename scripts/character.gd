@@ -5,6 +5,7 @@ extends CharacterBody3D
 const BotScript := preload("res://scripts/bot.gd")
 const Data := preload("res://scripts/data.gd")
 const Models := preload("res://scripts/models.gd")
+const Arms := preload("res://scripts/arms.gd")
 const People := preload("res://scripts/people.gd")
 
 const GRAVITY := 20.0
@@ -640,6 +641,7 @@ func _build_viewmodel() -> void:
 		var g := Models.weapon(Data.WEAPONS[wi].model, Data.WEAPONS[wi].len)
 		Models.add_attachments(g.get_child(0).get_child(0), custom(wi)["att"])
 		Models.apply_camo(g, Data.CAMOS[custom(wi)["skin"]])
+		Arms.add_to(g, Data.WEAPONS[wi].model)
 		_viewmodel.add_child(g)
 		# Centre du viseur point rouge dans le repère de l'arme : sert à aligner l'œil en visée
 		var sp := g.find_child("SightPoint", true, false) as Node3D

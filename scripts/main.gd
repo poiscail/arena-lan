@@ -672,6 +672,8 @@ func _apply_cmdline() -> void:
 			ws.append(int(s))
 		Net.armory["loadouts"] = {str(Net.player_class): ws}
 		_on_class_selected(Net.player_class)
+	if opts.has("slot"):
+		get_tree().create_timer(2.0).timeout.connect(func() -> void: game.local_char.switch_weapon(int(opts["slot"])))
 	if opts.has("loadout"):
 		_loadout.open()
 	if opts.has("ingame-loadout"):
