@@ -75,7 +75,7 @@ Graphismes : éclairage AgX, halos lumineux, et un **rendu avancé** au choix da
 
 ## Armurerie
 Bouton **Armurerie** dans le menu. Pour chaque arme :
-- un **skin** parmi 52 (camouflages, damas, marbre, écailles de dragon, carbone, chrome, galaxie, lave animée, néon, circuit, holographique, diamant, flammes…), classés par rareté (commun à mythique) et débloqués en montant de niveau ;
+- un **skin** parmi 52 (camouflages, damas, marbre, écailles de dragon, carbone, chrome, galaxie, lave animée, néon, circuit, holographique, diamant, flammes…), classés par rareté (commun à mythique) et débloqués **pour chaque arme en faisant des éliminations avec elle** (de 2 éliminations pour le premier à 850 pour le dernier mythique) ;
 - des **accessoires visibles sur l'arme**, un par emplacement : silencieux, baïonnette (couteau plus fort), chargeur étendu, poignée, bipied (immobile : recul et dispersion divisés par 2), lampe tactique, crosse, viseur point rouge (on vise vraiment à travers), lunette x4. Le chargeur étendu prolonge le vrai chargeur de chaque arme.
 
 Un aperçu 3D montre l'arme, et les caractéristiques changent en vert ou en rouge. Les autres joueurs voient ta personnalisation.
@@ -83,7 +83,7 @@ Un aperçu 3D montre l'arme, et les caractéristiques changent en vert ou en rou
 ## Progression et personnalisation
 - Chaque match rapporte de l'**expérience** : participation, éliminations, objectifs et victoire. Elle est sauvegardée sur ton PC.
 - Le menu affiche ton **niveau** et ta barre d'expérience.
-- En montant de niveau, tu débloques des **skins d'armes** (52, du commun au mythique). Les autres joueurs les voient sur ton arme.
+- **Défis d'armes** : chaque élimination avec une arme fait avancer vers le skin suivant de cette arme (52 skins, du commun au mythique). L'armurerie montre ta progression, et un message s'affiche en partie quand tu débloques un skin. Les autres joueurs voient tes skins.
 
 ## Bots
 Ils se déplacent avec des chemins calculés, glissent, se mettent à l'abri quand ils sont blessés (parfois avec un fumigène), lancent des grenades, donnent des coups de couteau de près, contournent l'ennemi, ramassent les bonus et jouent les objectifs des modes.

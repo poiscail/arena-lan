@@ -132,7 +132,8 @@ const RULE_ORDER := ["dm", "ctf", "koth", "gungame", "elim"]
 # Course aux armes : ordre des armes (indices dans WEAPONS)
 const GUNGAME_LADDER := [0, 3, 1, 6, 2, 7, 5, 8, 9, 4]
 
-# Skins d'armes (shader assets/shaders/gun_skin.gdshader), débloqués en montant de niveau.
+# Skins d'armes (shader assets/shaders/gun_skin.gdshader), débloqués pour chaque arme en faisant
+# des éliminations avec elle (voir skin_kills).
 # p : motif (0 standard, 1 uni, 2 dégradé, 3 tigre, 4 camouflage, 5 numérique, 6 hexagones,
 # 7 carbone, 8 damas, 9 marbre, 10 écailles, 11 zèbre, 12 léopard, 13 bois, 14 métal brossé,
 # 15 galaxie, 16 lave, 17 néon, 18 circuit, 19 éclaboussures, 20 bandes, 21 holographique,
@@ -147,59 +148,75 @@ const RARITIES := [
 	{"name": "Mythique", "color": Color(1.0, 0.3, 0.35)},
 ]
 const CAMOS := [
-	{"name": "Standard", "level": 1, "r": 0, "p": 0},
-	{"name": "Désert", "level": 1, "r": 0, "p": 4, "c1": Color("c9a774"), "c2": Color("8d6b44"), "c3": Color("5a4630")},
-	{"name": "Forêt", "level": 1, "r": 0, "p": 4, "c1": Color("5f7a3c"), "c2": Color("3d5228"), "c3": Color("2a2a1c")},
-	{"name": "Urbain", "level": 1, "r": 0, "p": 5, "c1": Color("8e9399"), "c2": Color("5e6369"), "c3": Color("2f3236")},
-	{"name": "Nuit", "level": 2, "r": 1, "p": 5, "c1": Color("2b3550"), "c2": Color("1b2236"), "c3": Color("3d4b70")},
-	{"name": "Rouge", "level": 2, "r": 1, "p": 1, "c1": Color("b3221c"), "m": 0.4, "ro": 0.3},
-	{"name": "Or", "level": 5, "r": 3, "p": 14, "c1": Color("e8b64a"), "m": 1.0, "ro": 0.25, "d": 0.15},
-	{"name": "Néon", "level": 4, "r": 2, "p": 17, "c1": Color("0b0f1a"), "c2": Color("1ee8ff"), "e": 2.5, "sp": 1.0, "s": 10.0},
-	{"name": "Arctique", "level": 1, "r": 0, "p": 5, "c1": Color("f2f5f8"), "c2": Color("c3cfdb"), "c3": Color("8798aa")},
-	{"name": "Digital", "level": 1, "r": 0, "p": 5, "c1": Color("6b7a52"), "c2": Color("8d966c"), "c3": Color("3a4030")},
-	{"name": "Bois", "level": 2, "r": 1, "p": 13, "c1": Color("8a5a32"), "c2": Color("5b3820"), "s": 6.0, "ro": 0.6},
-	{"name": "Tigre", "level": 2, "r": 1, "p": 3, "c1": Color("f08a24"), "c2": Color("16110d"), "s": 7.0},
-	{"name": "Carbone", "level": 3, "r": 2, "p": 7, "c1": Color("1a1c20"), "c2": Color("3c4048"), "s": 10.0, "d": 0.1},
-	{"name": "Lave", "level": 6, "r": 4, "p": 16, "c1": Color("2a1a14"), "c2": Color("ff6a10"), "e": 3.0, "sp": 1.0, "s": 7.0},
-	{"name": "Diamant", "level": 6, "r": 4, "p": 22, "c1": Color("dff6ff"), "c2": Color("9fd8f0"), "c3": Color("ffffff"), "m": 0.6, "e": 1.2, "s": 9.0, "d": 0.1},
-	{"name": "Damas", "level": 4, "r": 3, "p": 8, "c1": Color("c9ccd1"), "c2": Color("4a4e55"), "m": 0.9, "ro": 0.3, "s": 6.0, "d": 0.1},
-	{"name": "Damas doré", "level": 5, "r": 3, "p": 8, "c1": Color("f2c75c"), "c2": Color("7a5418"), "m": 1.0, "ro": 0.25, "s": 6.0, "d": 0.1},
-	{"name": "Obsidienne", "level": 5, "r": 3, "p": 22, "c1": Color("140f1c"), "c2": Color("2e1f40"), "c3": Color("8a5cff"), "m": 0.5, "e": 0.8, "s": 8.0, "d": 0.1},
-	{"name": "Matière noire", "level": 8, "r": 4, "p": 24, "c1": Color("07040d"), "c2": Color("3a0f6b"), "c3": Color("c056ff"), "e": 1.6, "sp": 0.6, "s": 5.0, "d": 0.05},
-	{"name": "Galaxie", "level": 7, "r": 4, "p": 15, "c1": Color("0a0b2a"), "c2": Color("5a2a9a"), "c3": Color("ff6ad5"), "e": 1.0, "sp": 0.5, "s": 4.0, "d": 0.05},
-	{"name": "Nébuleuse", "level": 7, "r": 4, "p": 15, "c1": Color("041a1c"), "c2": Color("0e7a6e"), "c3": Color("9dff6a"), "e": 1.0, "sp": 0.5, "s": 4.0, "d": 0.05},
-	{"name": "Marbre blanc", "level": 3, "r": 2, "p": 9, "c1": Color("eceae6"), "c2": Color("6f6f74"), "s": 5.0, "d": 0.1},
-	{"name": "Marbre noir", "level": 4, "r": 3, "p": 9, "c1": Color("17171a"), "c2": Color("e0b04a"), "s": 5.0, "m": 0.3, "d": 0.1},
-	{"name": "Écailles de dragon", "level": 4, "r": 2, "p": 10, "c1": Color("2c8a3e"), "c2": Color("0e2a14"), "s": 9.0, "m": 0.3, "ro": 0.35},
-	{"name": "Écailles de feu", "level": 5, "r": 3, "p": 10, "c1": Color("b0201a"), "c2": Color("ffb030"), "e": 1.2, "s": 9.0, "m": 0.4, "ro": 0.35},
-	{"name": "Hexagone", "level": 2, "r": 1, "p": 6, "c1": Color("23272e"), "c2": Color("4fb0a8"), "s": 9.0},
-	{"name": "Hexagone néon", "level": 4, "r": 2, "p": 6, "c1": Color("121418"), "c2": Color("ff8a1a"), "e": 2.5, "s": 9.0},
-	{"name": "Zèbre", "level": 2, "r": 1, "p": 11, "c1": Color("f2f2f2"), "c2": Color("121212"), "s": 9.0},
-	{"name": "Léopard", "level": 3, "r": 2, "p": 12, "c1": Color("d9a85b"), "c2": Color("1a120a"), "c3": Color("9a6a32"), "s": 8.0},
-	{"name": "Jaguar", "level": 3, "r": 2, "p": 12, "c1": Color("3a3430"), "c2": Color("0c0a09"), "c3": Color("5c4a3a"), "s": 8.0},
-	{"name": "Flammes", "level": 5, "r": 3, "p": 23, "c1": Color("141414"), "c2": Color("ffd23a"), "c3": Color("e0300e"), "e": 1.1, "sp": 1.0, "s": 7.0},
-	{"name": "Flammes bleues", "level": 6, "r": 4, "p": 23, "c1": Color("0e0f16"), "c2": Color("bff4ff"), "c3": Color("1a5cff"), "e": 1.2, "sp": 1.0, "s": 7.0},
-	{"name": "Circuit", "level": 3, "r": 2, "p": 18, "c1": Color("0f2a1a"), "c2": Color("3dff7a"), "e": 2.0, "s": 9.0},
-	{"name": "Circuit rouge", "level": 4, "r": 2, "p": 18, "c1": Color("1e0b0b"), "c2": Color("ff3a3a"), "e": 2.0, "s": 9.0},
-	{"name": "Holographique", "level": 6, "r": 3, "p": 21, "c1": Color("dadde8"), "m": 0.5, "e": 1.0, "s": 6.0, "d": 0.1},
-	{"name": "Chrome", "level": 3, "r": 2, "p": 14, "c1": Color("dfe3e8"), "m": 1.0, "ro": 0.12, "d": 0.15},
-	{"name": "Or rose", "level": 4, "r": 3, "p": 14, "c1": Color("e8a58c"), "m": 1.0, "ro": 0.22, "d": 0.15},
-	{"name": "Cuivre", "level": 3, "r": 2, "p": 14, "c1": Color("c4703a"), "m": 1.0, "ro": 0.3, "d": 0.2},
-	{"name": "Coucher de soleil", "level": 2, "r": 1, "p": 2, "c1": Color("ff8a2a"), "c2": Color("6a1f8a"), "ro": 0.3},
-	{"name": "Océan", "level": 2, "r": 1, "p": 2, "c1": Color("3ae0e8"), "c2": Color("0c2a7a"), "ro": 0.3},
-	{"name": "Toxique", "level": 3, "r": 2, "p": 2, "c1": Color("c8ff2a"), "c2": Color("0f5a1a"), "e": 0.4, "ro": 0.3},
-	{"name": "Éclaboussures", "level": 2, "r": 1, "p": 19, "c1": Color("1c1d22"), "c2": Color("ff3a8a"), "c3": Color("2ad0ff"), "s": 7.0},
-	{"name": "Bandes de course", "level": 1, "r": 0, "p": 20, "c1": Color("c41e1e"), "c2": Color("f5f5f5"), "ro": 0.25},
-	{"name": "Bandes bleues", "level": 1, "r": 0, "p": 20, "c1": Color("1e4fc4"), "c2": Color("f5f5f5"), "ro": 0.25},
-	{"name": "Camouflage océan", "level": 2, "r": 1, "p": 4, "c1": Color("4a7aa8"), "c2": Color("23466e"), "c3": Color("9cc2e0")},
-	{"name": "Camouflage rose", "level": 2, "r": 1, "p": 4, "c1": Color("f2a0c4"), "c2": Color("c45a8c"), "c3": Color("5a2440")},
-	{"name": "Kaki", "level": 1, "r": 0, "p": 1, "c1": Color("6b6a42"), "ro": 0.7},
-	{"name": "Blanc glacier", "level": 1, "r": 0, "p": 1, "c1": Color("eef3f7"), "ro": 0.25},
-	{"name": "Glace", "level": 5, "r": 3, "p": 22, "c1": Color("bfe8ff"), "c2": Color("6ab4e8"), "c3": Color("ffffff"), "m": 0.3, "e": 0.8, "s": 7.0, "d": 0.1},
-	{"name": "Lave bleue", "level": 7, "r": 4, "p": 16, "c1": Color("10141e"), "c2": Color("2aa8ff"), "e": 3.0, "sp": 1.0, "s": 7.0},
-	{"name": "Radioactif", "level": 7, "r": 4, "p": 16, "c1": Color("141a10"), "c2": Color("7aff2a"), "e": 3.0, "sp": 1.2, "s": 7.0},
-	{"name": "Ébène", "level": 2, "r": 1, "p": 13, "c1": Color("2a1c14"), "c2": Color("0e0907"), "s": 6.0, "ro": 0.35},
+	{"name": "Standard", "r": 0, "p": 0},
+	{"name": "Désert", "r": 0, "p": 4, "c1": Color("c9a774"), "c2": Color("8d6b44"), "c3": Color("5a4630")},
+	{"name": "Forêt", "r": 0, "p": 4, "c1": Color("5f7a3c"), "c2": Color("3d5228"), "c3": Color("2a2a1c")},
+	{"name": "Urbain", "r": 0, "p": 5, "c1": Color("8e9399"), "c2": Color("5e6369"), "c3": Color("2f3236")},
+	{"name": "Nuit", "r": 1, "p": 5, "c1": Color("2b3550"), "c2": Color("1b2236"), "c3": Color("3d4b70")},
+	{"name": "Rouge", "r": 1, "p": 1, "c1": Color("b3221c"), "m": 0.4, "ro": 0.3},
+	{"name": "Or", "r": 3, "p": 14, "c1": Color("e8b64a"), "m": 1.0, "ro": 0.25, "d": 0.15},
+	{"name": "Néon", "r": 2, "p": 17, "c1": Color("0b0f1a"), "c2": Color("1ee8ff"), "e": 2.5, "sp": 1.0, "s": 10.0},
+	{"name": "Arctique", "r": 0, "p": 5, "c1": Color("f2f5f8"), "c2": Color("c3cfdb"), "c3": Color("8798aa")},
+	{"name": "Digital", "r": 0, "p": 5, "c1": Color("6b7a52"), "c2": Color("8d966c"), "c3": Color("3a4030")},
+	{"name": "Bois", "r": 1, "p": 13, "c1": Color("8a5a32"), "c2": Color("5b3820"), "s": 6.0, "ro": 0.6},
+	{"name": "Tigre", "r": 1, "p": 3, "c1": Color("f08a24"), "c2": Color("16110d"), "s": 7.0},
+	{"name": "Carbone", "r": 2, "p": 7, "c1": Color("1a1c20"), "c2": Color("3c4048"), "s": 10.0, "d": 0.1},
+	{"name": "Lave", "r": 4, "p": 16, "c1": Color("2a1a14"), "c2": Color("ff6a10"), "e": 3.0, "sp": 1.0, "s": 7.0},
+	{"name": "Diamant", "r": 4, "p": 22, "c1": Color("dff6ff"), "c2": Color("9fd8f0"), "c3": Color("ffffff"), "m": 0.6, "e": 1.2, "s": 9.0, "d": 0.1},
+	{"name": "Damas", "r": 3, "p": 8, "c1": Color("c9ccd1"), "c2": Color("4a4e55"), "m": 0.9, "ro": 0.3, "s": 6.0, "d": 0.1},
+	{"name": "Damas doré", "r": 3, "p": 8, "c1": Color("f2c75c"), "c2": Color("7a5418"), "m": 1.0, "ro": 0.25, "s": 6.0, "d": 0.1},
+	{"name": "Obsidienne", "r": 3, "p": 22, "c1": Color("140f1c"), "c2": Color("2e1f40"), "c3": Color("8a5cff"), "m": 0.5, "e": 0.8, "s": 8.0, "d": 0.1},
+	{"name": "Matière noire", "r": 4, "p": 24, "c1": Color("07040d"), "c2": Color("3a0f6b"), "c3": Color("c056ff"), "e": 1.6, "sp": 0.6, "s": 5.0, "d": 0.05},
+	{"name": "Galaxie", "r": 4, "p": 15, "c1": Color("0a0b2a"), "c2": Color("5a2a9a"), "c3": Color("ff6ad5"), "e": 1.0, "sp": 0.5, "s": 4.0, "d": 0.05},
+	{"name": "Nébuleuse", "r": 4, "p": 15, "c1": Color("041a1c"), "c2": Color("0e7a6e"), "c3": Color("9dff6a"), "e": 1.0, "sp": 0.5, "s": 4.0, "d": 0.05},
+	{"name": "Marbre blanc", "r": 2, "p": 9, "c1": Color("eceae6"), "c2": Color("6f6f74"), "s": 5.0, "d": 0.1},
+	{"name": "Marbre noir", "r": 3, "p": 9, "c1": Color("17171a"), "c2": Color("e0b04a"), "s": 5.0, "m": 0.3, "d": 0.1},
+	{"name": "Écailles de dragon", "r": 2, "p": 10, "c1": Color("2c8a3e"), "c2": Color("0e2a14"), "s": 9.0, "m": 0.3, "ro": 0.35},
+	{"name": "Écailles de feu", "r": 3, "p": 10, "c1": Color("b0201a"), "c2": Color("ffb030"), "e": 1.2, "s": 9.0, "m": 0.4, "ro": 0.35},
+	{"name": "Hexagone", "r": 1, "p": 6, "c1": Color("23272e"), "c2": Color("4fb0a8"), "s": 9.0},
+	{"name": "Hexagone néon", "r": 2, "p": 6, "c1": Color("121418"), "c2": Color("ff8a1a"), "e": 2.5, "s": 9.0},
+	{"name": "Zèbre", "r": 1, "p": 11, "c1": Color("f2f2f2"), "c2": Color("121212"), "s": 9.0},
+	{"name": "Léopard", "r": 2, "p": 12, "c1": Color("d9a85b"), "c2": Color("1a120a"), "c3": Color("9a6a32"), "s": 8.0},
+	{"name": "Jaguar", "r": 2, "p": 12, "c1": Color("3a3430"), "c2": Color("0c0a09"), "c3": Color("5c4a3a"), "s": 8.0},
+	{"name": "Flammes", "r": 3, "p": 23, "c1": Color("141414"), "c2": Color("ffd23a"), "c3": Color("e0300e"), "e": 1.1, "sp": 1.0, "s": 7.0},
+	{"name": "Flammes bleues", "r": 4, "p": 23, "c1": Color("0e0f16"), "c2": Color("bff4ff"), "c3": Color("1a5cff"), "e": 1.2, "sp": 1.0, "s": 7.0},
+	{"name": "Circuit", "r": 2, "p": 18, "c1": Color("0f2a1a"), "c2": Color("3dff7a"), "e": 2.0, "s": 9.0},
+	{"name": "Circuit rouge", "r": 2, "p": 18, "c1": Color("1e0b0b"), "c2": Color("ff3a3a"), "e": 2.0, "s": 9.0},
+	{"name": "Holographique", "r": 3, "p": 21, "c1": Color("dadde8"), "m": 0.5, "e": 1.0, "s": 6.0, "d": 0.1},
+	{"name": "Chrome", "r": 2, "p": 14, "c1": Color("dfe3e8"), "m": 1.0, "ro": 0.12, "d": 0.15},
+	{"name": "Or rose", "r": 3, "p": 14, "c1": Color("e8a58c"), "m": 1.0, "ro": 0.22, "d": 0.15},
+	{"name": "Cuivre", "r": 2, "p": 14, "c1": Color("c4703a"), "m": 1.0, "ro": 0.3, "d": 0.2},
+	{"name": "Coucher de soleil", "r": 1, "p": 2, "c1": Color("ff8a2a"), "c2": Color("6a1f8a"), "ro": 0.3},
+	{"name": "Océan", "r": 1, "p": 2, "c1": Color("3ae0e8"), "c2": Color("0c2a7a"), "ro": 0.3},
+	{"name": "Toxique", "r": 2, "p": 2, "c1": Color("c8ff2a"), "c2": Color("0f5a1a"), "e": 0.4, "ro": 0.3},
+	{"name": "Éclaboussures", "r": 1, "p": 19, "c1": Color("1c1d22"), "c2": Color("ff3a8a"), "c3": Color("2ad0ff"), "s": 7.0},
+	{"name": "Bandes de course", "r": 0, "p": 20, "c1": Color("c41e1e"), "c2": Color("f5f5f5"), "ro": 0.25},
+	{"name": "Bandes bleues", "r": 0, "p": 20, "c1": Color("1e4fc4"), "c2": Color("f5f5f5"), "ro": 0.25},
+	{"name": "Camouflage océan", "r": 1, "p": 4, "c1": Color("4a7aa8"), "c2": Color("23466e"), "c3": Color("9cc2e0")},
+	{"name": "Camouflage rose", "r": 1, "p": 4, "c1": Color("f2a0c4"), "c2": Color("c45a8c"), "c3": Color("5a2440")},
+	{"name": "Kaki", "r": 0, "p": 1, "c1": Color("6b6a42"), "ro": 0.7},
+	{"name": "Blanc glacier", "r": 0, "p": 1, "c1": Color("eef3f7"), "ro": 0.25},
+	{"name": "Glace", "r": 3, "p": 22, "c1": Color("bfe8ff"), "c2": Color("6ab4e8"), "c3": Color("ffffff"), "m": 0.3, "e": 0.8, "s": 7.0, "d": 0.1},
+	{"name": "Lave bleue", "r": 4, "p": 16, "c1": Color("10141e"), "c2": Color("2aa8ff"), "e": 3.0, "sp": 1.0, "s": 7.0},
+	{"name": "Radioactif", "r": 4, "p": 16, "c1": Color("141a10"), "c2": Color("7aff2a"), "e": 3.0, "sp": 1.2, "s": 7.0},
+	{"name": "Ébène", "r": 1, "p": 13, "c1": Color("2a1c14"), "c2": Color("0e0907"), "s": 6.0, "ro": 0.35},
 ]
+
+
+# Éliminations à faire avec une arme pour débloquer ses skins, par rareté : [départ, pas].
+# Dans une rareté, chaque skin demande un palier de plus que le précédent.
+const SKIN_KILL_STEPS := [[0, 2], [25, 5], [90, 10], [225, 25], [500, 50]]
+static var _skin_kills := []
+
+## Nombre d'éliminations avec une arme pour débloquer le skin k.
+static func skin_kills(k: int) -> int:
+	if _skin_kills.is_empty():
+		var count := [0, 0, 0, 0, 0]
+		for cm in CAMOS:
+			var r := int(cm.get("r", 0))
+			_skin_kills.append(SKIN_KILL_STEPS[r][0] + SKIN_KILL_STEPS[r][1] * count[r])
+			count[r] += 1
+	return _skin_kills[clampi(k, 0, CAMOS.size() - 1)]
 
 
 ## Niveau du joueur à partir de son expérience : [niveau, XP dans le niveau, XP pour le suivant].

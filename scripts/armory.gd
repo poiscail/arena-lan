@@ -11,6 +11,8 @@ const UiTheme := preload("res://scripts/ui_theme.gd")
 var _list: ItemList
 var _equip: Button
 var _skin_opt: OptionButton
+var _progress: Label
+var _progress_bar: ProgressBar
 var _att_box: VBoxContainer
 var _stats: RichTextLabel
 var _preview_root: Node3D
@@ -104,11 +106,22 @@ func _ready() -> void:
 			_custom()["skin"] = i
 			_save())
 	side.add_child(_skin_opt)
+	_progress = Label.new()
+	_progress.add_theme_font_size_override("font_size", 13)
+	_progress.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
+	_progress.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	side.add_child(_progress)
+	_progress_bar = ProgressBar.new()
+	_progress_bar.show_percentage = false
+	_progress_bar.custom_minimum_size = Vector2(0, 8)
+	side.add_child(_progress_bar)
 	var all := Button.new()
-	all.text = "Mettre ce skin sur toutes les armes"
+	all.text = "Mettre ce skin sur toutes les armes qui l'ont"
 	all.pressed.connect(func() -> void:
 		var sk := int(_custom().get("skin", 0))
 		for wi in Data.WEAPONS.size():
+			if Net.kills_with(wi) < Data.skin_kills(sk):
+				continue  # pas encore débloqué pour cette arme
 			var key := str(wi)
 			if not (Net.armory.get(key) is Dictionary):
 				Net.armory[key] = {"skin": 0, "att": []}
@@ -164,19 +177,36 @@ func _select(i: int) -> void:
 	_wi = i
 	_updating = true
 	var c := _custom()
-	var level: int = Data.level_info(Net.xp)[0]
+	# Skins débloqués par les éliminations faites avec cette arme
+	var kills := Net.kills_with(_wi)
+	var skin := clampi(int(c.get("skin", 0)), 0, Data.CAMOS.size() - 1)
 	_skin_opt.clear()
+	var next := -1
 	for k in Data.CAMOS.size():
 		var cm: Dictionary = Data.CAMOS[k]
-		var locked: bool = level < int(cm["level"])
+		var need := Data.skin_kills(k)
+		var locked: bool = kills < need and k != skin  # le skin déjà équipé reste disponible
+		if kills < need and (next < 0 or need < Data.skin_kills(next)):
+			next = k
 		var rar: String = Data.RARITIES[int(cm.get("r", 0))]["name"]
-		_skin_opt.add_icon_item(_swatch(k), "%s  ·  %s%s" % [cm["name"], rar, ("   (niveau %d)" % cm["level"] if locked else "")])
+		_skin_opt.add_icon_item(_swatch(k), "%s  ·  %s%s" % [cm["name"], rar, ("   (%d / %d élim.)" % [kills, need] if kills < need else "")])
 		_skin_opt.set_item_disabled(k, locked)
-	var skin := clampi(int(c.get("skin", 0)), 0, Data.CAMOS.size() - 1)
-	if level < int(Data.CAMOS[skin]["level"]):
-		skin = 0
-		c["skin"] = 0
 	_skin_opt.select(skin)
+	var weapon_name: String = Data.WEAPONS[_wi].name
+	if next < 0:
+		_progress.text = "%d éliminations avec %s · tous les skins sont débloqués !" % [kills, weapon_name]
+		_progress_bar.min_value = 0
+		_progress_bar.max_value = 1
+		_progress_bar.value = 1
+	else:
+		var prev := 0
+		for k in Data.CAMOS.size():
+			if Data.skin_kills(k) <= kills:
+				prev = maxi(prev, Data.skin_kills(k))
+		_progress.text = "%d éliminations avec %s · prochain skin : %s à %d" % [kills, weapon_name, Data.CAMOS[next]["name"], Data.skin_kills(next)]
+		_progress_bar.max_value = Data.skin_kills(next)
+		_progress_bar.min_value = prev
+		_progress_bar.value = kills
 	for ch in _att_box.get_children():
 		ch.queue_free()
 	var allowed := Data.attachments_for(_wi)

@@ -1,6 +1,8 @@
 extends Node
 ## Autoload "Net" : hébergement / connexion LAN, salon et paramètres de partie.
 
+const Data := preload("res://scripts/data.gd")
+
 signal lobby_changed
 signal game_started
 signal game_ended
@@ -15,6 +17,7 @@ var player_class := 0
 var player_camo := 0
 var armory := {}  # str(n° arme) -> {"skin": int, "att": [ids]} (personnalisation des armes)
 var xp := 0  # expérience totale du joueur (sauvegardée)
+var weapon_kills := {}  # str(n° arme) -> éliminations avec cette arme (débloquent ses skins)
 var port := DEFAULT_PORT
 var players := {}  # peer_id -> {"name": String, "team": int}
 var settings := {
@@ -86,6 +89,7 @@ func load_options() -> void:
 	player_camo = cfg.get_value("player", "camo", player_camo)
 	xp = cfg.get_value("player", "xp", xp)
 	armory = cfg.get_value("player", "armory", {})
+	weapon_kills = cfg.get_value("player", "weapon_kills", {})
 	# Ancien camouflage unique (v2.0) : appliqué à toutes les armes
 	if armory.is_empty() and player_camo > 0:
 		for wi in 10:
@@ -106,7 +110,24 @@ func save_options() -> void:
 	cfg.set_value("player", "camo", player_camo)
 	cfg.set_value("player", "xp", xp)
 	cfg.set_value("player", "armory", armory)
+	cfg.set_value("player", "weapon_kills", weapon_kills)
 	cfg.save(CONFIG_PATH)
+
+
+## Éliminations du joueur avec une arme.
+func kills_with(wi: int) -> int:
+	return int(weapon_kills.get(str(wi), 0))
+
+
+## Compte une élimination avec une arme ; renvoie le skin débloqué à l'instant (ou -1).
+func add_weapon_kill(wi: int) -> int:
+	var n := kills_with(wi) + 1
+	weapon_kills[str(wi)] = n
+	save_options()
+	for k in Data.CAMOS.size():
+		if Data.skin_kills(k) == n:
+			return k
+	return -1
 
 
 func set_gfx(key: String, value) -> void:

@@ -672,6 +672,19 @@ func _apply_cmdline() -> void:
 			ws.append(int(s))
 		Net.armory["loadouts"] = {str(Net.player_class): ws}
 		_on_class_selected(Net.player_class)
+	if opts.has("wkills"):
+		# Test : éliminations déjà faites avec des armes (« 0:37,26:5 »)
+		for pair in String(opts["wkills"]).split(",", false):
+			var kv := pair.split(":")
+			Net.weapon_kills[kv[0]] = int(kv[1])
+	if opts.has("kill-bot"):
+		# Test : le joueur local élimine un bot ennemi avec son arme actuelle
+		get_tree().create_timer(float(opts["kill-bot"])).timeout.connect(func() -> void:
+			for id in game.chars:
+				var b = game.chars[id]
+				if b.is_bot and b.alive and game.is_enemy(game.local_char, b):
+					game._deal_damage(game.local_char, {id: 500.0}, game.local_char.weapon)
+					break)
 	if opts.has("slot"):
 		get_tree().create_timer(2.0).timeout.connect(func() -> void: game.local_char.switch_weapon(int(opts["slot"])))
 	if opts.has("loadout"):

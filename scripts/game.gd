@@ -811,6 +811,13 @@ func on_died(victim_id: String, killer_id: String, weapon: int) -> void:
 	var vhex: String = "#" + v.get_color().lightened(0.25).to_html(false)
 	hud.add_kill("[color=%s]%s[/color][color=#bbbbbb]   > %s >   [/color][color=%s]%s[/color]" % [
 		khex, Data.esc(kname), Data.esc(Data.kill_name(weapon)), vhex, Data.esc(v.display_name)])
+	# Défis d'armes : chaque élimination avec une arme rapproche du skin suivant de cette arme
+	if k != null and k == local_char and v != local_char and weapon >= 0 and weapon < Data.WEAPONS.size():
+		var unlocked: int = Net.add_weapon_kill(weapon)
+		if unlocked >= 0:
+			var cm: Dictionary = Data.CAMOS[unlocked]
+			hud.announce("SKIN DÉBLOQUÉ : %s (%s) · %s" % [String(cm["name"]).to_upper(), Data.RARITIES[int(cm.get("r", 0))]["name"], Data.WEAPONS[weapon].name])
+			sfx.play("select_001", null, -2.0, 0.0)
 	if v == local_char:
 		hud.show_death(kname)
 		get_tree().create_timer(1.3).timeout.connect(func() -> void:
@@ -901,9 +908,6 @@ func _award_xp() -> void:
 	xp_text = "+%d XP%s   ·   niveau %d  (%d / %d)" % [gain, "  (victoire +50)" if won else "", after[0], after[1], after[2]]
 	if after[0] > before:
 		xp_text += "   ·   NIVEAU SUPÉRIEUR !"
-		for cm in Data.CAMOS:
-			if int(cm["level"]) > before and int(cm["level"]) <= after[0]:
-				xp_text += "  Camouflage « %s » débloqué" % cm["name"]
 
 
 
