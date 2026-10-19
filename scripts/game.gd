@@ -33,6 +33,11 @@ var _tracer_mat: StandardMaterial3D
 var _impact_mat: StandardMaterial3D
 var _sounds := []
 var _no_exclude: Array[RID] = []
+var _health := []  # trousses de soin : {"node", "pos", "active", "timer"}
+var _anim_t := 0.0
+
+const HEAL_AMOUNT := 50
+const HEAL_RESPAWN := 20.0
 
 
 func _ready() -> void:
@@ -44,6 +49,7 @@ func _ready() -> void:
 	_chars_root.name = "Characters"
 	add_child(_chars_root)
 	_make_effects()
+	_spawn_health_packs()
 	hud = HudScript.new()
 	hud.game = self
 	add_child(hud)
@@ -58,10 +64,15 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if not match_over:
 		time_left = maxf(0.0, time_left - delta)
+	_anim_t += delta
+	for h in _health:
+		h["node"].rotation.y = _anim_t * 1.5
+		h["node"].position.y = 0.35 + sin(_anim_t * 2.5) * 0.12
 
 
 func _physics_process(delta: float) -> void:
 	if multiplayer.is_server() and not match_over:
+		_update_health_packs(delta)
 		_time_sync_t += delta
 		if _time_sync_t >= 1.0:
 			_time_sync_t = 0.0
@@ -198,7 +209,7 @@ func _server_shoot(shooter_id: String, weapon: int, origin: Vector3, dirs: Packe
 
 func _apply_damage(t, s, dmg: int, weapon: int) -> bool:
 	t.hp = maxi(0, t.hp - dmg)
-	_broadcast("on_health", [t.char_id, t.hp])
+	_broadcast("on_health", [t.char_id, t.hp, true])
 	if t.bot != null:
 		t.bot.alert(s)
 	if t.hp > 0:
@@ -377,6 +388,8 @@ func client_ready() -> void:
 		var c = chars[id]
 		spawn_char.rpc_id(peer, id, c.display_name, c.team, c.is_bot, c.owner_peer, c.position, c.alive, c.hp)
 	sync_scores.rpc_id(peer, scores, time_left)
+	for i in _health.size():
+		pickup_state.rpc_id(peer, i, _health[i]["active"])
 	if match_over:
 		on_match_end.rpc_id(peer, end_text)
 	if not chars.has(_pid(peer)):
@@ -443,13 +456,23 @@ func snapshot(data: Array) -> void:
 
 
 @rpc("authority", "call_remote", "reliable")
-func on_health(id: String, hp: int) -> void:
+func on_health(id: String, hp: int, hurt: bool) -> void:
 	var c = chars.get(id)
 	if c == null:
 		return
 	c.hp = hp
 	if c == local_char:
-		hud.damage_flash()
+		if hurt:
+			hud.damage_flash()
+		else:
+			hud.heal_flash()
+
+
+@rpc("authority", "call_remote", "reliable")
+func pickup_state(index: int, active: bool) -> void:
+	if index >= 0 and index < _health.size():
+		_health[index]["active"] = active
+		_health[index]["node"].visible = active
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -514,6 +537,44 @@ func on_match_end(text: String) -> void:
 
 
 # --- Effets -------------------------------------------------------------------------
+
+func _spawn_health_packs() -> void:
+	for p in map.HEALTH_POINTS:
+		var node: Node3D = load(map.ENV_PATH % "Health").instantiate()
+		node.position = p
+		node.scale = Vector3.ONE * 0.8
+		add_child(node)
+		var glow := OmniLight3D.new()
+		glow.light_color = Color(0.4, 1.0, 0.5)
+		glow.light_energy = 0.8
+		glow.omni_range = 2.5
+		glow.position.y = 0.5
+		node.add_child(glow)
+		_health.append({"node": node, "pos": p, "active": true, "timer": 0.0})
+
+
+## (Serveur) Soigne qui touche une trousse, puis la fait réapparaître après un délai.
+func _update_health_packs(delta: float) -> void:
+	for i in _health.size():
+		var h: Dictionary = _health[i]
+		if not h["active"]:
+			h["timer"] -= delta
+			if h["timer"] <= 0.0:
+				_broadcast("pickup_state", [i, true])
+			continue
+		for id in chars:
+			var c = chars[id]
+			if not c.alive or c.hp >= 100:
+				continue
+			var d: Vector3 = c.position - h["pos"]
+			if Vector2(d.x, d.z).length() < 1.3 and absf(d.y) < 1.5:
+				c.hp = mini(100, c.hp + HEAL_AMOUNT)
+				print("[soin] %s -> %d PV" % [c.display_name, c.hp])
+				_broadcast("on_health", [c.char_id, c.hp, false])
+				h["timer"] = HEAL_RESPAWN
+				_broadcast("pickup_state", [i, false])
+				break
+
 
 func _make_effects() -> void:
 	_tracer_mat = StandardMaterial3D.new()

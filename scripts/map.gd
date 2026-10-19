@@ -1,31 +1,62 @@
 extends RefCounted
-## Construit l'arène (sol, murs, obstacles, lumière) et fournit
-## les points d'apparition ainsi que le graphe de navigation des bots.
+## Construit l'arène (sol, enceinte, décor Quaternius, lumière) et fournit
+## les points d'apparition, les trousses de soin et le graphe de navigation des bots.
+
+const Models := preload("res://scripts/models.gd")
 
 const HALF := 30.0
 const WALL_HEIGHT := 6.0
 const NAV_STEP := 2.5
 const NAV_RADIUS := 0.9
+const ENV_PATH := "res://assets/env/%s.gltf"
 
-# Obstacles : [x, z, largeur, hauteur, profondeur]
-const LAYOUT := [
-	# Tour centrale
-	[0, 0, 6, 3.5, 6],
-	# Murs autour du centre
-	[-11, 0, 1.5, 3, 9], [11, 0, 1.5, 3, 9],
-	[0, -11, 9, 3, 1.5], [0, 11, 9, 3, 1.5],
-	# Caisses basses (on peut sauter dessus)
-	[-6, -6, 2, 1, 2], [6, 6, 2, 1, 2], [-6, 6, 2, 1, 2], [6, -6, 2, 1, 2],
-	# Blocs des coins
-	[-19, -19, 5, 2.5, 5], [19, 19, 5, 2.5, 5], [-19, 19, 5, 2.5, 5], [19, -19, 5, 2.5, 5],
-	# Piliers
-	[-22, 0, 2, 4, 2], [22, 0, 2, 4, 2],
-	[-6, -20, 2, 4, 2], [6, 20, 2, 4, 2], [6, -20, 2, 4, 2], [-6, 20, 2, 4, 2],
-	# Murets
-	[-16, -8, 4, 1.2, 1], [16, 8, 4, 1.2, 1], [-16, 8, 4, 1.2, 1], [16, -8, 4, 1.2, 1],
-	# Caisses près des bases
-	[-12, 22, 2, 1, 2], [12, 22, 2, 1, 2], [-12, -22, 2, 1, 2], [12, -22, 2, 1, 2],
+# Décor avec collision : [modèle, x, z, rotation (0/90/180/270), échelle]
+const PROPS := [
+	# Centre
+	["Tank", 0, 0, 0, 1.3],
+	# Conteneurs autour du centre
+	["Container_Long", -11, 0, 90, 1.2], ["Container_Long", 11, 0, 90, 1.2],
+	["Container_Long", 0, -11, 0, 1.2], ["Container_Long", 0, 11, 0, 1.2],
+	# Sacs de sable bas (on peut sauter dessus)
+	["SackTrench_Small", -6, -6, 0, 1.0], ["SackTrench_Small", 6, 6, 180, 1.0],
+	["SackTrench_Small", -6, 6, 90, 1.0], ["SackTrench_Small", 6, -6, 270, 1.0],
+	# Coins
+	["Debris_BrokenCar", -19, -19, 0, 1.0], ["Debris_BrokenCar", 19, 19, 180, 1.0],
+	["Container_Small", -19, 19, 90, 1.4], ["Container_Small", 19, -19, 90, 1.4],
+	# Châteaux d'eau sur les côtés
+	["WaterTank_Platform", -22, 0, 0, 1.0], ["WaterTank_Platform", 22, 0, 180, 1.0],
+	# Bennes près des bases
+	["TrashContainer", -6, -20, 0, 1.0], ["TrashContainer", 6, 20, 180, 1.0],
+	["TrashContainer", 6, -20, 0, 1.0], ["TrashContainer", -6, 20, 180, 1.0],
+	# Murets de sacs de sable
+	["SackTrench", -16, -8, 0, 1.0], ["SackTrench", 16, 8, 180, 1.0],
+	["SackTrench", -16, 8, 180, 1.0], ["SackTrench", 16, -8, 0, 1.0],
+	# Caisses et barricades près des bases
+	["Crate", -12, 22, 0, 1.3], ["Crate", 12, 22, 90, 1.3], ["Crate", -12, -22, 0, 1.3], ["Crate", 12, -22, 90, 1.3],
+	["Barrier_Single", -4, 24, 0, 1.0], ["Barrier_Single", 4, -24, 0, 1.0],
+	["Barrier_Single", 4, 24, 0, 1.0], ["Barrier_Single", -4, -24, 0, 1.0],
+	["ExplodingBarrel", -24, 14, 0, 1.0], ["ExplodingBarrel", 24, -14, 0, 1.0],
+	["GasTank", -25, -14, 0, 1.0], ["GasTank", 25, 14, 0, 1.0],
 ]
+
+# Décor sans collision (au sol ou hors de l'arène) : [modèle, x, z, rotation, échelle]
+const DECOR := [
+	["Debris_Papers_1", -3, 8, 0, 1.0], ["Debris_Papers_2", 4, -8, 40, 1.0], ["Debris_Papers_3", 14, 3, 0, 1.0],
+	["Debris_Pile", -14, -3, 30, 1.0], ["Debris_Pile", 15, -2, 200, 1.0],
+	["Pallet", -21, -24, 15, 1.0], ["Pallet_Broken", 21, 24, 70, 1.0], ["WoodPlanks", -9, -14, 30, 1.0],
+	["TrafficCone", -2, 16, 0, 1.0], ["TrafficCone", 2, -16, 0, 1.0], ["TrafficCone", 9, 15, 0, 1.0],
+	["StreetLight", -29.3, -12, 90, 1.0], ["StreetLight", -29.3, 12, 90, 1.0],
+	["StreetLight", 29.3, -12, 270, 1.0], ["StreetLight", 29.3, 12, 270, 1.0],
+	# Hors de l'arène
+	["Structure_2", 0, -42, 0, 1.0], ["Structure_4", 0, 42, 180, 1.0],
+	["Structure_1", -42, -14, 90, 1.0], ["Structure_3", -42, 14, 90, 1.0],
+	["Structure_3", 42, -14, 270, 1.0], ["Structure_1", 42, 14, 270, 1.0],
+	["Tree_1", -36, -34, 0, 1.2], ["Tree_2", 36, 34, 0, 1.3], ["Tree_3", -36, 34, 90, 1.2], ["Tree_4", 36, -34, 0, 1.3],
+	["Tree_2", -20, -36, 0, 1.2], ["Tree_1", 20, 36, 0, 1.1], ["Tree_4", -20, 36, 0, 1.2], ["Tree_3", 20, -36, 0, 1.1],
+	["Tree_1", -36, 0, 0, 1.0], ["Tree_2", 36, 0, 0, 1.0],
+]
+
+const HEALTH_POINTS := [Vector3(-8, 0, 0), Vector3(8, 0, 0), Vector3(0, 0, -7), Vector3(0, 0, 7)]
 
 var team_spawns := [[], []]
 var ffa_spawns := []
@@ -40,29 +71,32 @@ func build(root: Node3D, with_nav: bool) -> void:
 	_build_environment(root)
 	_checker = _make_checker()
 
-	var size := HALF * 2.0 + 2.0
-	_box(root, Vector3(0, -0.5, 0), Vector3(size, 1, size), Color(0.5, 0.52, 0.56), false)
-	var h := WALL_HEIGHT
-	var wall := Color(0.32, 0.34, 0.4)
-	_box(root, Vector3(0, h / 2.0, -HALF - 0.5), Vector3(size, h, 1), wall, false)
-	_box(root, Vector3(0, h / 2.0, HALF + 0.5), Vector3(size, h, 1), wall, false)
-	_box(root, Vector3(-HALF - 0.5, h / 2.0, 0), Vector3(1, h, size), wall, false)
-	_box(root, Vector3(HALF + 0.5, h / 2.0, 0), Vector3(1, h, size), wall, false)
-
-	# Zones de base colorées (repères visuels)
+	# Sol : asphalte dans l'arène, terre autour
+	_box(root, Vector3(0, -0.52, 0), Vector3(140, 1, 140), Color(0.42, 0.4, 0.33), false, true)
+	_box(root, Vector3(0, -0.5, 0), Vector3(HALF * 2 + 1, 1, HALF * 2 + 1), Color(0.4, 0.41, 0.44), false, true)
 	_patch(root, Vector3(0, 0.01, 26.5), Vector3(36, 0.02, 7), Color(0.25, 0.4, 0.85))
 	_patch(root, Vector3(0, 0.01, -26.5), Vector3(36, 0.02, 7), Color(0.85, 0.3, 0.25))
 
-	for b in LAYOUT:
-		var bsize := Vector3(b[2], b[3], b[4])
-		var col: Color
-		if bsize.y <= 1.2:
-			col = Color(0.78, 0.55, 0.28)
-		elif bsize.y < 3.5:
-			col = Color(0.55, 0.6, 0.68)
-		else:
-			col = Color(0.42, 0.45, 0.52)
-		_box(root, Vector3(b[0], bsize.y / 2.0, b[1]), bsize, col, true)
+	# Enceinte : murs invisibles + grillages
+	var size := HALF * 2.0 + 2.0
+	var h := WALL_HEIGHT
+	_box(root, Vector3(0, h / 2.0, -HALF - 0.5), Vector3(size, h, 1), Color.WHITE, false, false)
+	_box(root, Vector3(0, h / 2.0, HALF + 0.5), Vector3(size, h, 1), Color.WHITE, false, false)
+	_box(root, Vector3(-HALF - 0.5, h / 2.0, 0), Vector3(1, h, size), Color.WHITE, false, false)
+	_box(root, Vector3(HALF + 0.5, h / 2.0, 0), Vector3(1, h, size), Color.WHITE, false, false)
+	var fence_w := 3.55
+	var count := int(ceil(HALF * 2.0 / fence_w))
+	for i in count:
+		var t := -HALF + fence_w / 2.0 + i * fence_w
+		_prop(root, "MetalFence", t, -HALF, 0, 1.0, false)
+		_prop(root, "MetalFence", t, HALF, 180, 1.0, false)
+		_prop(root, "MetalFence", -HALF, t, 90, 1.0, false)
+		_prop(root, "MetalFence", HALF, t, 270, 1.0, false)
+
+	for p in PROPS:
+		_prop(root, p[0], p[1], p[2], p[3], p[4], true)
+	for d in DECOR:
+		_prop(root, d[0], d[1], d[2], d[3], d[4], false)
 
 	for x in [-15, -9, -3, 3, 9, 15]:
 		team_spawns[0].append(Vector3(x, 0.1, 27))
@@ -131,6 +165,37 @@ func _build_nav() -> void:
 
 # --- Géométrie --------------------------------------------------------------------
 
+## Place un élément du kit ; avec collision, ajoute une boîte qui l'englobe (et un obstacle pour les bots).
+func _prop(root: Node3D, model: String, x: float, z: float, rot_deg: float, scale: float, collide: bool) -> void:
+	var inst: Node3D = load(ENV_PATH % model).instantiate()
+	inst.position = Vector3(x, 0, z)
+	inst.rotation.y = deg_to_rad(rot_deg)
+	inst.scale = Vector3.ONE * scale
+	root.add_child(inst)
+	if not collide:
+		return
+	var box := Models._local_aabb(inst)
+	var center := box.get_center() * scale
+	var size := box.size * scale
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	body.position = inst.position
+	body.rotation.y = inst.rotation.y
+	var shape := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = size
+	shape.shape = bs
+	shape.position = center
+	body.add_child(shape)
+	root.add_child(body)
+	var c2 := Vector2(center.x, center.z).rotated(-inst.rotation.y)
+	var half := Vector2(size.x, size.z) / 2.0
+	if int(round(rot_deg)) % 180 != 0:
+		half = Vector2(half.y, half.x)
+	_obstacles.append([Vector2(x, z) + c2, half])
+
+
 func _build_environment(root: Node3D) -> void:
 	var sky_mat := ProceduralSkyMaterial.new()
 	sky_mat.sky_top_color = Color(0.22, 0.42, 0.78)
@@ -146,14 +211,19 @@ func _build_environment(root: Node3D) -> void:
 	env.ambient_light_color = Color(0.55, 0.57, 0.62)
 	env.ambient_light_energy = 0.55
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.fog_enabled = true
+	env.fog_light_color = Color(0.68, 0.76, 0.88)
+	env.fog_density = 0.0035
+	env.fog_sky_affect = 0.15
 	var we := WorldEnvironment.new()
 	we.environment = env
 	root.add_child(we)
 
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-55, 35, 0)
-	sun.light_energy = 0.7
+	sun.light_energy = 0.8
 	sun.shadow_enabled = true
+	sun.directional_shadow_max_distance = 80.0
 	root.add_child(sun)
 
 
@@ -161,9 +231,9 @@ func _make_checker() -> ImageTexture:
 	var img := Image.create_empty(64, 64, false, Image.FORMAT_RGB8)
 	for y in 64:
 		for x in 64:
-			var v := 1.0 if ((x >> 5) + (y >> 5)) % 2 == 0 else 0.86
+			var v := 1.0 if ((x >> 5) + (y >> 5)) % 2 == 0 else 0.93
 			if x % 32 == 0 or y % 32 == 0:
-				v = 0.7
+				v = 0.8
 			img.set_pixel(x, y, Color(v, v, v))
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
@@ -176,11 +246,11 @@ func _material(color: Color) -> StandardMaterial3D:
 	mat.uv1_triplanar = true
 	mat.uv1_world_triplanar = true
 	mat.uv1_scale = Vector3(0.25, 0.25, 0.25)
-	mat.roughness = 0.9
+	mat.roughness = 0.95
 	return mat
 
 
-func _box(root: Node3D, center: Vector3, size: Vector3, color: Color, obstacle: bool) -> void:
+func _box(root: Node3D, center: Vector3, size: Vector3, color: Color, obstacle: bool, visible: bool) -> void:
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	body.collision_mask = 0
@@ -189,12 +259,13 @@ func _box(root: Node3D, center: Vector3, size: Vector3, color: Color, obstacle: 
 	box.size = size
 	shape.shape = box
 	body.add_child(shape)
-	var mesh := MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	bm.size = size
-	mesh.mesh = bm
-	mesh.material_override = _material(color)
-	body.add_child(mesh)
+	if visible:
+		var mesh := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = size
+		mesh.mesh = bm
+		mesh.material_override = _material(color)
+		body.add_child(mesh)
 	body.position = center
 	root.add_child(body)
 	if obstacle:
@@ -206,6 +277,9 @@ func _patch(root: Node3D, center: Vector3, size: Vector3, color: Color) -> void:
 	var bm := BoxMesh.new()
 	bm.size = size
 	mesh.mesh = bm
-	mesh.material_override = _material(color)
+	var mat := _material(color)
+	mat.albedo_color.a = 0.55
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mesh.material_override = mat
 	mesh.position = center
 	root.add_child(mesh)

@@ -36,6 +36,8 @@ var _bottom: Control
 var _hit_t := 0.0
 var _hit_color := Color.WHITE
 var _damage_a := 0.0
+var _heal_t := 0.0
+var _heal_label: Label
 var _death_t := 0.0
 var _death_by := ""
 
@@ -105,6 +107,14 @@ func _ready() -> void:
 	root.add_child(_board)
 	_board_text = _rich(19)
 	_board.add_child(_board_text)
+
+	_heal_label = _label(30, UiTheme.font_title())
+	_heal_label.text = "+50 PV"
+	_heal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_heal_label.add_theme_color_override("font_color", Color(0.4, 1.0, 0.55))
+	_place(_heal_label, 0, 0.5, 1, 0.5, 0, -90, 0, -50)
+	_heal_label.visible = false
+	root.add_child(_heal_label)
 
 	_build_pause(root)
 	refresh_scores()
@@ -284,6 +294,10 @@ func damage_flash() -> void:
 	_damage_a = 0.9
 
 
+func heal_flash() -> void:
+	_heal_t = 1.2
+
+
 func show_death(killer: String) -> void:
 	_death_t = Data.RESPAWN_TIME
 	_death_by = killer
@@ -369,6 +383,11 @@ func _process(delta: float) -> void:
 	_center_box.visible = _center.text != ""
 
 	_hit_t = maxf(0.0, _hit_t - delta)
+	_heal_t = maxf(0.0, _heal_t - delta)
+	_heal_label.visible = _heal_t > 0.0
+	_heal_label.modulate.a = minf(1.0, _heal_t * 2.0)
+	_heal_label.offset_top = -90.0 - (1.2 - _heal_t) * 30.0
+	_heal_label.offset_bottom = _heal_label.offset_top + 40.0
 	_damage_a = move_toward(_damage_a, 0.0, delta * 1.6)
 	var low := 0.0
 	if c != null and c.alive and c.hp <= 30:

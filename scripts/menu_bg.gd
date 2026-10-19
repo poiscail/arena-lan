@@ -6,12 +6,12 @@ const Models := preload("res://scripts/models.gd")
 
 # [position, modèle, animation, arme ("" = aucune)]
 const CAST := [
-	[Vector3(-1.6, 3.5, 1.0), "Character_Soldier", "Idle_Shoot", "AK"],
-	[Vector3(1.4, 3.5, -1.0), "Character_Enemy", "Idle_Shoot", "Sniper"],
-	[Vector3(-7.0, 0, 9.0), "Character_Hazmat", "Idle_Shoot", "Shotgun"],
-	[Vector3(5.5, 0, 8.0), "Character_Soldier", "Wave", ""],
+	[Vector3(-3.2, 0, 2.6), "Character_Soldier", "Idle_Shoot", "AK"],
+	[Vector3(3.0, 0, -3.0), "Character_Enemy", "Idle_Shoot", "Sniper"],
+	[Vector3(-7.0, 0, 8.0), "Character_Hazmat", "Idle_Shoot", "Shotgun"],
+	[Vector3(4.0, 0, 7.5), "Character_Soldier", "Wave", ""],
 	[Vector3(8.0, 0, -7.5), "Character_Enemy", "Idle", "SMG"],
-	[Vector3(-9.0, 0, -6.0), "Character_Hazmat", "Yes", ""],
+	[Vector3(-9.0, 0, -4.0), "Character_Hazmat", "Yes", ""],
 ]
 
 var _cam: Camera3D
