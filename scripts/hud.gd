@@ -34,6 +34,13 @@ var _vignette: TextureRect
 var _pause: PanelContainer
 var _options: Control
 var _fps: Label
+var _armor_bar: ProgressBar
+var _grenade_label: Label
+var _buffs: Label
+var _announce: Label
+var _announce_t := 0.0
+var _radar: Control
+var radar_t := 0.0
 var _bottom: Control
 
 var _hit_t := 0.0
@@ -123,6 +130,29 @@ func _ready() -> void:
 	_place(_fps, 0, 0, 0, 0, 12, 8, 140, 30)
 	root.add_child(_fps)
 
+	# Bonus actifs (au-dessus de la santé)
+	_buffs = _label(17, UiTheme.font_bold())
+	_buffs.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+	_place(_buffs, 0, 1, 0, 1, 26, -170, 600, -140)
+	root.add_child(_buffs)
+
+	# Annonces (séries d'éliminations)
+	_announce = _label(34, UiTheme.font_title())
+	_announce.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_announce.add_theme_color_override("font_color", Color(1.0, 0.8, 0.3))
+	_announce.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	_announce.add_theme_constant_override("outline_size", 8)
+	_place(_announce, 0, 0.24, 1, 0.24, 0, -24, 0, 24)
+	_announce.visible = false
+	root.add_child(_announce)
+
+	# Radar : ennemis marqués à travers les murs
+	_radar = Control.new()
+	_place(_radar, 0, 0, 1, 1)
+	_radar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_radar.draw.connect(_draw_radar)
+	root.add_child(_radar)
+
 	_build_pause(root)
 	_options = OptionsScript.new()
 	_options.visible = false
@@ -132,7 +162,7 @@ func _ready() -> void:
 
 func _build_bottom(root: Control) -> void:
 	_bottom = Control.new()
-	_place(_bottom, 0, 1, 1, 1, 24, -112, -24, -20)
+	_place(_bottom, 0, 1, 1, 1, 24, -136, -24, -20)
 	root.add_child(_bottom)
 
 	# Santé (bas gauche)
@@ -164,6 +194,15 @@ func _build_bottom(root: Control) -> void:
 	_hp_bar.add_theme_stylebox_override("background", bar_bg)
 	_hp_bar.add_theme_stylebox_override("fill", _hp_fill)
 	hp_v.add_child(_hp_bar)
+	_armor_bar = ProgressBar.new()
+	_armor_bar.show_percentage = false
+	_armor_bar.custom_minimum_size = Vector2(0, 6)
+	_armor_bar.max_value = 100
+	var armor_fill := StyleBoxFlat.new()
+	armor_fill.bg_color = Color(0.35, 0.65, 1.0)
+	_armor_bar.add_theme_stylebox_override("background", bar_bg)
+	_armor_bar.add_theme_stylebox_override("fill", armor_fill)
+	hp_v.add_child(_armor_bar)
 
 	# Arme et munitions (bas droite)
 	var ammo_box := PanelContainer.new()
@@ -199,6 +238,10 @@ func _build_bottom(root: Control) -> void:
 		s.text = "%d  %s" % [i + 1, String(Data.WEAPONS[i].name).to_upper()]
 		slots_row.add_child(s)
 		_slots.append(s)
+
+	_grenade_label = _label(15, UiTheme.font_bold())
+	_grenade_label.add_theme_color_override("font_color", Color(0.75, 0.95, 0.6))
+	_hp_bar.get_parent().add_child(_grenade_label)
 
 
 func _build_top(root: Control) -> void:
@@ -316,6 +359,36 @@ func heal_flash() -> void:
 	_heal_t = 1.2
 
 
+func pickup_flash(text: String, color: Color) -> void:
+	_heal_label.text = text
+	_heal_label.add_theme_color_override("font_color", color)
+	_heal_t = 1.2
+
+
+func announce(text: String) -> void:
+	_announce.text = text
+	_announce_t = 3.0
+
+
+func _draw_radar() -> void:
+	var c = game.local_char
+	if radar_t <= 0.0 or c == null or c.camera == null:
+		return
+	var cam: Camera3D = c.camera
+	for id in game.chars:
+		var o = game.chars[id]
+		if not o.alive or not game.is_enemy(c, o):
+			continue
+		var p: Vector3 = o.global_position + Vector3(0, 1.2, 0)
+		if cam.is_position_behind(p):
+			continue
+		var s := cam.unproject_position(p)
+		var d := 9.0
+		var pts := PackedVector2Array([s + Vector2(0, -d), s + Vector2(d, 0), s + Vector2(0, d), s + Vector2(-d, 0)])
+		_radar.draw_colored_polygon(pts, Color(1, 0.2, 0.15, 0.85))
+		_radar.draw_string(UiTheme.font_bold(), s + Vector2(-14, -14), "%d m" % int(c.position.distance_to(o.position)), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 0.5, 0.45))
+
+
 func show_death(killer: String) -> void:
 	_death_t = Data.RESPAWN_TIME
 	_death_by = killer
@@ -373,6 +446,18 @@ func _process(delta: float) -> void:
 	if c != null:
 		_hp_value.text = str(c.hp)
 		_hp_bar.value = c.hp
+		_armor_bar.value = c.armor
+		_armor_bar.visible = c.armor > 0
+		_grenade_label.text = "GRENADES (G) %d    FUMIGÈNES (H) %d" % [c.grenades[0], c.grenades[1]]
+		var b := []
+		if c.speed_t > 0.0:
+			b.append("ADRÉNALINE %d s" % int(ceil(c.speed_t)))
+		if c.damage_t > 0.0:
+			b.append("DÉGÂTS x2 %d s" % int(ceil(c.damage_t)))
+		if radar_t > 0.0:
+			b.append("RADAR %d s" % int(ceil(radar_t)))
+		_buffs.text = "   ·   ".join(b)
+		_buffs.visible = c.alive
 		var hp_col := Color(0.35, 0.9, 0.5) if c.hp > 60 else (Color(1, 0.75, 0.25) if c.hp > 30 else Color(1, 0.3, 0.25))
 		_hp_fill.bg_color = hp_col
 		_hp_value.add_theme_color_override("font_color", hp_col if c.hp <= 30 else Color.WHITE)
@@ -416,6 +501,11 @@ func _process(delta: float) -> void:
 		low = 0.35 + 0.15 * sin(Time.get_ticks_msec() / 200.0)
 	_vignette.modulate.a = maxf(_damage_a, low)
 	_crosshair.queue_redraw()
+	radar_t = maxf(0.0, radar_t - delta)
+	_radar.queue_redraw()
+	_announce_t = maxf(0.0, _announce_t - delta)
+	_announce.visible = _announce_t > 0.0
+	_announce.modulate.a = minf(1.0, _announce_t * 1.5)
 	if _scope.visible:
 		_scope.queue_redraw()
 	for e in _feed.get_children():

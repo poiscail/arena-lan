@@ -47,3 +47,38 @@ static func esc(text: String) -> String:
 
 # Cartes disponibles (index utilisé dans les paramètres de partie)
 const MAPS := ["Base militaire", "Ville"]
+
+# Autres causes d'élimination (en plus des armes)
+const KILL_GRENADE := 100
+const KILL_KNIFE := 101
+const KILL_BARREL := 102
+const KILL_AIRSTRIKE := 103
+const KILL_NAMES := {100: "Grenade", 101: "Couteau", 102: "Baril", 103: "Frappe aérienne"}
+
+# Grenades : [explosives, fumigènes] au début de chaque vie
+const GRENADES_START := [2, 1]
+const GRENADE := {"damage": 100, "splash": 5.0}
+const BARREL := {"damage": 110, "splash": 5.5}
+const AIRSTRIKE := {"damage": 75, "splash": 4.0}
+const KNIFE_DAMAGE := 55
+const KNIFE_RANGE := 2.2
+
+# Bonus ramassables : [nom affiché, couleur, délai de réapparition (s)]
+const PICKUPS := {
+	"health": ["+50 PV", Color(0.35, 1.0, 0.5), 20.0],
+	"armor": ["+50 ARMURE", Color(0.35, 0.65, 1.0), 30.0],
+	"ammo": ["MUNITIONS", Color(1.0, 0.8, 0.3), 15.0],
+	"damage": ["DÉGÂTS x2", Color(1.0, 0.3, 0.9), 45.0],
+}
+const DAMAGE_BOOST_TIME := 15.0
+
+# Séries d'éliminations sans mourir
+const STREAKS := {3: "ADRÉNALINE", 5: "RADAR", 7: "FRAPPE AÉRIENNE"}
+const ADRENALINE_TIME := 20.0
+const RADAR_TIME := 12.0
+
+
+static func kill_name(i: int) -> String:
+	if KILL_NAMES.has(i):
+		return KILL_NAMES[i]
+	return String(WEAPONS[clampi(i, 0, WEAPONS.size() - 1)].name)

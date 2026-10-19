@@ -35,6 +35,13 @@ var next_class := -1  # classe demandée pour la prochaine réapparition (serveu
 var loadout: Array = [0, 1, 2]
 var slot := 0
 var hp := 100
+var armor := 0
+var grenades := [2, 1]  # explosives, fumigènes
+var speed_t := 0.0   # adrénaline (série de 3)
+var damage_t := 0.0  # bonus dégâts x2
+var _melee_cd := 0.0
+var _knife: Node3D
+var _swing := 0.0
 var alive := true
 var bot = null
 
@@ -220,6 +227,10 @@ func respawn(pos: Vector3, cls := -1) -> void:
 	_prev_pos = pos
 	velocity = Vector3.ZERO
 	hp = 100
+	armor = 0
+	grenades = Data.GRENADES_START.duplicate()
+	speed_t = 0.0
+	damage_t = 0.0
 	_net_ignore_until = Time.get_ticks_msec() + 300
 	face_center()
 	_net_yaw = rotation.y
@@ -238,6 +249,9 @@ func respawn(pos: Vector3, cls := -1) -> void:
 # --- Boucle ------------------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
+	speed_t = maxf(0.0, speed_t - delta)
+	damage_t = maxf(0.0, damage_t - delta)
+	_melee_cd -= delta
 	if is_local:
 		if alive:
 			_local_control(delta)
@@ -306,6 +320,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		switch_weapon(2)
 	elif event.is_action_pressed("reload"):
 		start_reload()
+	elif event.is_action_pressed("grenade"):
+		throw_grenade(0)
+	elif event.is_action_pressed("smoke"):
+		throw_grenade(1)
+	elif event.is_action_pressed("melee"):
+		melee()
 	elif event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			switch_weapon((slot + 2) % 3)
@@ -364,6 +384,8 @@ func _move(delta: float, dir: Vector3, want_jump: bool, want_sprint: bool) -> vo
 	else:
 		velocity.y -= GRAVITY * delta
 	var speed := (SPRINT_SPEED if want_sprint else WALK_SPEED) * float(Data.CLASSES[class_id].speed)
+	if speed_t > 0.0:
+		speed *= 1.3
 	var accel := (60.0 if is_on_floor() else 15.0) * delta
 	velocity.x = move_toward(velocity.x, dir.x * speed, accel)
 	velocity.z = move_toward(velocity.z, dir.z * speed, accel)
@@ -437,12 +459,13 @@ func _weapons(delta: float, captured: bool) -> void:
 	var reload_drop := Vector3(0, -0.12, 0.05) if reloading > 0.0 else Vector3.ZERO
 	_viewmodel.position = _viewmodel.position.lerp(VIEWMODEL_POS + bob + reload_drop + Vector3(0, 0, _kick), minf(1.0, delta * 20.0))
 	_viewmodel.rotation.x = lerpf(_viewmodel.rotation.x, _kick * 2.0 + (-0.5 if reloading > 0.0 else 0.0), minf(1.0, delta * 15.0))
+	_update_swing(delta)
 
 	var trigger := captured and Input.is_action_pressed("shoot")
 	if not trigger:
 		_trigger_released = true
 		return
-	if _fire_cd > 0.0 or reloading > 0.0 or (not w.auto and not _trigger_released):
+	if _fire_cd > 0.0 or reloading > 0.0 or _swing > 0.3 or (not w.auto and not _trigger_released):
 		return
 	if ammo[weapon] <= 0:
 		start_reload()
@@ -536,3 +559,56 @@ func bot_weapon() -> int:
 		if int(Data.WEAPONS[wi].pellets) == 1 and float(Data.WEAPONS[wi].splash) == 0.0:
 			return wi
 	return loadout[0]
+
+
+# --- Grenades, couteau, bonus ---------------------------------------------------------
+
+func throw_grenade(kind: int) -> void:
+	if grenades[kind] <= 0 or _melee_cd > 0.0:
+		return
+	if not multiplayer.is_server():
+		grenades[kind] -= 1  # le serveur décompte lui-même sa copie
+	_melee_cd = 0.6
+	_swing = 1.0  # l'arme s'abaisse pendant le lancer
+	game.items.throw_grenade(self, kind)
+
+
+func melee() -> void:
+	if _melee_cd > 0.0:
+		return
+	_melee_cd = 0.6
+	_swing = 1.0
+	zoomed = false
+	if _knife == null:
+		_knife = Models.weapon("Knife_1", 0.32)
+		_knife.scale = Vector3.ONE * 0.28  # le modèle est mesuré sur sa largeur : on le réduit
+		_viewmodel.get_parent().add_child(_knife)
+	_knife.visible = true
+	game.local_melee(self)
+
+
+## Animation du couteau et abaissement de l'arme (appelé chaque image pour le joueur local).
+func _update_swing(delta: float) -> void:
+	if _swing <= 0.0:
+		if _knife != null:
+			_knife.visible = false
+		return
+	_swing = maxf(0.0, _swing - delta * 2.5)
+	var t := 1.0 - _swing
+	if _knife != null and _knife.visible:
+		# Coup de droite à gauche devant la caméra
+		_knife.position = Vector3(lerpf(0.35, -0.25, t), -0.18 + sin(t * PI) * 0.06, -0.45)
+		_knife.rotation = Vector3(-0.3, lerpf(0.9, -0.9, t), -0.5)
+	_viewmodel.position.y -= sin(t * PI) * 0.25
+
+
+## Effet d'un bonus ramassé (appelé sur toutes les machines).
+func apply_pickup(kind: String) -> void:
+	match kind:
+		"ammo":
+			for i in ammo.size():
+				ammo[i] = Data.WEAPONS[i].mag
+			grenades = Data.GRENADES_START.duplicate()
+			reloading = 0.0
+		"damage":
+			damage_t = Data.DAMAGE_BOOST_TIME

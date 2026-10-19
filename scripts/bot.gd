@@ -167,18 +167,15 @@ func _roam(delta: float) -> void:
 
 
 func _pick_goal() -> Vector3:
-	# Blessé : aller chercher la trousse de soin disponible la plus proche
+	# Blessé : aller chercher la trousse de soin la plus proche ; sinon parfois un bonus pas trop loin
 	if c.hp < 50:
-		var best_pack = null
-		var best_pd := 1e9
-		for h in game._health:
-			if h["active"]:
-				var pd: float = c.position.distance_to(h["pos"])
-				if pd < best_pd:
-					best_pd = pd
-					best_pack = h["pos"]
-		if best_pack != null:
-			return best_pack
+		var pack = game.items.nearest_pickup(c.position, ["health"], 1e9)
+		if pack != null:
+			return pack
+	if randf() < 0.4:
+		var bonus = game.items.nearest_pickup(c.position, ["armor", "damage", "ammo"], 18.0)
+		if bonus != null:
+			return bonus
 	if _alert != null and _alert.alive and _alert_t > -3.0:
 		return _alert.position
 	if randf() < 0.3:

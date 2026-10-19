@@ -19,7 +19,7 @@ Tout le monde doit avoir **la même version** du jeu.
 
 ## Jouer en LAN
 1. **L'hôte** clique sur *Héberger une partie*. Le salon affiche son adresse IP (par ex. `192.168.1.20`).
-2. **Les autres** tapent cette IP, puis cliquent sur *Rejoindre*. Tout le monde doit utiliser le même port (7777 par défaut).
+2. **Les autres** voient la partie apparaître toute seule dans « Parties trouvées sur le réseau » : clic sur *Rejoindre*. Sinon, tapez l'IP de l'hôte puis *Rejoindre*. Tout le monde doit utiliser le même port (7777 par défaut, et 7778 pour la découverte automatique).
 3. **L'hôte règle la partie** : mode, nombre de joueurs, bots, difficulté, score à atteindre, durée.
 4. **L'hôte lance** avec *Lancer la partie*.
 
@@ -40,6 +40,9 @@ Quelqu'un peut rejoindre en cours de partie. Il remplace alors un bot.
 | Maj | Sprinter |
 | Ctrl (ou C) en courant | Glisser |
 | R | Recharger |
+| G | Lancer une grenade (2 par vie) |
+| H | Lancer un fumigène (1 par vie) |
+| V | Coup de couteau (élimine d'un coup dans le dos) |
 | 1 / 2 / 3 ou molette | Changer d'arme |
 | Tab | Tableau des scores |
 | Échap | Pause (classe, options, quitter) |
@@ -70,6 +73,16 @@ Choisis ta classe dans le menu. En partie, tu peux la changer dans la pause (Éc
 - **Lance-roquettes** : explosion de 5 m, jusqu'à 120 dégâts, 1 roquette.
 - **Tir à la tête** : les dégâts sont multipliés (×1,2 à ×2 selon l'arme).
 
+## Sur la carte
+- **Trousses de soin** (+50 PV), **armure** (+50, absorbe la moitié des dégâts), **munitions** (recharge tout, grenades comprises) et **dégâts ×2** pendant 15 s. Chaque objet réapparaît après un moment.
+- **Barils explosifs** : tire dessus pour les faire sauter. Ils explosent en chaîne et réapparaissent après 30 s.
+- **Fumigènes** : les bots ne voient pas à travers.
+
+## Séries d'éliminations (sans mourir)
+- **3** : Adrénaline, +30 % de vitesse pendant 20 s.
+- **5** : Radar, les ennemis sont marqués à travers les murs pendant 12 s.
+- **7** : Frappe aérienne, une explosion tombe sur chaque ennemi 2 secondes après une alerte au sol.
+
 ## Options
 Bouton **Options** dans le menu ou dans la pause. Tous les réglages sont appliqués tout de suite et sauvegardés :
 - préréglages Basse / Moyenne / Haute / Ultra ;
@@ -90,6 +103,7 @@ Si le jeu rame, choisis **Basse**.
 | `bot.gd` | Intelligence des bots (vision, combat, déplacement sur la carte) |
 | `map.gd` | Construction de l'arène, points d'apparition, chemins des bots |
 | `hud.gd` | Interface en jeu |
+| `items.gd` | Trousses, bonus, barils explosifs, grenades et fumigènes |
 | `options.gd` | Fenêtre d'options (graphismes, souris) |
 | `ui_theme.gd` | Thème visuel (polices, panneaux, boutons) |
 | `models.gd` | Chargement des armes 3D |

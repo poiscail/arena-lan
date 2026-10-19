@@ -18,6 +18,7 @@ var _name_edit: LineEdit
 var _skin_opt: OptionButton
 var _class_opt: OptionButton
 var _class_desc: Label
+var _games_box: VBoxContainer
 var _ip_edit: LineEdit
 var _port_spin: SpinBox
 var _address: Label
@@ -176,10 +177,22 @@ func _build_ui() -> void:
 	join_row.add_child(_button("Rejoindre", _on_join_pressed))
 	_menu.add_child(join_row)
 
+	_menu.add_child(_section("PARTIES TROUVÉES SUR LE RÉSEAU"))
+	_games_box = VBoxContainer.new()
+	_games_box.add_theme_constant_override("separation", 6)
+	_menu.add_child(_games_box)
+	Net.games_changed.connect(_refresh_games)
+	var games_timer := Timer.new()
+	games_timer.wait_time = 1.0
+	games_timer.autostart = true
+	games_timer.timeout.connect(_refresh_games)
+	add_child(games_timer)
+	_refresh_games()
+
 	_menu.add_child(HSeparator.new())
 	_menu.add_child(_button("Options (graphismes, souris)", func() -> void: _options.open()))
 	_menu.add_child(HSeparator.new())
-	var help := _label("ZQSD : bouger   ·   Souris : viser   ·   Clic gauche : tirer   ·   Clic droit : zoom\nEspace : sauter   ·   Maj : sprint   ·   Ctrl : glisser   ·   R : recharger   ·   1/2/3 ou molette : armes\nTab : scores   ·   Échap : pause", 15)
+	var help := _label("ZQSD : bouger   ·   Souris : viser   ·   Clic gauche : tirer   ·   Clic droit : zoom\nEspace : sauter   ·   Maj : sprint   ·   Ctrl : glisser   ·   R : recharger   ·   1/2/3 ou molette : armes\nG : grenade   ·   H : fumigène   ·   V : couteau   ·   Tab : scores   ·   Échap : pause", 15)
 	help.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
 	_menu.add_child(help)
 
@@ -313,10 +326,41 @@ func _add_row(grid: GridContainer, text: String, control: Control) -> Label:
 
 # --- Écrans ---------------------------------------------------------------------
 
+## Liste des parties annoncées sur le réseau local, avec un bouton pour rejoindre.
+func _refresh_games() -> void:
+	if _games_box == null or not _menu.visible:
+		return
+	for ch in _games_box.get_children():
+		ch.queue_free()
+	if Net.found_games.is_empty():
+		var l := _label("Recherche en cours... (ou tape l'adresse IP ci-dessus)", 15)
+		l.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
+		_games_box.add_child(l)
+		return
+	for ip in Net.found_games:
+		var g: Dictionary = Net.found_games[ip]
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		var mode := "Équipes" if g.get("mode", "team") == "team" else "Chacun pour soi"
+		var map_name: String = Data.MAPS[clampi(int(g.get("map", 0)), 0, Data.MAPS.size() - 1)]
+		var state := "en cours" if g.get("in_game", false) else "salon"
+		var l := _label("%s  ·  %s  ·  %s  ·  %d joueur(s)  ·  %s" % [String(g.get("name", "?")), map_name, mode, int(g.get("players", 0)), state], 15)
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		l.clip_text = true
+		row.add_child(l)
+		var port := int(g.get("port", Net.DEFAULT_PORT))
+		row.add_child(_button("Rejoindre", func() -> void:
+			_ip_edit.text = ip
+			_port_spin.value = port
+			_on_join_pressed()))
+		_games_box.add_child(row)
+
+
 func _show_menu(message: String) -> void:
 	_set_background(true)
 	_ui.show()
 	_menu.visible = true
+	Net.start_discovery()
 	_lobby.visible = false
 	_status.text = message
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -326,6 +370,7 @@ func _show_lobby() -> void:
 	_set_background(true)
 	_ui.show()
 	_menu.visible = false
+	Net.stop_discovery()
 	_lobby.visible = true
 	_status.text = ""
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -537,6 +582,16 @@ func _apply_cmdline() -> void:
 		_options.open()
 	if opts.has("slide"):
 		get_tree().create_timer(float(opts["slide"])).timeout.connect(_test_slide)
+	if opts.has("grenade"):
+		get_tree().create_timer(float(opts["grenade"])).timeout.connect(func() -> void: game.local_char.throw_grenade(int(opts.get("kind", "0"))))
+	if opts.has("airstrike"):
+		get_tree().create_timer(float(opts["airstrike"])).timeout.connect(func() -> void:
+			game.on_streak(game.local_char.char_id, 7)
+			game._airstrike(game.local_char))
+	if opts.has("knife"):
+		get_tree().create_timer(float(opts["knife"])).timeout.connect(_test_knife)
+	if opts.has("barrel"):
+		get_tree().create_timer(float(opts["barrel"])).timeout.connect(_test_barrel)
 	if opts.has("fire"):
 		get_tree().create_timer(float(opts["fire"])).timeout.connect(_test_fire)
 	if opts.has("quit-after"):
@@ -562,6 +617,36 @@ func _test_fire() -> void:
 	var dir: Vector3 = (-c.camera.global_transform.basis.z + Vector3(0, -0.25, 0)).normalized()
 	game.local_fire(c, c.weapon, c.camera.global_position, PackedVector3Array([dir]))
 	print("[test] tir : ", Data.WEAPONS[c.weapon].name)
+
+
+## Test : le joueur local tire sur le baril le plus proche.
+func _test_barrel() -> void:
+	var c = game.local_char
+	var best := Vector3.ZERO
+	for p in game.map.barrel_points:
+		var seen: bool = game._ray(c.camera.global_position, p + Vector3(0, 0.6, 0), [c.get_rid()] as Array[RID], 1).get("collider", null) is StaticBody3D and game._ray(c.camera.global_position, p + Vector3(0, 0.6, 0), [c.get_rid()] as Array[RID], 1).collider.has_meta("barrel")
+		if seen and (best == Vector3.ZERO or p.distance_to(c.position) < best.distance_to(c.position)):
+			best = p
+	var origin: Vector3 = c.camera.global_position
+	c.look_at(Vector3(best.x, c.position.y, best.z))
+	var dir: Vector3 = (best + Vector3(0, 0.6, 0) - origin).normalized()
+	for i in 3:
+		game.local_fire(c, c.weapon, origin, PackedVector3Array([dir]))
+	print("[test] tir sur le baril en ", best, " à ", int(best.distance_to(c.position)), " m")
+
+
+## Test : un ennemi est placé juste devant le joueur local, qui donne un coup de couteau.
+func _test_knife() -> void:
+	var c = game.local_char
+	for id in game.chars:
+		var o = game.chars[id]
+		if o.is_bot and game.is_enemy(c, o):
+			o.position = c.position - c.transform.basis.z * 1.2
+			o.rotation.y = c.rotation.y  # de dos
+			o.bot = null
+			print("[test] couteau sur ", o.display_name, " (PV ", o.hp, ")")
+			break
+	c.melee()
 
 
 func _quit(screenshot: String) -> void:

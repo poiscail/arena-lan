@@ -35,7 +35,6 @@ const PROPS := [
 	["Crate", -12, 22, 0, 1.3], ["Crate", 12, 22, 90, 1.3], ["Crate", -12, -22, 0, 1.3], ["Crate", 12, -22, 90, 1.3],
 	["Barrier_Single", -4, 24, 0, 1.0], ["Barrier_Single", 4, -24, 0, 1.0],
 	["Barrier_Single", 4, 24, 0, 1.0], ["Barrier_Single", -4, -24, 0, 1.0],
-	["ExplodingBarrel", -24, 14, 0, 1.0], ["ExplodingBarrel", 24, -14, 0, 1.0],
 	["GasTank", -25, -14, 0, 1.0], ["GasTank", 25, 14, 0, 1.0],
 ]
 
@@ -103,6 +102,15 @@ const CITY_DECOR := [
 	[B % "building-skyscraper-c", -42, 40, 0, 8.0], [B % "building-skyscraper-e", 42, -40, 0, 8.0],
 ]
 const CITY_HEALTH := [Vector3(-10, 0, 0), Vector3(10, 0, 0), Vector3(0, 0, -10), Vector3(0, 0, 10)]
+
+# Barils explosifs (placés par items.gd, on peut les faire sauter) et bonus : candidats par paires symétriques,
+# seuls ceux qui ne touchent aucun obstacle sont gardés.
+const MIL_BARRELS := [[-24, 14], [24, -14], [-14, 13], [14, -13], [-3, -17], [3, 17], [-20, -5], [20, 5]]
+const CITY_BARRELS := [[-7, 7], [7, -7], [-20, 6.5], [20, -6.5], [6.5, 20], [-6.5, -20]]
+const MIL_BONUS := [["armor", -26, 0], ["armor", 26, 0], ["ammo", -14, -14], ["ammo", 14, 14],
+		["damage", 0, -15], ["damage", 0, 15], ["ammo", -14, 14], ["ammo", 14, -14]]
+const CITY_BONUS := [["armor", -26, 0], ["armor", 26, 0], ["ammo", 0, -22], ["ammo", 0, 22],
+		["damage", -20, 0], ["damage", 20, 0]]
 const CITY_FFA := [[0, 27], [0, -27], [27, 0], [-27, 0], [15, 27], [-15, -27], [-15, 27], [15, -27],
 		[0, 13], [0, -13], [13, -5], [-13, 5]]
 
@@ -112,6 +120,8 @@ const MIL_FFA := [[-27, -27], [27, 27], [-27, 27], [27, -27], [0, 27], [0, -27],
 var team_spawns := [[], []]
 var ffa_spawns := []
 var health_points := []
+var barrel_points := []
+var bonus_points := []  # [type, Vector3]
 var nav_points := []
 var astar := AStar3D.new()
 
@@ -169,6 +179,17 @@ func build(root: Node3D, with_nav: bool, map_index := 0) -> void:
 	for p in (CITY_FFA if city else MIL_FFA):
 		ffa_spawns.append(Vector3(p[0], 0.1, p[1]))
 	health_points = (CITY_HEALTH if city else HEALTH_POINTS).duplicate()
+	for b in (CITY_BARRELS if city else MIL_BARRELS):
+		var p := Vector3(b[0], 0, b[1])
+		if is_clear(p):
+			barrel_points.append(p)
+	for b in (CITY_BONUS if city else MIL_BONUS):
+		var p := Vector3(b[1], 0, b[2])
+		if is_clear(p):
+			bonus_points.append([b[0], p])
+	# Les barils gênent le passage des bots
+	for p in barrel_points:
+		_obstacles.append([Vector2(p.x, p.z), Vector2(0.45, 0.45)])
 
 	if with_nav:
 		_build_nav()

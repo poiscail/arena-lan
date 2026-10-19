@@ -9,6 +9,7 @@ const CharacterScript := preload("res://scripts/character.gd")
 const MapScript := preload("res://scripts/map.gd")
 const HudScript := preload("res://scripts/hud.gd")
 const Data := preload("res://scripts/data.gd")
+const ItemsScript := preload("res://scripts/items.gd")
 
 const NET_RATE := 1.0 / 30.0
 const BOT_NAMES := ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel",
@@ -33,11 +34,9 @@ var _tracer_mat: StandardMaterial3D
 var _impact_mat: StandardMaterial3D
 var _sounds := []
 var _no_exclude: Array[RID] = []
-var _health := []  # trousses de soin : {"node", "pos", "active", "timer"}
-var _anim_t := 0.0
+var items
+var streaks := {}  # (serveur) id -> éliminations sans mourir
 
-const HEAL_AMOUNT := 50
-const HEAL_RESPAWN := 20.0
 
 
 func _ready() -> void:
@@ -49,7 +48,11 @@ func _ready() -> void:
 	_chars_root.name = "Characters"
 	add_child(_chars_root)
 	_make_effects()
-	_spawn_health_packs()
+	items = ItemsScript.new()
+	items.name = "Items"
+	items.game = self
+	add_child(items)
+	items.setup(map)
 	hud = HudScript.new()
 	hud.game = self
 	add_child(hud)
@@ -64,15 +67,10 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if not match_over:
 		time_left = maxf(0.0, time_left - delta)
-	_anim_t += delta
-	for h in _health:
-		h["node"].rotation.y = _anim_t * 1.5
-		h["node"].position.y = 0.35 + sin(_anim_t * 2.5) * 0.12
 
 
 func _physics_process(delta: float) -> void:
 	if multiplayer.is_server() and not match_over:
-		_update_health_packs(delta)
 		_time_sync_t += delta
 		if _time_sync_t >= 1.0:
 			_time_sync_t = 0.0
@@ -116,7 +114,7 @@ func is_enemy(a, b) -> bool:
 
 
 func line_clear(from: Vector3, to: Vector3) -> bool:
-	return _ray(from, to, _no_exclude, 1).is_empty()
+	return _ray(from, to, _no_exclude, 1).is_empty() and not items.smoke_blocks(from, to)
 
 
 func team_scores() -> Array:
@@ -156,7 +154,7 @@ func local_fire(c, weapon: int, origin: Vector3, dirs: PackedVector3Array) -> vo
 		var hit := _ray(origin, to, ex, 3)
 		_spawn_tracer(muzzle, hit.position if not hit.is_empty() else to)
 		if float(w.splash) > 0.0 and not hit.is_empty():
-			_spawn_explosion(hit.position + hit.normal * 0.3, float(w.splash))
+			spawn_explosion(hit.position + hit.normal * 0.3, float(w.splash))
 	play_shot_sound(weapon, muzzle, true)
 	if multiplayer.is_server():
 		_server_shoot(c.char_id, weapon, origin, dirs)
@@ -216,21 +214,32 @@ func _server_shoot(shooter_id: String, weapon: int, origin: Vector3, dirs: Packe
 		ends.append(hit.position)
 		var t = hit.collider
 		if splash > 0.0:
-			_explosion_damage(s, hit.position, hit.normal, w, damage)
+			_explosion_damage(s, hit.position + hit.normal * 0.3, w, damage)
+			items.server_explosion_barrels(hit.position, splash, s)
 			continue
+		items.server_hit_barrel(t, float(w.damage), s)
 		if t is CharacterScript and t.alive and is_enemy(s, t):
 			var head: bool = hit.position.y > t.position.y + (0.8 if t.sliding else 1.45)
 			var dmg := float(w.damage) * (float(w.head) if head else 1.0)
+			if s.damage_t > 0.0:
+				dmg *= 2.0
 			damage[t.char_id] = damage.get(t.char_id, 0.0) + dmg
 			head_hit = head_hit or head
 	_broadcast("shot_fx", [shooter_id, weapon, ends])
+	if damage.is_empty():
+		return
+	_deal_damage(s, damage, weapon, head_hit)
+
+
+## (Serveur) Applique des dégâts { id: points } et prévient le tireur (marqueur de touche).
+func _deal_damage(s, damage: Dictionary, weapon: int, head_hit := false) -> void:
 	if damage.is_empty():
 		return
 	var killed := false
 	for tid in damage:
 		if chars.has(tid) and _apply_damage(chars[tid], s, int(round(damage[tid])), weapon):
 			killed = true
-	if not s.is_bot:
+	if s != null and not s.is_bot:
 		if s.owner_peer == multiplayer.get_unique_id():
 			hit_confirm(head_hit, killed)
 		elif ready_peers.has(s.owner_peer):
@@ -239,9 +248,9 @@ func _server_shoot(shooter_id: String, weapon: int, origin: Vector3, dirs: Packe
 
 ## Explosion (lance-grenades, lance-roquettes) : dégâts qui diminuent avec la distance,
 ## bloqués par les murs. Le tireur ne se blesse pas lui-même.
-func _explosion_damage(s, at: Vector3, normal: Vector3, w: Dictionary, damage: Dictionary) -> void:
+func _explosion_damage(s, center: Vector3, w: Dictionary, damage: Dictionary) -> void:
 	var radius := float(w.splash)
-	var center := at + normal * 0.3
+	var mult := 2.0 if s != null and s.damage_t > 0.0 else 1.0
 	for id in chars:
 		var t = chars[id]
 		if not t.alive or not is_enemy(s, t):
@@ -253,12 +262,73 @@ func _explosion_damage(s, at: Vector3, normal: Vector3, w: Dictionary, damage: D
 		if not _ray(center, body, [] as Array[RID], 1).is_empty():
 			continue
 		var k := clampf(1.0 - maxf(dist - 0.4, 0.0) / radius, 0.25, 1.0)
-		damage[t.char_id] = damage.get(t.char_id, 0.0) + float(w.damage) * k
+		damage[t.char_id] = damage.get(t.char_id, 0.0) + float(w.damage) * k * mult
+
+
+## (Serveur) Explosion de grenade, de baril ou de frappe aérienne, attribuée au tireur « s ».
+func server_explosion(s, at: Vector3, w: Dictionary, kill_id: int) -> void:
+	if match_over:
+		return
+	if s == null:
+		return  # tireur parti
+	var damage := {}
+	_explosion_damage(s, at, w, damage)
+	_deal_damage(s, damage, kill_id)
+	items.server_explosion_barrels(at, float(w.splash), s)
+
+
+## (Serveur) Coup de couteau : touche l'ennemi le plus proche devant soi.
+## Dans le dos, il élimine d'un coup.
+func _server_melee(s) -> void:
+	if s == null or not s.alive or match_over:
+		return
+	var fwd: Vector3 = -s.global_transform.basis.z
+	var best = null
+	var best_d := Data.KNIFE_RANGE
+	for id in chars:
+		var t = chars[id]
+		if not t.alive or not is_enemy(s, t):
+			continue
+		var to: Vector3 = t.position - s.position
+		to.y = 0.0
+		var d := to.length()
+		if d < best_d and (d < 0.6 or fwd.dot(to / d) > 0.5):
+			best = t
+			best_d = d
+	_broadcast("melee_fx", [s.char_id])
+	if best == null:
+		return
+	var behind: bool = (-best.global_transform.basis.z).dot(fwd) > 0.5
+	_deal_damage(s, {best.char_id: 200.0 if behind else float(Data.KNIFE_DAMAGE)}, Data.KILL_KNIFE, behind)
+
+
+func local_melee(c) -> void:
+	if multiplayer.is_server():
+		_server_melee(c)
+	else:
+		req_melee.rpc_id(1)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func req_melee() -> void:
+	if multiplayer.is_server():
+		_server_melee(chars.get(_pid(multiplayer.get_remote_sender_id())))
+
+
+@rpc("authority", "call_remote", "reliable")
+func melee_fx(id: String) -> void:
+	var c = chars.get(id)
+	if c != null and not c.is_local:
+		c.play_shoot()
 
 
 func _apply_damage(t, s, dmg: int, weapon: int) -> bool:
+	# L'armure absorbe la moitié des dégâts tant qu'il en reste
+	var absorbed := mini(t.armor, dmg / 2)
+	t.armor -= absorbed
+	dmg -= absorbed
 	t.hp = maxi(0, t.hp - dmg)
-	_broadcast("on_health", [t.char_id, t.hp, true])
+	_broadcast("on_health", [t.char_id, t.hp, t.armor, true])
 	if t.bot != null:
 		t.bot.alert(s)
 	if t.hp > 0:
@@ -267,13 +337,73 @@ func _apply_damage(t, s, dmg: int, weapon: int) -> bool:
 		scores[t.char_id]["deaths"] += 1
 	if scores.has(s.char_id):
 		scores[s.char_id]["kills"] += 1
-	print("[kill] %s -> %s (%s)" % [s.display_name, t.display_name, Data.WEAPONS[weapon].name])
+	print("[kill] %s -> %s (%s)" % [s.display_name, t.display_name, Data.kill_name(weapon)])
 	_broadcast("on_died", [t.char_id, s.char_id, weapon])
 	_broadcast_scores()
 	_check_win()
 	if not match_over:
 		get_tree().create_timer(Data.RESPAWN_TIME).timeout.connect(_respawn.bind(t.char_id))
+		# Séries d'éliminations sans mourir
+		streaks[t.char_id] = 0
+		streaks[s.char_id] = int(streaks.get(s.char_id, 0)) + 1
+		var n: int = streaks[s.char_id]
+		if Data.STREAKS.has(n):
+			print("[série] %s : %d (%s)" % [s.display_name, n, Data.STREAKS[n]])
+			_broadcast("on_streak", [s.char_id, n])
+			if n == 7:
+				_airstrike(s)
 	return true
+
+
+## (Serveur) Frappe aérienne : une explosion sur chaque ennemi vivant, 2 secondes après l'alerte.
+func _airstrike(s) -> void:
+	var targets := []
+	for id in chars:
+		var t = chars[id]
+		if t.alive and is_enemy(s, t):
+			targets.append(t.position)
+	for p in targets:
+		_broadcast("airstrike_mark", [p])
+	await get_tree().create_timer(2.0).timeout
+	if not is_instance_valid(s):
+		return
+	for p in targets:
+		items._broadcast("explosion_fx", [p + Vector3(0, 0.5, 0), float(Data.AIRSTRIKE.splash)])
+		server_explosion(s, p + Vector3(0, 0.5, 0), Data.AIRSTRIKE, Data.KILL_AIRSTRIKE)
+
+
+@rpc("authority", "call_remote", "reliable")
+func on_streak(id: String, n: int) -> void:
+	var c = chars.get(id)
+	if c == null:
+		return
+	if n == 3:
+		c.speed_t = Data.ADRENALINE_TIME
+	if c.is_local:
+		hud.announce("SÉRIE DE %d : %s" % [n, Data.STREAKS[n]])
+		if n == 5:
+			hud.radar_t = Data.RADAR_TIME
+	else:
+		hud.add_kill("[color=#ffcc55]%s : série de %d (%s)[/color]" % [Data.esc(c.display_name), n, Data.STREAKS[n].to_lower()])
+
+
+@rpc("authority", "call_remote", "reliable")
+func airstrike_mark(p: Vector3) -> void:
+	# Fumée rouge au sol : la frappe arrive
+	var m := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 4.0
+	cm.bottom_radius = 4.0
+	cm.height = 0.05
+	m.mesh = cm
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(1, 0.15, 0.1, 0.35)
+	m.material_override = mat
+	add_child(m)
+	m.global_position = p + Vector3(0, 0.06, 0)
+	get_tree().create_timer(2.0).timeout.connect(m.queue_free)
 
 
 func _ray(from: Vector3, to: Vector3, exclude: Array[RID], mask: int) -> Dictionary:
@@ -440,8 +570,7 @@ func client_ready() -> void:
 		var c = chars[id]
 		spawn_char.rpc_id(peer, id, c.display_name, c.team, c.is_bot, c.owner_peer, c.position, c.alive, c.hp, c.skin, c.class_id)
 	sync_scores.rpc_id(peer, scores, time_left)
-	for i in _health.size():
-		pickup_state.rpc_id(peer, i, _health[i]["active"])
+	items.sync_to(peer)
 	if match_over:
 		on_match_end.rpc_id(peer, end_text)
 	if not chars.has(_pid(peer)):
@@ -512,23 +641,17 @@ func snapshot(data: Array) -> void:
 
 
 @rpc("authority", "call_remote", "reliable")
-func on_health(id: String, hp: int, hurt: bool) -> void:
+func on_health(id: String, hp: int, armor: int, hurt: bool) -> void:
 	var c = chars.get(id)
 	if c == null:
 		return
 	c.hp = hp
+	c.armor = armor
 	if c == local_char:
 		if hurt:
 			hud.damage_flash()
 		else:
 			hud.heal_flash()
-
-
-@rpc("authority", "call_remote", "reliable")
-func pickup_state(index: int, active: bool) -> void:
-	if index >= 0 and index < _health.size():
-		_health[index]["active"] = active
-		_health[index]["node"].visible = active
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -545,7 +668,7 @@ func on_died(victim_id: String, killer_id: String, weapon: int) -> void:
 		khex = "#" + k.get_color().lightened(0.25).to_html(false)
 	var vhex: String = "#" + v.get_color().lightened(0.25).to_html(false)
 	hud.add_kill("[color=%s]%s[/color][color=#bbbbbb]   > %s >   [/color][color=%s]%s[/color]" % [
-		khex, Data.esc(kname), Data.esc(Data.WEAPONS[weapon].name), vhex, Data.esc(v.display_name)])
+		khex, Data.esc(kname), Data.esc(Data.kill_name(weapon)), vhex, Data.esc(v.display_name)])
 	if v == local_char:
 		hud.show_death(kname)
 
@@ -569,7 +692,7 @@ func shot_fx(shooter_id: String, weapon: int, ends: PackedVector3Array) -> void:
 	for e in ends:
 		_spawn_tracer(from, e)
 		if splash > 0.0 and from.distance_to(e) < float(Data.WEAPONS[weapon].range) - 1.5:
-			_spawn_explosion(e, splash)
+			spawn_explosion(e, splash)
 	play_shot_sound(weapon, from, false)
 
 
@@ -596,45 +719,6 @@ func on_match_end(text: String) -> void:
 	end_text = text
 	hud.refresh_scores()
 
-
-# --- Effets -------------------------------------------------------------------------
-
-func _spawn_health_packs() -> void:
-	for p in map.health_points:
-		var node: Node3D = load(map.ENV_PATH % "Health").instantiate()
-		node.position = p
-		node.scale = Vector3.ONE * 0.8
-		add_child(node)
-		var glow := OmniLight3D.new()
-		glow.light_color = Color(0.4, 1.0, 0.5)
-		glow.light_energy = 0.8
-		glow.omni_range = 2.5
-		glow.position.y = 0.5
-		node.add_child(glow)
-		_health.append({"node": node, "pos": p, "active": true, "timer": 0.0})
-
-
-## (Serveur) Soigne qui touche une trousse, puis la fait réapparaître après un délai.
-func _update_health_packs(delta: float) -> void:
-	for i in _health.size():
-		var h: Dictionary = _health[i]
-		if not h["active"]:
-			h["timer"] -= delta
-			if h["timer"] <= 0.0:
-				_broadcast("pickup_state", [i, true])
-			continue
-		for id in chars:
-			var c = chars[id]
-			if not c.alive or c.hp >= 100:
-				continue
-			var d: Vector3 = c.position - h["pos"]
-			if Vector2(d.x, d.z).length() < 1.3 and absf(d.y) < 1.5:
-				c.hp = mini(100, c.hp + HEAL_AMOUNT)
-				print("[soin] %s -> %d PV" % [c.display_name, c.hp])
-				_broadcast("on_health", [c.char_id, c.hp, false])
-				h["timer"] = HEAL_RESPAWN
-				_broadcast("pickup_state", [i, false])
-				break
 
 
 func _make_effects() -> void:
@@ -696,7 +780,7 @@ func play_shot_sound(weapon: int, pos: Vector3, local: bool) -> void:
 
 
 ## Boule de feu qui grossit et s'efface, avec un flash de lumière et le bruit de l'explosion.
-func _spawn_explosion(pos: Vector3, radius: float) -> void:
+func spawn_explosion(pos: Vector3, radius: float) -> void:
 	var m := MeshInstance3D.new()
 	var sm := SphereMesh.new()
 	sm.radius = 0.5

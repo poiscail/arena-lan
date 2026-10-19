@@ -117,6 +117,68 @@ func apply_graphics() -> void:
 	graphics_changed.emit()
 
 
+# --- Découverte des parties sur le réseau local -------------------------------------
+# L'hôte annonce sa partie chaque seconde en UDP broadcast ; le menu écoute et liste les parties.
+
+signal games_changed
+
+const DISCOVERY_PORT := 7778
+const DISCOVERY_TAG := "ARENALAN1"
+
+var found_games := {}  # ip -> {"name", "port", "players", "map", "mode", "in_game", "seen"}
+var _announcer: PacketPeerUDP
+var _listener: PacketPeerUDP
+var _announce_t := 0.0
+
+
+func start_discovery() -> void:
+	if _listener != null:
+		return
+	_listener = PacketPeerUDP.new()
+	if _listener.bind(DISCOVERY_PORT) != OK:
+		_listener = null
+
+
+func stop_discovery() -> void:
+	if _listener != null:
+		_listener.close()
+		_listener = null
+	found_games.clear()
+
+
+func _process(delta: float) -> void:
+	# Hôte : annonce de la partie
+	if multiplayer.multiplayer_peer is ENetMultiplayerPeer and multiplayer.is_server():
+		_announce_t -= delta
+		if _announce_t <= 0.0:
+			_announce_t = 1.0
+			if _announcer == null:
+				_announcer = PacketPeerUDP.new()
+				_announcer.set_broadcast_enabled(true)
+				_announcer.set_dest_address("255.255.255.255", DISCOVERY_PORT)
+			var info := {"tag": DISCOVERY_TAG, "name": player_name, "port": port, "players": players.size(),
+				"map": int(settings.get("map", 0)), "mode": settings.get("mode", "team"), "in_game": in_game}
+			_announcer.put_packet(JSON.stringify(info).to_utf8_buffer())
+	# Menu : réception des annonces
+	if _listener != null:
+		var changed := false
+		while _listener.get_available_packet_count() > 0:
+			var data := _listener.get_packet().get_string_from_utf8()
+			var ip := _listener.get_packet_ip()
+			var info = JSON.parse_string(data)
+			if info is Dictionary and info.get("tag", "") == DISCOVERY_TAG:
+				if not found_games.has(ip):
+					changed = true
+				info["seen"] = Time.get_ticks_msec()
+				found_games[ip] = info
+		for ip in found_games.keys():
+			if Time.get_ticks_msec() - int(found_games[ip]["seen"]) > 3500:
+				found_games.erase(ip)
+				changed = true
+		if changed:
+			games_changed.emit()
+
+
 func view_distance() -> float:
 	return VIEW_DISTANCES[clampi(int(gfx.view), 0, 2)]
 
@@ -288,6 +350,9 @@ func _setup_inputs() -> void:
 	_keys("jump", [KEY_SPACE])
 	_keys("sprint", [KEY_SHIFT])
 	_keys("slide", [KEY_CTRL, KEY_C])
+	_keys("grenade", [KEY_G])
+	_keys("smoke", [KEY_H])
+	_keys("melee", [KEY_V])
 	_keys("reload", [KEY_R])
 	_keys("weapon_1", [KEY_1])
 	_keys("weapon_2", [KEY_2])
