@@ -10,6 +10,7 @@ const MapScript := preload("res://scripts/map.gd")
 const HudScript := preload("res://scripts/hud.gd")
 const Data := preload("res://scripts/data.gd")
 const ItemsScript := preload("res://scripts/items.gd")
+const SfxScript := preload("res://scripts/sfx.gd")
 
 const NET_RATE := 1.0 / 30.0
 const BOT_NAMES := ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel",
@@ -35,6 +36,7 @@ var _impact_mat: StandardMaterial3D
 var _sounds := []
 var _no_exclude: Array[RID] = []
 var items
+var sfx
 var streaks := {}  # (serveur) id -> éliminations sans mourir
 
 
@@ -48,6 +50,9 @@ func _ready() -> void:
 	_chars_root.name = "Characters"
 	add_child(_chars_root)
 	_make_effects()
+	sfx = SfxScript.new()
+	sfx.name = "Sfx"
+	add_child(sfx)
 	items = ItemsScript.new()
 	items.name = "Items"
 	items.game = self
@@ -155,7 +160,16 @@ func local_fire(c, weapon: int, origin: Vector3, dirs: PackedVector3Array) -> vo
 		_spawn_tracer(muzzle, hit.position if not hit.is_empty() else to)
 		if float(w.splash) > 0.0 and not hit.is_empty():
 			spawn_explosion(hit.position + hit.normal * 0.3, float(w.splash))
+		elif not hit.is_empty():
+			var on_char: bool = hit.collider is CharacterScript
+			sfx.bullet_impact(hit.position, hit.normal, on_char)
+			if not on_char and randf() < 0.5:
+				sfx.play_random("impactGeneric_light", 3, hit.position, -14.0)
 	play_shot_sound(weapon, muzzle, true)
+	sfx.muzzle_flash(muzzle, int(w.pellets) > 1 or float(w.splash) > 0.0, true)
+	if float(w.splash) == 0.0:
+		var b: Basis = c.camera.global_transform.basis
+		sfx.eject_shell(muzzle - b.z * -0.25 + b.x * 0.05, b.x, int(w.pellets) > 1)
 	if multiplayer.is_server():
 		_server_shoot(c.char_id, weapon, origin, dirs)
 	else:
@@ -318,6 +332,8 @@ func req_melee() -> void:
 @rpc("authority", "call_remote", "reliable")
 func melee_fx(id: String) -> void:
 	var c = chars.get(id)
+	if c != null:
+		sfx.play("knifeSlice", null if c.is_local else c.global_position + Vector3(0, 1.2, 0), -4.0)
 	if c != null and not c.is_local:
 		c.play_shoot()
 
@@ -381,6 +397,7 @@ func on_streak(id: String, n: int) -> void:
 		c.speed_t = Data.ADRENALINE_TIME
 	if c.is_local:
 		hud.announce("SÉRIE DE %d : %s" % [n, Data.STREAKS[n]])
+		sfx.play("maximize_006", null, -2.0, 0.0)
 		if n == 5:
 			hud.radar_t = Data.RADAR_TIME
 	else:
@@ -691,14 +708,19 @@ func shot_fx(shooter_id: String, weapon: int, ends: PackedVector3Array) -> void:
 	var splash := float(Data.WEAPONS[weapon].splash)
 	for e in ends:
 		_spawn_tracer(from, e)
-		if splash > 0.0 and from.distance_to(e) < float(Data.WEAPONS[weapon].range) - 1.5:
+		var hit_something := from.distance_to(e) < float(Data.WEAPONS[weapon].range) - 1.5
+		if splash > 0.0 and hit_something:
 			spawn_explosion(e, splash)
+		elif hit_something and from.distance_to(e) < 60.0:
+			sfx.bullet_impact(e, Vector3.ZERO, false)
 	play_shot_sound(weapon, from, false)
+	sfx.muzzle_flash(from, int(Data.WEAPONS[weapon].pellets) > 1 or splash > 0.0)
 
 
 @rpc("authority", "call_remote", "reliable")
 func hit_confirm(head: bool, killed: bool) -> void:
 	hud.hit_marker(head, killed)
+	sfx.play("impactPunch_medium_000", null, -10.0 if not killed else -4.0, 0.1)
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -758,6 +780,10 @@ func _noise_sound(duration: float, brightness: float) -> AudioStreamWAV:
 
 
 func play_shot_sound(weapon: int, pos: Vector3, local: bool) -> void:
+	var name := String(Data.WEAPONS[weapon].get("sfx", ""))
+	if name != "":
+		sfx.play(name, null if local else pos, -7.0 if local else 0.0, 0.05, 160.0)
+		return
 	var p: Node
 	if local:
 		var p2 := AudioStreamPlayer.new()
@@ -806,6 +832,43 @@ func spawn_explosion(pos: Vector3, radius: float) -> void:
 	tw.tween_property(light, "light_energy", 0.0, 0.4)
 	tw.chain().tween_callback(m.queue_free)
 	play_shot_sound(9, pos, false)
+	# Fumée et débris
+	var smoke := CPUParticles3D.new()
+	smoke.one_shot = true
+	smoke.emitting = true
+	smoke.amount = 14
+	smoke.lifetime = 1.6
+	smoke.explosiveness = 0.9
+	smoke.direction = Vector3.UP
+	smoke.spread = 70.0
+	smoke.initial_velocity_min = 1.5
+	smoke.initial_velocity_max = 4.0
+	smoke.gravity = Vector3(0, 0.6, 0)
+	smoke.damping_min = 2.0
+	smoke.damping_max = 3.0
+	smoke.scale_amount_min = 1.5
+	smoke.scale_amount_max = 3.0
+	var sm2 := SphereMesh.new()
+	sm2.radius = 0.35
+	sm2.height = 0.7
+	var smat := StandardMaterial3D.new()
+	smat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	smat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	smat.albedo_color = Color(0.25, 0.23, 0.22, 0.55)
+	smat.vertex_color_use_as_albedo = true
+	sm2.material = smat
+	smoke.mesh = sm2
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1, 1, 1, 0.9))
+	ramp.set_color(1, Color(1, 1, 1, 0.0))
+	smoke.color_ramp = ramp
+	add_child(smoke)
+	smoke.global_position = pos
+	get_tree().create_timer(2.0).timeout.connect(smoke.queue_free)
+	# Tremblement de caméra selon la distance
+	if local_char != null and local_char.alive:
+		var d: float = local_char.global_position.distance_to(pos)
+		sfx.shake = maxf(sfx.shake, clampf(1.0 - d / (radius * 4.0), 0.0, 1.0))
 
 
 func _spawn_tracer(from: Vector3, to: Vector3) -> void:

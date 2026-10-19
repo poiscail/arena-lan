@@ -103,6 +103,7 @@ Si le jeu rame, choisis **Basse**.
 | `bot.gd` | Intelligence des bots (vision, combat, déplacement sur la carte) |
 | `map.gd` | Construction de l'arène, points d'apparition, chemins des bots |
 | `hud.gd` | Interface en jeu |
+| `sfx.gd` | Sons, flash du canon, douilles, impacts, tremblement de caméra |
 | `items.gd` | Trousses, bonus, barils explosifs, grenades et fumigènes |
 | `options.gd` | Fenêtre d'options (graphismes, souris) |
 | `ui_theme.gd` | Thème visuel (polices, panneaux, boutons) |
@@ -117,5 +118,6 @@ Toute la partie est décidée par l'hôte : dégâts, morts, scores et bots. Cha
 - **Armes et décor** : [Toon Shooter Game Kit](https://quaternius.com/packs/toonshootergamekit.html) de Quaternius, licence CC0.
 - **Carte Ville** : [City Kit Commercial](https://kenney.nl/assets/city-kit-commercial), [City Kit Roads](https://kenney.nl/assets/city-kit-roads) et [Car Kit](https://kenney.nl/assets/car-kit) de Kenney, licence CC0.
 - **Ciel et textures** : [Kloofendal 48d Partly Cloudy (Pure Sky)](https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky), [Asphalt 02](https://polyhaven.com/a/asphalt_02) et [Concrete Floor 02](https://polyhaven.com/a/concrete_floor_02) de Poly Haven, licence CC0.
+- **Sons** : [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library) (tirs, CC0), et [Impact Sounds](https://kenney.nl/assets/impact-sounds), [RPG Audio](https://kenney.nl/assets/rpg-audio) et [Interface Sounds](https://kenney.nl/assets/interface-sounds) de Kenney (CC0).
 - **Polices** : [Rajdhani](https://fonts.google.com/specimen/Rajdhani) et [Orbitron](https://fonts.google.com/specimen/Orbitron), licence SIL Open Font.
 - **Moteur** : [Godot 4.7](https://godotengine.org).

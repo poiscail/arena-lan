@@ -110,7 +110,7 @@ func _build_ui() -> void:
 	panel.add_child(stack)
 
 	var credits := Label.new()
-	credits.text = "Modèles : Quaternius, Kenney (CC0)  ·  Ciel et textures : Poly Haven (CC0)  ·  Polices : Rajdhani, Orbitron (OFL)"
+	credits.text = "Modèles et sons : Quaternius, Kenney, Free Firearm Sound Library (CC0)  ·  Ciel et textures : Poly Haven (CC0)  ·  Polices : Rajdhani, Orbitron (OFL)"
 	credits.add_theme_font_size_override("font_size", 14)
 	credits.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
 	credits.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT

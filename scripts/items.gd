@@ -267,6 +267,12 @@ func spawn_grenade(id: String, kind: int, owner_id: String, origin: Vector3, vel
 	body.global_position = origin
 	body.linear_velocity = vel
 	body.angular_velocity = Vector3(randf_range(-8, 8), randf_range(-8, 8), randf_range(-8, 8))
+	body.contact_monitor = true
+	body.max_contacts_reported = 1
+	body.body_entered.connect(func(_b: Node) -> void:
+		if body.linear_velocity.length() > 2.0:
+			game.sfx.play("impactMetal_light_00%d" % (randi() % 2), body.global_position, -6.0, 0.15, 30.0))
+	game.sfx.play("cloth1", origin, -6.0)
 	_grenades[id] = {"body": body, "kind": kind, "owner": owner_id, "fuse": GRENADE_FUSE}
 	var c = game.chars.get(owner_id)
 	if c != null and not c.is_local:
@@ -389,6 +395,7 @@ func on_pickup(id: String, kind: String, hp: int, armor: int) -> void:
 	c.apply_pickup(kind)
 	if c.is_local:
 		game.hud.pickup_flash(Data.PICKUPS[kind][0], Data.PICKUPS[kind][1])
+		game.sfx.play("confirmation_002", null, -4.0, 0.0)
 
 
 ## Position du bonus disponible le plus proche parmi « kinds » (ou null), pour les bots.

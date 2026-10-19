@@ -42,6 +42,13 @@ var damage_t := 0.0  # bonus dégâts x2
 var _melee_cd := 0.0
 var _knife: Node3D
 var _swing := 0.0
+var _draw := 0.0       # arme qui remonte après un changement
+var _land := 0.0       # petit choc à l'atterrissage
+var _sway := Vector2.ZERO
+var _sprint_blend := 0.0
+var _was_on_floor := true
+var _fall_speed := 0.0
+var _step := 0.0
 var alive := true
 var bot = null
 
@@ -270,6 +277,25 @@ func _physics_process(delta: float) -> void:
 
 	if not is_local:
 		_update_animation(delta)
+	_footsteps(delta)
+
+
+## Bruits de pas : un pas tous les ~2 m parcourus au sol (sauf en glissade).
+func _footsteps(delta: float) -> void:
+	if not alive or game == null or game.sfx == null or sliding:
+		return
+	var spd: float = Vector2(velocity.x, velocity.z).length() if (is_local or bot != null) else _speed
+	var grounded: bool = is_on_floor() if (is_local or bot != null) else absf(position.y - _net_pos.y) < 0.3
+	if not grounded or spd < 1.5:
+		return
+	_step += spd * delta
+	if _step >= 2.1:
+		_step = 0.0
+		var n := "footstep_concrete_%03d" % (randi() % 5)
+		if is_local:
+			game.sfx.play(n, null, -14.0, 0.1)
+		else:
+			game.sfx.play(n, global_position, -4.0, 0.1, 35.0)
 
 
 func _update_animation(delta: float) -> void:
@@ -308,6 +334,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		var s: float = Net.mouse_sensitivity * (_zoom_fov() / float(Net.gfx.fov) if zoomed else 1.0)
 		rotation.y -= event.relative.x * s
+		_sway += event.relative.clampf(-60.0, 60.0) * 0.5
+		_sway = _sway.limit_length(80.0)
 		head.rotation.x = clampf(head.rotation.x - event.relative.y * s, -1.5, 1.5)
 		return
 	if not alive:
@@ -425,7 +453,8 @@ func switch_weapon(i: int) -> void:
 	reloading = 0.0
 	zoomed = false
 	_fire_cd = 0.25
-	_kick = 0.15
+	_draw = 1.0
+	game.sfx.play("cloth1", null, -10.0)
 	_update_viewmodel()
 
 
@@ -434,6 +463,7 @@ func start_reload() -> void:
 	if reloading > 0.0 or ammo[weapon] >= w.mag:
 		return
 	reloading = w.reload
+	game.sfx.play("metalClick", null, -6.0)
 	zoomed = false
 
 
@@ -446,19 +476,46 @@ func _weapons(delta: float, captured: bool) -> void:
 		if reloading <= 0.0:
 			reloading = 0.0
 			ammo[weapon] = w.mag
+			game.sfx.play("metalLatch", null, -6.0)
 	zoomed = captured and int(w.zoom) > 0 and reloading <= 0.0 and Input.is_action_pressed("zoom")
 	var base_fov := float(Net.gfx.fov) + (8.0 if sliding else 0.0)
 	camera.fov = lerpf(camera.fov, _zoom_fov() if zoomed else base_fov, minf(1.0, delta * (18.0 if zoomed else 8.0)))
 	_viewmodel.visible = not zoomed
 
-	# Balancement de l'arme en marchant, recul et abaissement pendant le rechargement
+	# Animations à la première personne : balancement, course, recul, rechargement, changement d'arme,
+	# atterrissage et inertie quand on tourne la souris
 	var hspeed := Vector2(velocity.x, velocity.z).length()
 	if is_on_floor() and hspeed > 0.5:
 		_bob += delta * hspeed * 1.6
-	var bob := Vector3(sin(_bob) * 0.012, -absf(cos(_bob)) * 0.012, 0) * minf(hspeed / WALK_SPEED, 1.5)
-	var reload_drop := Vector3(0, -0.12, 0.05) if reloading > 0.0 else Vector3.ZERO
-	_viewmodel.position = _viewmodel.position.lerp(VIEWMODEL_POS + bob + reload_drop + Vector3(0, 0, _kick), minf(1.0, delta * 20.0))
-	_viewmodel.rotation.x = lerpf(_viewmodel.rotation.x, _kick * 2.0 + (-0.5 if reloading > 0.0 else 0.0), minf(1.0, delta * 15.0))
+	var on_floor := is_on_floor()
+	if on_floor and not _was_on_floor and _fall_speed < -4.0:
+		_land = clampf(-_fall_speed / 14.0, 0.2, 1.0)
+	_was_on_floor = on_floor
+	_fall_speed = velocity.y
+	_land = move_toward(_land, 0.0, delta * 4.0)
+	_draw = move_toward(_draw, 0.0, delta * 3.5)
+	_sway = _sway.lerp(Vector2.ZERO, minf(1.0, delta * 8.0))
+	var sprinting := on_floor and hspeed > WALK_SPEED * 1.15 and not sliding
+	_sprint_blend = move_toward(_sprint_blend, 1.0 if sprinting else 0.0, delta * 5.0)
+	var amp := minf(hspeed / WALK_SPEED, 1.5) * (1.0 + _sprint_blend)
+	var bob := Vector3(sin(_bob) * 0.012, -absf(cos(_bob)) * 0.012, 0) * amp
+	var r := 0.0  # progression du rechargement (0 -> 1)
+	if reloading > 0.0:
+		r = 1.0 - reloading / float(w.reload)
+	var reload_curve := sin(r * PI)
+	var target := VIEWMODEL_POS + bob + Vector3(0, 0, _kick)
+	target += Vector3(-0.08, -0.08, 0.04) * _sprint_blend
+	target += Vector3(0.02, -0.14, 0.06) * reload_curve
+	target += Vector3(0, -0.35, 0.1) * _draw
+	target += Vector3(0, -0.05, 0) * _land
+	target += Vector3(-_sway.x, _sway.y, 0) * 0.0006
+	_viewmodel.position = _viewmodel.position.lerp(target, minf(1.0, delta * 20.0))
+	var rot := Vector3(_kick * 2.0 - 0.6 * reload_curve - 0.5 * _draw - 0.15 * _land, 0.55 * _sprint_blend - _sway.x * 0.002, 0.5 * reload_curve + 0.25 * _sprint_blend)
+	_viewmodel.rotation = _viewmodel.rotation.lerp(rot, minf(1.0, delta * 15.0))
+	# Tremblement de caméra (explosions proches)
+	var sh: float = game.sfx.shake if game.sfx != null else 0.0
+	camera.h_offset = randf_range(-1.0, 1.0) * sh * 0.08
+	camera.v_offset = randf_range(-1.0, 1.0) * sh * 0.08
 	_update_swing(delta)
 
 	var trigger := captured and Input.is_action_pressed("shoot")
