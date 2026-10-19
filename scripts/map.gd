@@ -147,9 +147,82 @@ const WH_BARRELS := [[-6, -15], [6, 15], [-22, -10], [22, 10], [-24, 26], [24, -
 const WH_BONUS := [["armor", -25, 0], ["armor", 25, 0], ["ammo", -8, -16], ["ammo", 8, 16],
 		["damage", 0, -20], ["damage", 0, 20]]
 
-# Disposition (0 base militaire, 1 ville, 2 entrepôt) et nuit, pour chaque carte de Data.MAPS
-const MAP_LAYOUT := [0, 1, 2, 0, 1]
-const MAP_NIGHT := [false, false, false, true, true]
+
+# --- Forêt (carte 4) : Kenney Nature Kit + Survival Kit -----------------------------------------
+const F := "forest/%s.glb"
+const FS := "forest/survival/%s.glb"
+const FOREST_PROPS := [
+	[F % "rock_largeD", -8, 6, 0, 4.0], [F % "rock_largeB", 8, -6, 180, 4.0],
+	[F % "rock_tallA", -18, -4, 30, 3.5], [F % "rock_tallB", 18, 4, 210, 3.5],
+	[F % "rock_largeC", -2, 15, 60, 3.5], [F % "rock_largeA", 2, -15, 240, 3.5],
+	[F % "log_large", -4, -9, 90, 3.0], [F % "log_large", 4, 9, 90, 3.0],
+	[F % "log_stackLarge", -20, 14, 0, 3.5], [F % "log_stackLarge", 20, -14, 180, 3.5],
+	[F % "tent_detailedOpen", -23, 22, 135, 4.5], [F % "tent_detailedClosed", 23, -22, 315, 4.5],
+	[FS % "structure", -12, 19, 0, 6.0], [FS % "structure", 12, -19, 180, 6.0],
+	[FS % "fence-fortified", -6, 20, 0, 4.0], [FS % "fence-fortified", 6, -20, 180, 4.0],
+	[FS % "fence-fortified", -25, -9, 90, 4.0], [FS % "fence-fortified", 25, 9, 90, 4.0],
+	[FS % "workbench", -14, -15, 30, 4.0], [FS % "workbench", 14, 15, 210, 4.0],
+	[FS % "box-large", 11, 3, 0, 4.0], [FS % "box-large", -11, -3, 0, 4.0],
+	[F % "tree_pineTallB", -14, 7, 0, 5.0], [F % "tree_pineTallB", 14, -7, 0, 5.0],
+	[F % "tree_oak", -26, -19, 0, 5.5], [F % "tree_oak", 26, 19, 0, 5.5],
+	[F % "tree_default", -5, -21, 0, 5.0], [F % "tree_default", 5, 21, 0, 5.0],
+	[F % "tree_fat", -24, 3, 0, 5.0], [F % "tree_fat", 24, -3, 0, 5.0],
+	[F % "tree_pineRoundA", -26, 12, 0, 5.0], [F % "tree_pineRoundA", 26, -12, 0, 5.0],
+	[F % "tree_detailed", -16, -12, 0, 5.5], [F % "tree_detailed", 16, 12, 0, 5.5],
+	[F % "tree_cone", -7, -3, 0, 4.5], [F % "tree_cone", 7, 3, 0, 4.5],
+]
+const FOREST_DECOR := [
+	[F % "plant_bushLarge", -10, 10, 0, 4.0], [F % "plant_bushLarge", 10, -10, 0, 4.0],
+	[F % "plant_bush", -20, -2, 0, 4.0], [F % "plant_bush", 20, 2, 0, 4.0], [F % "plant_bush", -3, 24, 0, 3.5],
+	[F % "plant_bush", 3, -24, 0, 3.5], [F % "grass_large", -16, 2, 0, 4.0], [F % "grass_large", 16, -2, 0, 4.0],
+	[F % "grass_large", -8, -18, 0, 4.0], [F % "grass_large", 8, 18, 0, 4.0], [F % "grass_large", -22, -24, 0, 4.0],
+	[F % "stump_round", -12, 2, 0, 3.5], [F % "stump_old", 12, -2, 0, 3.5], [F % "stump_round", 20, 22, 0, 3.5],
+	[F % "campfire_stones", 0, -4, 0, 4.0], [FS % "campfire-pit", 0, -4, 0, 4.5],
+	[F % "ground_riverRocks", -12, 0, 0, 4.0], [F % "ground_riverRocks", 12, 0, 90, 4.0], [F % "ground_riverRocks", 22, 0, 0, 4.0],
+	[F % "ground_riverRocks", -22, 0, 90, 4.0], [F % "fence_planks", 0, 0.6, 0, 4.0],
+]
+const FOREST_HEALTH := [Vector3(-10, 0, 1), Vector3(10, 0, -1), Vector3(0, 0, -11), Vector3(0, 0, 11)]
+const FOREST_BARRELS := [[-17, 0], [17, 0], [-6, -16], [6, 16], [-22, -16], [22, 16]]
+const FOREST_BONUS := [["armor", -26, -1], ["armor", 26, 1], ["ammo", -12, -13], ["ammo", 12, 13],
+		["damage", 0, -19], ["damage", 0, 19]]
+
+# --- Port industriel (carte 5) : Kenney City Kit Industrial + Watercraft Pack -------------------
+const PI_ := "port/industrial/%s.glb"
+const PB := "port/boats/%s.glb"
+const PORT_PROPS := [
+	# Conteneurs, certains empilés : [modèle, x, z, rotation, échelle, hauteur]
+	[PI_ % "shipping-container-a", -10, 6, 0, 7.5], [PI_ % "shipping-container-b", -10, 6, 0, 7.5, 2.62],
+	[PI_ % "shipping-container-c", 10, -6, 180, 7.5], [PI_ % "shipping-container-a", 10, -6, 180, 7.5, 2.62],
+	[PI_ % "shipping-container-b", -18, -10, 90, 7.5], [PI_ % "shipping-container-c", 18, 10, 90, 7.5],
+	[PI_ % "shipping-container-a", 0, 14, 90, 7.5], [PI_ % "shipping-container-b", 0, -14, 90, 7.5],
+	[PI_ % "shipping-container-c", -22, 18, 0, 7.5], [PI_ % "shipping-container-a", 22, -18, 0, 7.5],
+	[PI_ % "shipping-container-b", -22, 18, 0, 7.5, 2.62], [PI_ % "shipping-container-c", 22, -18, 0, 7.5, 2.62],
+	[PB % "cargo-container-a", 0, -1.6, 90, 2.0], [PB % "cargo-container-b", 0, 1.6, 90, 2.0],
+	[PI_ % "detail-tank-large", -21, 4, 0, 4.0], [PI_ % "detail-tank-large", 21, -4, 180, 4.0],
+	[PB % "cargo-container-a", 8, 21, 90, 2.2], [PB % "cargo-container-b", -8, -21, 90, 2.2],
+	[PI_ % "building-k", -24, -23, 0, 5.0], [PI_ % "building-k", 24, 23, 180, 5.0],
+	[PI_ % "detail-tank", 13, 3, 0, 4.0], [PI_ % "detail-tank", -13, -3, 180, 4.0],
+	[PI_ % "detail-tank", -6, 23, 90, 4.0], [PI_ % "detail-tank", 6, -23, 270, 4.0],
+]
+const PORT_DECOR := [
+	# Mer à l'est : cargo, remorqueurs, bouées
+	[PB % "ship-cargo-a", 58, -6, 0, 3.0], [PB % "boat-tug-a", 41, -24, 25, 2.0], [PB % "boat-tug-a", 44, 18, 160, 2.0],
+	[PB % "boat-fishing-small", 38, 34, 70, 1.6], [PB % "buoy-flag", 35, -8, 0, 1.0], [PB % "buoy", 35, 9, 0, 1.0],
+	[PB % "buoy", 36, -30, 0, 1.0],
+	# Zone industrielle autour
+	[PI_ % "water-tower", -42, -32, 0, 5.0], [PI_ % "chimney-large", -44, 8, 0, 6.0], [PI_ % "chimney-medium", -40, 24, 0, 6.0],
+	[PI_ % "building-n", -46, -6, 90, 6.0], [PI_ % "building-c", -2, -46, 0, 6.0], [PI_ % "building-a", 2, 46, 180, 6.0],
+	[PI_ % "building-e", -36, 44, 180, 6.0], [PI_ % "building-g", -38, -46, 0, 6.0], [PI_ % "building-c", 20, -46, 0, 6.0],
+	[PI_ % "building-e", 20, 46, 180, 6.0],
+]
+const PORT_HEALTH := [Vector3(-8, 0, 0), Vector3(8, 0, 0), Vector3(0, 0, -9), Vector3(0, 0, 9)]
+const PORT_BARRELS := [[-16, 0], [16, 0], [-5, -18], [5, 18], [-26, 10], [26, -10]]
+const PORT_BONUS := [["armor", -27, -2], ["armor", 27, 2], ["ammo", -14, -14], ["ammo", 14, 14],
+		["damage", -4, -7], ["damage", 4, 7]]
+
+# Disposition (0 base militaire, 1 ville, 2 entrepôt, 3 forêt, 4 port) et nuit, pour chaque carte de Data.MAPS
+const MAP_LAYOUT := [0, 1, 2, 0, 1, 3, 4]
+const MAP_NIGHT := [false, false, false, true, true, false, false]
 # Lampadaires allumés la nuit : [x, hauteur, z]
 const MIL_LAMPS := [[-27.8, 5.2, -12], [-27.8, 5.2, 12], [27.8, 5.2, -12], [27.8, 5.2, 12],
 		[0, 6.5, -22], [0, 6.5, 22], [-17, 6.0, 0], [17, 6.0, 0], [0, 7.0, 6]]
@@ -178,6 +251,8 @@ func build(root: Node3D, with_nav: bool, map_index := 0) -> void:
 	night = MAP_NIGHT[map_index]
 	var city := layout == 1
 	var wh := layout == 2
+	var forest := layout == 3
+	var port := layout == 4
 	_build_environment(root)
 	_checker = _make_checker()
 
@@ -191,7 +266,10 @@ func build(root: Node3D, with_nav: bool, map_index := 0) -> void:
 				var tile := _patch(root, Vector3(-25 + ix * 10, -0.05, -25 + iz * 10), Vector3(10.2, 0.1, 10.2), Color.WHITE)
 				_set_textured(tile, "concrete_floor_02", Color(0.55, 0.55, 0.55), 0.25)
 	else:
-		_set_textured(floor_body, "concrete_floor_02", Color(0.62, 0.62, 0.62), 0.25)
+		if forest:
+			_set_textured(floor_body, "forrest_ground_01", Color(0.8, 0.85, 0.7), 0.2)
+		else:
+			_set_textured(floor_body, "concrete_floor_02", Color(0.62, 0.62, 0.62), 0.25)
 	if city:
 		# Deux rues en asphalte qui se croisent, avec un marquage au sol
 		for road in [Vector3(HALF * 2, 0.02, 10), Vector3(10, 0.02, HALF * 2)]:
@@ -202,6 +280,17 @@ func build(root: Node3D, with_nav: bool, map_index := 0) -> void:
 				continue
 			_patch(root, Vector3(i * 2.2, 0.026, 0), Vector3(1.2, 0.01, 0.18), Color(1, 0.85, 0.2))
 			_patch(root, Vector3(0, 0.026, i * 2.2), Vector3(0.18, 0.01, 1.2), Color(1, 0.85, 0.2))
+	if forest:
+		# Ruisseau peu profond qui traverse la forêt
+		_patch(root, Vector3(0, 0.015, 0), Vector3(HALF * 2, 0.02, 4.2), Color(0.18, 0.16, 0.12))
+		_water(root, Vector3(0, 0.06, 0), Vector2(HALF * 2, 4.0), 0.03)
+	if port:
+		# Allées en asphalte, quai et mer à l'est
+		for lane in [Vector3(HALF * 2, 0.02, 6), Vector3(6, 0.02, HALF * 2)]:
+			var r := _patch(root, Vector3(0, 0.012, 0), lane, Color.WHITE)
+			_set_textured(r, "asphalt_02", Color(0.7, 0.7, 0.7), 0.2)
+		_box(root, Vector3(HALF + 1.5, -0.4, 0), Vector3(3, 1.0, 140), Color(0.55, 0.55, 0.55), false, true)
+		_water(root, Vector3(HALF + 38, 0.0, 0), Vector2(74, 140), 0.18)
 	_patch(root, Vector3(0, 0.03, 26.5), Vector3(36, 0.02, 7), Color(0.25, 0.4, 0.85, 0.35))
 	_patch(root, Vector3(0, 0.03, -26.5), Vector3(36, 0.02, 7), Color(0.85, 0.3, 0.25, 0.35))
 
@@ -215,21 +304,25 @@ func build(root: Node3D, with_nav: bool, map_index := 0) -> void:
 	if wh:
 		_build_warehouse(root)
 	else:
-		var fence_w := 3.55
+		var fence_w := 2.0 if forest else 3.55
+		var fence_model := FS % "fence-fortified" if forest else "MetalFence"
+		var fence_scale := 4.0 if forest else 1.0
 		var count := int(ceil(HALF * 2.0 / fence_w))
 		for i in count:
 			var t := -HALF + fence_w / 2.0 + i * fence_w
-			_prop(root, "MetalFence", t, -HALF, 0, 1.0, false)
-			_prop(root, "MetalFence", t, HALF, 180, 1.0, false)
-			_prop(root, "MetalFence", -HALF, t, 90, 1.0, false)
-			_prop(root, "MetalFence", HALF, t, 270, 1.0, false)
+			_prop(root, fence_model, t, -HALF, 0, fence_scale, false)
+			_prop(root, fence_model, t, HALF, 180, fence_scale, false)
+			_prop(root, fence_model, -HALF, t, 90, fence_scale, false)
+			_prop(root, fence_model, HALF, t, 270, fence_scale, false)
 
-	var props: Array = CITY_PROPS if city else (WH_PROPS if wh else PROPS)
-	var decor: Array = CITY_DECOR if city else (WH_DECOR if wh else DECOR)
+	var props: Array = CITY_PROPS if city else (WH_PROPS if wh else (FOREST_PROPS if forest else (PORT_PROPS if port else PROPS)))
+	var decor: Array = CITY_DECOR if city else (WH_DECOR if wh else (FOREST_DECOR if forest else (PORT_DECOR if port else DECOR)))
 	for p in props:
-		_prop(root, p[0], p[1], p[2], p[3], p[4], true)
+		_prop(root, p[0], p[1], p[2], p[3], p[4], true, p[5] if p.size() > 5 else 0.0)
 	for d in decor:
 		_prop(root, d[0], d[1], d[2], d[3], d[4], false)
+	if forest:
+		_build_forest_extras(root)
 	if night:
 		_build_night_lights(root, CITY_LAMPS if city else MIL_LAMPS)
 
@@ -238,12 +331,12 @@ func build(root: Node3D, with_nav: bool, map_index := 0) -> void:
 		team_spawns[1].append(Vector3(x, 0.1, -27))
 	for p in (CITY_FFA if city else MIL_FFA):
 		ffa_spawns.append(Vector3(p[0], 0.1, p[1]))
-	health_points = (CITY_HEALTH if city else (WH_HEALTH if wh else HEALTH_POINTS)).duplicate()
-	for b in (CITY_BARRELS if city else (WH_BARRELS if wh else MIL_BARRELS)):
+	health_points = (CITY_HEALTH if city else (WH_HEALTH if wh else (FOREST_HEALTH if forest else (PORT_HEALTH if port else HEALTH_POINTS)))).duplicate()
+	for b in (CITY_BARRELS if city else (WH_BARRELS if wh else (FOREST_BARRELS if forest else (PORT_BARRELS if port else MIL_BARRELS)))):
 		var p := Vector3(b[0], 0, b[1])
 		if is_clear(p):
 			barrel_points.append(p)
-	for b in (CITY_BONUS if city else (WH_BONUS if wh else MIL_BONUS)):
+	for b in (CITY_BONUS if city else (WH_BONUS if wh else (FOREST_BONUS if forest else (PORT_BONUS if port else MIL_BONUS)))):
 		var p := Vector3(b[1], 0, b[2])
 		if is_clear(p):
 			bonus_points.append([b[0], p])
@@ -312,15 +405,19 @@ func _build_nav() -> void:
 # --- Géométrie --------------------------------------------------------------------
 
 ## Place un élément du kit ; avec collision, ajoute une boîte qui l'englobe (et un obstacle pour les bots).
-func _prop(root: Node3D, model: String, x: float, z: float, rot_deg: float, scale: float, collide: bool) -> void:
+func _prop(root: Node3D, model: String, x: float, z: float, rot_deg: float, scale: float, collide: bool, y := 0.0) -> Node3D:
 	var path := ("res://assets/" + model) if "/" in model else (ENV_PATH % model)
 	var inst: Node3D = load(path).instantiate()
-	inst.position = Vector3(x, 0, z)
+	inst.position = Vector3(x, y, z)
+	if "tree" in model:
+		_apply_wind(inst)
+	elif model.begins_with("forest/") and not model.begins_with("forest/survival"):
+		_fix_nature(inst)
 	inst.rotation.y = deg_to_rad(rot_deg)
 	inst.scale = Vector3.ONE * scale
 	root.add_child(inst)
 	if not collide:
-		return
+		return inst
 	var box := Models._local_aabb(inst)
 	var center := box.get_center() * scale
 	var size := box.size * scale
@@ -348,6 +445,89 @@ func _prop(root: Node3D, model: String, x: float, z: float, rot_deg: float, scal
 	if int(round(rot_deg)) % 180 != 0:
 		half = Vector2(half.y, half.x)
 	_obstacles.append([Vector2(x, z) + c2, half])
+	return inst
+
+
+## Plan d'eau animé (shader assets/shaders/water.gdshader), subdivisé pour que les vagues bougent.
+func _water(root: Node3D, pos: Vector3, size: Vector2, wave: float) -> void:
+	var m := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = size
+	pm.subdivide_width = int(size.x / 1.5)
+	pm.subdivide_depth = int(size.y / 1.5)
+	m.mesh = pm
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://assets/shaders/water.gdshader")
+	mat.set_shader_parameter("wave_height", wave)
+	m.material_override = mat
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	m.position = pos
+	root.add_child(m)
+
+
+## Arbres qui bougent avec le vent : chaque matériau est remplacé par le shader « wind »
+## (même couleur et même texture).
+func _apply_wind(inst: Node3D) -> void:
+	var shader: Shader = load("res://assets/shaders/wind.gdshader")
+	var box := Models._local_aabb(inst)
+	for m in inst.find_children("*", "MeshInstance3D", true, false):
+		var mi := m as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		for s in mi.mesh.get_surface_count():
+			var src = mi.get_active_material(s)
+			var sm := ShaderMaterial.new()
+			sm.shader = shader
+			sm.set_shader_parameter("model_height", maxf(box.size.y, 0.1))
+			sm.set_shader_parameter("strength", box.size.y * 0.035)
+			if src is BaseMaterial3D:
+				sm.set_shader_parameter("albedo", _nature_color(String(src.resource_name), src.albedo_color))
+				if src.albedo_texture != null:
+					sm.set_shader_parameter("albedo_texture", src.albedo_texture)
+					sm.set_shader_parameter("use_texture", true)
+			mi.set_surface_override_material(s, sm)
+
+
+## Forêt : arbres tout autour de l'arène (décor) et feu de camp allumé.
+func _build_forest_extras(root: Node3D) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 99
+	var models := ["tree_pineTallA", "tree_pineTallB", "tree_pineRoundA", "tree_default", "tree_oak", "tree_cone", "tree_fat"]
+	for i in 70:
+		var a := rng.randf() * TAU
+		var d := rng.randf_range(34.0, 55.0)
+		_prop(root, F % models[rng.randi() % models.size()], cos(a) * d, sin(a) * d, rng.randf() * 360.0, rng.randf_range(5.0, 7.5), false)
+	var fire := OmniLight3D.new()
+	fire.light_color = Color(1.0, 0.55, 0.2)
+	fire.light_energy = 2.0
+	fire.omni_range = 7.0
+	fire.position = Vector3(0, 0.8, -4)
+	root.add_child(fire)
+	var flames := CPUParticles3D.new()
+	flames.amount = 24
+	flames.lifetime = 0.8
+	flames.direction = Vector3.UP
+	flames.spread = 15.0
+	flames.initial_velocity_min = 0.8
+	flames.initial_velocity_max = 1.6
+	flames.gravity = Vector3(0, 0.5, 0)
+	flames.scale_amount_min = 0.6
+	flames.scale_amount_max = 1.2
+	var fm := SphereMesh.new()
+	fm.radius = 0.12
+	fm.height = 0.24
+	var fmat := StandardMaterial3D.new()
+	fmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fmat.vertex_color_use_as_albedo = true
+	fmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	fm.material = fmat
+	flames.mesh = fm
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1.0, 0.85, 0.3, 1.0))
+	ramp.set_color(1, Color(0.9, 0.2, 0.05, 0.0))
+	flames.color_ramp = ramp
+	flames.position = Vector3(0, 0.25, -4)
+	root.add_child(flames)
 
 
 ## Entrepôt : murs extérieurs, toit, cloisons et piliers en béton, lampes au plafond.
@@ -593,3 +773,27 @@ func _patch(root: Node3D, center: Vector3, size: Vector3, color: Color) -> MeshI
 	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(mesh)
 	return mesh
+
+
+## Couleurs du Nature Kit adaptées à notre éclairage : feuilles plus vertes, bois plus brun.
+func _nature_color(mat_name: String, c: Color) -> Color:
+	var n := mat_name.to_lower()
+	if "leaf" in n or "leafs" in n or "grass" in n or "plant" in n:
+		return Color(c.r * 0.6, c.g * 0.72, c.b * 0.32)
+	if "wood" in n or "bark" in n or "trunk" in n:
+		return Color(c.r * 0.62, c.g * 0.5, c.b * 0.4)
+	return c
+
+
+## Applique la même correction aux modèles du Nature Kit sans vent (rochers, bûches, buissons…).
+func _fix_nature(inst: Node3D) -> void:
+	for m in inst.find_children("*", "MeshInstance3D", true, false):
+		var mi := m as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		for s in mi.mesh.get_surface_count():
+			var src = mi.get_active_material(s)
+			if src is BaseMaterial3D:
+				var mat: BaseMaterial3D = src.duplicate()
+				mat.albedo_color = _nature_color(String(src.resource_name), src.albedo_color)
+				mi.set_surface_override_material(s, mat)

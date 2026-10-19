@@ -7,8 +7,8 @@ signal closed
 const UiTheme := preload("res://scripts/ui_theme.gd")
 
 const PRESETS := {
-	"Basse": {"shadows": 0, "msaa": 0, "scale": 70, "fog": false, "view": 0},
-	"Moyenne": {"shadows": 1, "msaa": 0, "scale": 100, "fog": true, "view": 1},
+	"Basse": {"shadows": 0, "msaa": 0, "scale": 70, "fog": false, "view": 0, "post": false},
+	"Moyenne": {"shadows": 1, "msaa": 0, "scale": 100, "fog": true, "view": 1, "post": true},
 	"Haute": {"shadows": 2, "msaa": 1, "scale": 100, "fog": true, "view": 1},
 	"Ultra": {"shadows": 3, "msaa": 2, "scale": 100, "fog": true, "view": 2},
 }
@@ -87,6 +87,7 @@ func _ready() -> void:
 		fps_names.append("Illimité" if f == 0 else "%d IPS" % f)
 	_option(grid, "fps_limit", "Limite d'images", fps_names)
 	_check(grid, "show_fps", "Afficher les IPS")
+	_check(grid, "post", "Effets d'écran (couleurs, vignette)")
 
 	grid.add_child(_dim_label("Sensibilité souris"))
 	var sens := _slider_box(0.5, 8.0, 0.1, "%.1f")

@@ -46,6 +46,7 @@ var _chat_box: VBoxContainer
 var _chat_edit: LineEdit
 var _pings := []  # {"pos", "name", "enemy", "t"}
 var _spec_label: Label
+var _post: ColorRect
 var _dmg_numbers := []  # {"pos", "text", "color", "size", "t", "dx"}
 var _bottom: Control
 
@@ -63,6 +64,15 @@ func _ready() -> void:
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
+
+	# Post-traitement de l'image (shader assets/shaders/post.gdshader), sous le reste de l'interface
+	_post = ColorRect.new()
+	_post.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_post.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var pm := ShaderMaterial.new()
+	pm.shader = load("res://assets/shaders/post.gdshader")
+	_post.material = pm
+	root.add_child(_post)
 
 	# Vignette rouge quand on prend des dégâts
 	_vignette = TextureRect.new()
@@ -681,6 +691,9 @@ func _process(delta: float) -> void:
 	if c != null and c.alive and c.hp <= 30:
 		low = 0.35 + 0.15 * sin(Time.get_ticks_msec() / 200.0)
 	_vignette.modulate.a = maxf(_damage_a, low)
+	_post.visible = bool(Net.gfx.get("post", true))
+	if _post.visible:
+		(_post.material as ShaderMaterial).set_shader_parameter("damage", clampf(_damage_a * 1.5, 0.0, 1.0))
 	_crosshair.queue_redraw()
 	radar_t = maxf(0.0, radar_t - delta)
 	_radar.queue_redraw()

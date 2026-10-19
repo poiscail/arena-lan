@@ -14,3 +14,8 @@ sfx/ : tirs extraits de The Free Firearm Sound Library (opengameart.org) - CC0 1
       pas, impacts, couteau, interface : Kenney Impact Sounds, RPG Audio, Interface Sounds - CC0 1.0
 
 guns_q/ : Ultimate Gun Pack par Quaternius (opengameart.org) - CC0 1.0
+
+forest/ : Kenney Nature Kit + Survival Kit - CC0 1.0
+port/ : Kenney City Kit Industrial + Watercraft Pack - CC0 1.0
+textures/forrest_ground_01 : Poly Haven - CC0 1.0
+shaders/ : écrits pour le jeu (eau, vent, post-traitement)

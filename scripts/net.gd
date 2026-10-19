@@ -52,6 +52,7 @@ var gfx := {
 	"vsync": true,
 	"fps_limit": 0,      # index dans FPS_LIMITS (0 = illimité)
 	"show_fps": false,
+	"post": true,       # effets d'écran (couleurs, vignette, grain)
 }
 
 

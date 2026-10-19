@@ -66,6 +66,10 @@ Très pratique en mode Élimination, où l'on attend la manche suivante.
 - **Base militaire** et **Ville**, de jour.
 - **Entrepôt** : un grand hangar fermé, éclairé par des lampes au plafond, avec des cloisons, des piliers et des caisses.
 - **Base militaire (nuit)** et **Ville (nuit)** : ciel étoilé, lampadaires et lampe torche (L).
+- **Forêt** : pins et chênes qui bougent avec le vent, rochers, bûches, tentes, cabanes, palissades, un ruisseau et un feu de camp.
+- **Port industriel** : piles de conteneurs, citernes et entrepôts. Autour, la mer animée avec un cargo, des remorqueurs et des bouées.
+
+Shaders maison : eau animée (vagues, reflets, écume), vent dans les arbres, et post-traitement de l'écran (couleurs, vignette, grain, aberration rouge quand on est touché), désactivable dans les options.
 
 ## Armurerie
 Bouton **Armurerie** dans le menu. Pour chaque arme :
@@ -167,6 +171,7 @@ Toute la partie est décidée par l'hôte : dégâts, morts, scores et bots. Cha
 - **Personnages et animations** : [Universal Base Characters](https://quaternius.com/packs/universalbasecharacters.html), [Modular Character Outfits - Fantasy](https://quaternius.itch.io/modular-character-outfits-fantasy) et [Universal Animation Library](https://quaternius.com/packs/universalanimationlibrary.html) de Quaternius, licence CC0.
 - **Armes réalistes** : [Ultimate Gun Pack](https://opengameart.org/content/low-poly-guns-pack) de Quaternius, licence CC0.
 - **Armes et décor** : [Toon Shooter Game Kit](https://quaternius.com/packs/toonshootergamekit.html) de Quaternius, licence CC0.
+- **Forêt et Port** : [Nature Kit](https://kenney.nl/assets/nature-kit), [Survival Kit](https://kenney.nl/assets/survival-kit), [City Kit Industrial](https://kenney.nl/assets/city-kit-industrial) et [Watercraft Pack](https://kenney.nl/assets/watercraft-kit) de Kenney, CC0 ; texture [Forrest Ground 01](https://polyhaven.com/a/forrest_ground_01) de Poly Haven, CC0.
 - **Carte Ville** : [City Kit Commercial](https://kenney.nl/assets/city-kit-commercial), [City Kit Roads](https://kenney.nl/assets/city-kit-roads) et [Car Kit](https://kenney.nl/assets/car-kit) de Kenney, licence CC0.
 - **Ciel et textures** : [Kloofendal 48d Partly Cloudy (Pure Sky)](https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky), [Asphalt 02](https://polyhaven.com/a/asphalt_02) et [Concrete Floor 02](https://polyhaven.com/a/concrete_floor_02) de Poly Haven, licence CC0.
 - **Sons** : [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library) (tirs, CC0), et [Impact Sounds](https://kenney.nl/assets/impact-sounds), [RPG Audio](https://kenney.nl/assets/rpg-audio) et [Interface Sounds](https://kenney.nl/assets/interface-sounds) de Kenney (CC0).

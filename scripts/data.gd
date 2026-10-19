@@ -78,7 +78,7 @@ static func esc(text: String) -> String:
 	return text.replace("[", "[lb]")
 
 # Cartes disponibles (index utilisé dans les paramètres de partie)
-const MAPS := ["Base militaire", "Ville", "Entrepôt", "Base militaire (nuit)", "Ville (nuit)"]
+const MAPS := ["Base militaire", "Ville", "Entrepôt", "Base militaire (nuit)", "Ville (nuit)", "Forêt", "Port industriel"]
 
 # Autres causes d'élimination (en plus des armes)
 const KILL_GRENADE := 100
