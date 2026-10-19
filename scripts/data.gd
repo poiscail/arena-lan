@@ -16,16 +16,13 @@ const WEAPONS := [
 # Modèle 3D de chaque arme (Quaternius Toon Shooter) et sa longueur en vue à la première personne
 const WEAPON_MODELS := [["AK", 0.62], ["Shotgun", 0.62], ["Sniper", 0.8]]
 
-# Modèles des personnages (Quaternius Toon Shooter) : un par équipe, au hasard en mêlée
-const TEAM_MODELS := ["Character_Soldier", "Character_Enemy"]
-const FFA_MODELS := ["Character_Soldier", "Character_Enemy", "Character_Hazmat"]
-
-# Animations du kit utilisées pour chaque état
-const ANIM_IDLE := "Idle_Shoot"
-const ANIM_WALK := "Walk_Shoot"
-const ANIM_RUN := "Run_Gun"
-const ANIM_AIR := "Jump_Idle"
-const ANIM_DEATH := "Death"
+# Skins (Quaternius Universal Base Characters + tenues), animés par la Universal Animation Library
+const SKINS := [
+	{"name": "Rôdeur", "parts": ["Superhero_Male_FullBody", "Male_Ranger"]},
+	{"name": "Rôdeuse", "parts": ["Superhero_Female_FullBody", "Female_Ranger"]},
+	{"name": "Agent", "parts": ["Superhero_Male_FullBody"]},
+	{"name": "Agente", "parts": ["Superhero_Female_FullBody"]},
+]
 
 # Recul vertical de la caméra (radians) par tir
 const RECOIL := [0.012, 0.05, 0.09]

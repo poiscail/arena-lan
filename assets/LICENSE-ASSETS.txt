@@ -1,7 +1,8 @@
-soldiers/ et guns/ : Toon Shooter Game Kit par Quaternius
-https://quaternius.com/packs/toonshootergamekit.html
-Licence : CC0 1.0 Universal (domaine public) - https://creativecommons.org/publicdomain/zero/1.0/
-
 fonts/Rajdhani-*.ttf : Rajdhani par Indian Type Foundry - SIL Open Font License 1.1
 fonts/Orbitron.ttf : Orbitron par Matt McInerney - SIL Open Font License 1.1
 https://openfontlicense.org
+
+people/ : Universal Base Characters + Modular Character Outfits - Fantasy par Quaternius (version gratuite)
+ual/ : Universal Animation Library par Quaternius (version gratuite)
+https://quaternius.com - Licence : CC0 1.0 Universal (domaine public)
+env/ et guns/ : Toon Shooter Game Kit par Quaternius - CC0 1.0

@@ -10,6 +10,7 @@ const DEFAULT_PORT := 7777
 const MAX_HUMANS := 12
 
 var player_name := "Joueur"
+var player_skin := 0
 var port := DEFAULT_PORT
 var players := {}  # peer_id -> {"name": String, "team": int}
 var settings := {
@@ -39,7 +40,7 @@ func host(p_port: int) -> String:
 		return "Impossible d'héberger sur le port %d (déjà utilisé ?)." % p_port
 	multiplayer.multiplayer_peer = peer
 	port = p_port
-	players = {1: {"name": player_name, "team": 0}}
+	players = {1: {"name": player_name, "team": 0, "skin": player_skin}}
 	in_game = false
 	print("[net] Serveur ouvert sur le port %d" % p_port)
 	lobby_changed.emit()
@@ -108,14 +109,14 @@ func end_match_to_lobby() -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func register_player(pname: String) -> void:
+func register_player(pname: String, skin: int) -> void:
 	if not multiplayer.is_server():
 		return
 	var id := multiplayer.get_remote_sender_id()
 	pname = pname.strip_edges().substr(0, 16)
 	if pname == "":
 		pname = "Joueur%d" % id
-	players[id] = {"name": pname, "team": _smallest_team()}
+	players[id] = {"name": pname, "team": _smallest_team(), "skin": clampi(skin, 0, 99)}
 	print("[net] %s a rejoint (id %d)" % [pname, id])
 	_broadcast_lobby()
 	if in_game:
@@ -169,7 +170,7 @@ func _broadcast_lobby() -> void:
 
 func _on_connected_ok() -> void:
 	print("[net] Connecté au serveur")
-	register_player.rpc_id(1, player_name)
+	register_player.rpc_id(1, player_name, player_skin)
 
 
 func _on_peer_disconnected(id: int) -> void:

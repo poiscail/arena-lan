@@ -61,12 +61,14 @@ Quelqu'un peut rejoindre en cours de partie. Il remplace alors un bot.
 | `map.gd` | Construction de l'arène, points d'apparition, chemins des bots |
 | `hud.gd` | Interface en jeu |
 | `ui_theme.gd` | Thème visuel (polices, panneaux, boutons) |
-| `models.gd` | Chargement des modèles 3D |
+| `models.gd` | Chargement des armes 3D |
+| `people.gd` | Personnages, skins et arbre d'animation |
 | `data.gd` | Réglages des armes, des équipes et des modèles |
 
 Toute la partie est décidée par l'hôte : dégâts, morts, scores et bots. Chaque joueur envoie seulement sa position et ses tirs.
 
 ## Crédits
-- **Soldats et armes** : [Toon Shooter Game Kit](https://quaternius.com/packs/toonshootergamekit.html) de Quaternius, licence CC0.
+- **Personnages et animations** : [Universal Base Characters](https://quaternius.com/packs/universalbasecharacters.html), [Modular Character Outfits - Fantasy](https://quaternius.itch.io/modular-character-outfits-fantasy) et [Universal Animation Library](https://quaternius.com/packs/universalanimationlibrary.html) de Quaternius, licence CC0.
+- **Armes et décor** : [Toon Shooter Game Kit](https://quaternius.com/packs/toonshootergamekit.html) de Quaternius, licence CC0.
 - **Polices** : [Rajdhani](https://fonts.google.com/specimen/Rajdhani) et [Orbitron](https://fonts.google.com/specimen/Orbitron), licence SIL Open Font.
 - **Moteur** : [Godot 4.7](https://godotengine.org).

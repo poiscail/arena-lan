@@ -5,6 +5,7 @@ extends CharacterBody3D
 const BotScript := preload("res://scripts/bot.gd")
 const Data := preload("res://scripts/data.gd")
 const Models := preload("res://scripts/models.gd")
+const People := preload("res://scripts/people.gd")
 
 const GRAVITY := 20.0
 const JUMP_VELOCITY := 7.0
@@ -23,6 +24,7 @@ var team := -1
 var is_bot := false
 var owner_peer := 1
 var is_local := false
+var skin := 0
 var hp := 100
 var alive := true
 var bot = null
@@ -36,8 +38,8 @@ var reloading := 0.0
 var zoomed := false
 
 var _model: Node3D
-var _anim: AnimationPlayer
-var _anim_name := ""
+var _tree: AnimationTree
+var _state := "alive"
 var _gun: Node3D
 var _ring: MeshInstance3D
 var _label: Label3D
@@ -70,10 +72,11 @@ func _ready() -> void:
 	_shape.position.y = 0.9
 	add_child(_shape)
 
-	_model = Models.character(_model_name(), 1.85)
+	var parts: Array = Data.SKINS[clampi(skin, 0, Data.SKINS.size() - 1)]["parts"]
+	_model = People.build(parts, 1.8)
 	add_child(_model)
-	_anim = _model.find_child("AnimationPlayer", true, false)
-	_gun = Models.attach_weapon(_model, Data.WEAPON_MODELS[0][0])
+	_tree = _model.get_meta("tree")
+	_gun = People.hold_gun(_model, Data.WEAPON_MODELS[0][0])
 
 	# Anneau de couleur au sol pour repérer l'équipe
 	_ring = MeshInstance3D.new()
@@ -109,7 +112,6 @@ func _ready() -> void:
 	_net_pos = position
 	_net_yaw = rotation.y
 	_prev_pos = position
-	_play(Data.ANIM_IDLE)
 
 	if is_bot and multiplayer.is_server():
 		bot = BotScript.new()
@@ -137,12 +139,6 @@ func _ready() -> void:
 			_view_guns.append(g)
 		_update_viewmodel()
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-
-
-func _model_name() -> String:
-	if team >= 0:
-		return Data.TEAM_MODELS[team]
-	return Data.FFA_MODELS[absi(char_id.hash()) % Data.FFA_MODELS.size()]
 
 
 func get_color() -> Color:
@@ -187,7 +183,7 @@ func set_dead(dead: bool) -> void:
 		if is_local:
 			visible = false
 		else:
-			_play(Data.ANIM_DEATH)
+			_set_state("dead")
 			_label.visible = false
 			_ring.visible = false
 			_hide_t = DEATH_SHOW_TIME
@@ -197,7 +193,7 @@ func set_dead(dead: bool) -> void:
 		if not is_local:
 			_label.visible = true
 			_ring.visible = true
-		_play(Data.ANIM_IDLE)
+		_set_state("alive")
 
 
 func respawn(pos: Vector3) -> void:
@@ -249,19 +245,22 @@ func _update_animation(delta: float) -> void:
 			if _hide_t <= 0.0:
 				visible = false
 		return
-	if _speed > 7.0:
-		_play(Data.ANIM_RUN)
-	elif _speed > 0.8:
-		_play(Data.ANIM_WALK)
-	else:
-		_play(Data.ANIM_IDLE)
+	# Jambes selon la vitesse (0 arrêt, 2.5 marche, 6 jogging, 9.5 sprint), buste selon l'angle de visée
+	_tree.set("parameters/loco/blend_position", clampf(_speed, 0.0, 10.0))
+	_tree.set("parameters/aim/blend_position", clampf(head.rotation.x, -1.0, 1.0))
 
 
-func _play(anim: String) -> void:
-	if _anim == null or _anim_name == anim or not _anim.has_animation(anim):
+## Joue l'animation de tir du haut du corps (vue par les autres joueurs).
+func play_shoot() -> void:
+	if _tree != null and alive:
+		_tree.set("parameters/shoot/request", AnimationNodeOneShot.ONE_SHOT_REQUEST_FIRE)
+
+
+func _set_state(state: String) -> void:
+	if _tree == null or _state == state:
 		return
-	_anim_name = anim
-	_anim.play(anim, 0.15)
+	_state = state
+	_tree.set("parameters/state/transition_request", state)
 
 
 func _unhandled_input(event: InputEvent) -> void:

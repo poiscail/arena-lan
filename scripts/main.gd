@@ -14,6 +14,7 @@ var _menu: VBoxContainer
 var _lobby: VBoxContainer
 var _status: Label
 var _name_edit: LineEdit
+var _skin_opt: OptionButton
 var _ip_edit: LineEdit
 var _port_spin: SpinBox
 var _address: Label
@@ -103,7 +104,7 @@ func _build_ui() -> void:
 	panel.add_child(stack)
 
 	var credits := Label.new()
-	credits.text = "Soldats et armes : Quaternius (CC0)  ·  Polices : Rajdhani, Orbitron (OFL)  ·  Godot 4.7"
+	credits.text = "Personnages, animations, armes et décor : Quaternius (CC0)  ·  Polices : Rajdhani, Orbitron (OFL)  ·  Godot 4.7"
 	credits.add_theme_font_size_override("font_size", 14)
 	credits.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
 	credits.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -126,6 +127,13 @@ func _build_ui() -> void:
 	_name_edit.max_length = 16
 	_name_edit.text = "Joueur%d" % randi_range(10, 99)
 	_menu.add_child(_name_edit)
+
+	_menu.add_child(_section("SKIN"))
+	_skin_opt = OptionButton.new()
+	for s in Data.SKINS:
+		_skin_opt.add_item(s["name"])
+	_skin_opt.item_selected.connect(_on_skin_selected)
+	_menu.add_child(_skin_opt)
 
 	var port_row := HBoxContainer.new()
 	port_row.add_theme_constant_override("separation", 10)
@@ -359,6 +367,12 @@ func _clean_name() -> String:
 	return n if n != "" else "Joueur"
 
 
+func _on_skin_selected(index: int) -> void:
+	Net.player_skin = index
+	if _background != null:
+		_background.show_skin(index)
+
+
 func _on_host_pressed() -> void:
 	Net.player_name = _clean_name()
 	var err := Net.host(int(_port_spin.value))
@@ -450,6 +464,9 @@ func _apply_cmdline() -> void:
 		opts[parts[0]] = parts[1] if parts.size() > 1 else ""
 	if opts.has("name"):
 		_name_edit.text = opts["name"]
+	if opts.has("skin"):
+		_skin_opt.select(int(opts["skin"]))
+		_on_skin_selected(int(opts["skin"]))
 	if opts.has("host"):
 		_on_host_pressed()
 		var s := Net.settings.duplicate()

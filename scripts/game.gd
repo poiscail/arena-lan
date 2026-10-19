@@ -256,7 +256,7 @@ func _server_add_human(peer: int) -> void:
 	var id := _pid(peer)
 	if not scores.has(id):
 		scores[id] = {"name": info["name"], "team": team, "kills": 0, "deaths": 0, "bot": false}
-	_broadcast("spawn_char", [id, info["name"], team, false, peer, _pick_spawn(team), true, 100])
+	_broadcast("spawn_char", [id, info["name"], team, false, peer, _pick_spawn(team), true, 100, int(info.get("skin", 0))])
 	_broadcast_scores()
 
 
@@ -265,7 +265,7 @@ func _server_add_bot(team: int) -> String:
 	var id := "B%d" % _bot_serial
 	var bname := "%s (bot)" % BOT_NAMES[(_bot_serial - 1) % BOT_NAMES.size()]
 	scores[id] = {"name": bname, "team": team, "kills": 0, "deaths": 0, "bot": true}
-	_broadcast("spawn_char", [id, bname, team, true, 1, _pick_spawn(team), true, 100])
+	_broadcast("spawn_char", [id, bname, team, true, 1, _pick_spawn(team), true, 100, randi() % Data.SKINS.size()])
 	return id
 
 
@@ -386,7 +386,7 @@ func client_ready() -> void:
 	ready_peers[peer] = true
 	for id in chars:
 		var c = chars[id]
-		spawn_char.rpc_id(peer, id, c.display_name, c.team, c.is_bot, c.owner_peer, c.position, c.alive, c.hp)
+		spawn_char.rpc_id(peer, id, c.display_name, c.team, c.is_bot, c.owner_peer, c.position, c.alive, c.hp, c.skin)
 	sync_scores.rpc_id(peer, scores, time_left)
 	for i in _health.size():
 		pickup_state.rpc_id(peer, i, _health[i]["active"])
@@ -413,12 +413,13 @@ func req_shoot(weapon: int, origin: Vector3, dirs: PackedVector3Array) -> void:
 # --- RPC serveur -> clients -----------------------------------------------------
 
 @rpc("authority", "call_remote", "reliable")
-func spawn_char(id: String, dname: String, team: int, is_bot: bool, owner_peer: int, pos: Vector3, alive: bool, hp: int) -> void:
+func spawn_char(id: String, dname: String, team: int, is_bot: bool, owner_peer: int, pos: Vector3, alive: bool, hp: int, skin: int) -> void:
 	if chars.has(id):
 		return
 	var c = CharacterScript.new()
 	c.name = id
 	c.char_id = id
+	c.skin = skin
 	c.display_name = dname
 	c.team = team
 	c.is_bot = is_bot
@@ -506,6 +507,7 @@ func shot_fx(shooter_id: String, weapon: int, ends: PackedVector3Array) -> void:
 	var s = chars.get(shooter_id)
 	if s == null or s.is_local:
 		return
+	s.play_shoot()
 	var from: Vector3 = s.muzzle_position()
 	for e in ends:
 		_spawn_tracer(from, e)
