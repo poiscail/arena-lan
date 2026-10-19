@@ -6,6 +6,7 @@ const Data := preload("res://scripts/data.gd")
 const UiTheme := preload("res://scripts/ui_theme.gd")
 const MenuBgScript := preload("res://scripts/menu_bg.gd")
 const OptionsScript := preload("res://scripts/options.gd")
+const ArmoryScript := preload("res://scripts/armory.gd")
 
 var game: Node = null
 var _background: Node3D = null
@@ -18,7 +19,7 @@ var _name_edit: LineEdit
 var _skin_opt: OptionButton
 var _class_opt: OptionButton
 var _class_desc: Label
-var _camo_opt: OptionButton
+var _armory: Control
 var _level_label: Label
 var _level_bar: ProgressBar
 var _games_box: VBoxContainer
@@ -166,14 +167,7 @@ func _build_ui() -> void:
 	_class_desc.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
 	_menu.add_child(_class_desc)
 
-	_menu.add_child(_section("CAMOUFLAGE D'ARME"))
-	_camo_opt = OptionButton.new()
-	_camo_opt.item_selected.connect(func(i: int) -> void:
-		Net.player_camo = i
-		Net.save_options()
-		if _background != null:
-			_background.show_class(Net.player_class))
-	_menu.add_child(_camo_opt)
+	_menu.add_child(_button("Armurerie : skins et accessoires des armes", func() -> void: _armory.open()))
 	_refresh_profile()
 
 	var port_row := HBoxContainer.new()
@@ -300,6 +294,12 @@ Tab : scores   ·   Échap : pause   ·   Touches modifiables dans Options", 15)
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(_status)
 
+	_armory = ArmoryScript.new()
+	_armory.visible = false
+	_armory.closed.connect(func() -> void:
+		if _background != null:
+			_background.show_class(Net.player_class))
+	_ui.add_child(_armory)
 	_options = OptionsScript.new()
 	_options.visible = false
 	_ui.add_child(_options)
@@ -497,15 +497,6 @@ func _refresh_profile() -> void:
 	_level_label.text = "NIVEAU %d   ·   %d / %d XP" % [info[0], info[1], info[2]]
 	_level_bar.max_value = info[2]
 	_level_bar.value = info[1]
-	_camo_opt.clear()
-	for i in Data.CAMOS.size():
-		var cm: Dictionary = Data.CAMOS[i]
-		var locked: bool = info[0] < int(cm["level"])
-		_camo_opt.add_item(cm["name"] + ("   (niveau %d)" % cm["level"] if locked else ""))
-		_camo_opt.set_item_disabled(i, locked)
-	if Net.player_camo >= Data.CAMOS.size() or info[0] < int(Data.CAMOS[Net.player_camo]["level"]):
-		Net.player_camo = 0
-	_camo_opt.select(Net.player_camo)
 
 
 func _on_class_selected(index: int) -> void:
@@ -625,7 +616,9 @@ func _apply_cmdline() -> void:
 	if opts.has("name"):
 		_name_edit.text = opts["name"]
 	if opts.has("camo"):
-		Net.player_camo = int(opts["camo"])
+		var atts: Array = Array(String(opts.get("att", "")).split(",", false))
+		for wi in Data.WEAPONS.size():
+			Net.armory[str(wi)] = {"skin": int(opts["camo"]), "att": atts}
 		if _background != null:
 			_background.show_class(Net.player_class)
 	if opts.has("class"):
@@ -658,6 +651,8 @@ func _apply_cmdline() -> void:
 	elif opts.has("join"):
 		_ip_edit.text = opts["join"]
 		_on_join_pressed()
+	if opts.has("armory"):
+		_armory.open()
 	if opts.has("options"):
 		_options.open()
 	if opts.has("slide"):
@@ -674,6 +669,14 @@ func _apply_cmdline() -> void:
 		get_tree().create_timer(float(opts["airstrike"])).timeout.connect(func() -> void:
 			game.on_streak(game.local_char.char_id, 7)
 			game._airstrike(game.local_char))
+	if opts.has("probe"):
+		get_tree().create_timer(2.0).timeout.connect(func() -> void:
+			var line := ""
+			for i in 13:
+				var z := 2.0 + i * 0.5
+				var hit: Dictionary = game._ray(Vector3(3.5, 5, z), Vector3(3.5, -1, z), [] as Array[RID], 1)
+				line += "z=%.1f:%s  " % [z, ("%.2f" % hit.position.y) if not hit.is_empty() else "-"]
+			print("[sonde taxi] ", line))
 	if opts.has("die"):
 		get_tree().create_timer(float(opts["die"])).timeout.connect(func() -> void:
 			for id in game.chars:

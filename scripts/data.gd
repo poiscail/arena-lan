@@ -10,14 +10,14 @@ const TEAM_HEX := ["#6f9bff", "#ff6b5e"]
 # Armes. "model"/"len" : modèle 3D (Quaternius Toon Shooter) et sa longueur en vue à la première personne.
 # "zoom" : champ de vision en visée (0 = pas de lunette), "splash" : rayon d'explosion, "recoil" : recul (radians).
 const WEAPONS := [
-	{"name": "Fusil d'assaut", "model": "AK", "sfx": "rifle", "len": 0.62, "damage": 20, "rate": 0.1, "mag": 30, "reload": 1.8, "spread": 0.7, "pellets": 1, "range": 150.0, "auto": true, "head": 1.6, "zoom": 0, "splash": 0.0, "recoil": 0.012, "sound": 0},
-	{"name": "Pompe", "model": "Shotgun", "sfx": "shotgun", "len": 0.62, "damage": 12, "rate": 0.8, "mag": 6, "reload": 2.2, "spread": 5.5, "pellets": 9, "range": 35.0, "auto": false, "head": 1.3, "zoom": 0, "splash": 0.0, "recoil": 0.05, "sound": 1},
-	{"name": "Sniper", "model": "Sniper", "sfx": "sniper", "len": 0.8, "damage": 80, "rate": 1.3, "mag": 5, "reload": 2.6, "spread": 0.0, "pellets": 1, "range": 300.0, "auto": false, "head": 2.0, "zoom": 25, "splash": 0.0, "recoil": 0.09, "sound": 2},
-	{"name": "Mitraillette", "model": "SMG", "sfx": "smg", "len": 0.5, "damage": 14, "rate": 0.065, "mag": 35, "reload": 1.5, "spread": 1.6, "pellets": 1, "range": 80.0, "auto": true, "head": 1.5, "zoom": 0, "splash": 0.0, "recoil": 0.008, "sound": 0},
-	{"name": "Pistolet", "model": "Pistol", "sfx": "pistol", "len": 0.32, "damage": 26, "rate": 0.18, "mag": 12, "reload": 1.2, "spread": 0.9, "pellets": 1, "range": 90.0, "auto": false, "head": 1.8, "zoom": 0, "splash": 0.0, "recoil": 0.025, "sound": 0},
-	{"name": "Revolver", "model": "Revolver", "sfx": "revolver", "len": 0.38, "damage": 48, "rate": 0.5, "mag": 6, "reload": 2.0, "spread": 0.4, "pellets": 1, "range": 120.0, "auto": false, "head": 2.0, "zoom": 0, "splash": 0.0, "recoil": 0.07, "sound": 1},
-	{"name": "Fusil de précision", "model": "Sniper_2", "sfx": "dmr", "len": 0.75, "damage": 45, "rate": 0.35, "mag": 10, "reload": 2.2, "spread": 0.2, "pellets": 1, "range": 220.0, "auto": false, "head": 1.8, "zoom": 45, "splash": 0.0, "recoil": 0.04, "sound": 2},
-	{"name": "Canon court", "model": "ShortCannon", "sfx": "cannon", "len": 0.5, "damage": 10, "rate": 0.3, "mag": 2, "reload": 1.9, "spread": 8.0, "pellets": 14, "range": 20.0, "auto": false, "head": 1.2, "zoom": 0, "splash": 0.0, "recoil": 0.1, "sound": 1},
+	{"name": "AK-47", "model": "q/AssaultRifle_2", "sfx": "rifle", "len": 0.62, "damage": 20, "rate": 0.1, "mag": 30, "reload": 1.8, "spread": 0.7, "pellets": 1, "range": 150.0, "auto": true, "head": 1.6, "zoom": 0, "splash": 0.0, "recoil": 0.012, "sound": 0},
+	{"name": "Pompe", "model": "q/Shotgun_1", "sfx": "shotgun", "len": 0.62, "damage": 12, "rate": 0.8, "mag": 6, "reload": 2.2, "spread": 5.5, "pellets": 9, "range": 35.0, "auto": false, "head": 1.3, "zoom": 0, "splash": 0.0, "recoil": 0.05, "sound": 1},
+	{"name": "Sniper", "model": "q/SniperRifle_3", "sfx": "sniper", "len": 0.8, "damage": 80, "rate": 1.3, "mag": 5, "reload": 2.6, "spread": 0.0, "pellets": 1, "range": 300.0, "auto": false, "head": 2.0, "zoom": 25, "splash": 0.0, "recoil": 0.09, "sound": 2},
+	{"name": "Mitraillette", "model": "q/SubmachineGun_2", "sfx": "smg", "len": 0.5, "damage": 14, "rate": 0.065, "mag": 35, "reload": 1.5, "spread": 1.6, "pellets": 1, "range": 80.0, "auto": true, "head": 1.5, "zoom": 0, "splash": 0.0, "recoil": 0.008, "sound": 0},
+	{"name": "Pistolet", "model": "q/Pistol_5", "sfx": "pistol", "len": 0.32, "damage": 26, "rate": 0.18, "mag": 12, "reload": 1.2, "spread": 0.9, "pellets": 1, "range": 90.0, "auto": false, "head": 1.8, "zoom": 0, "splash": 0.0, "recoil": 0.025, "sound": 0},
+	{"name": "Revolver", "model": "q/Revolver_2", "sfx": "revolver", "len": 0.38, "damage": 48, "rate": 0.5, "mag": 6, "reload": 2.0, "spread": 0.4, "pellets": 1, "range": 120.0, "auto": false, "head": 2.0, "zoom": 0, "splash": 0.0, "recoil": 0.07, "sound": 1},
+	{"name": "Fusil de précision", "model": "q/SniperRifle_6", "sfx": "dmr", "len": 0.75, "damage": 45, "rate": 0.35, "mag": 10, "reload": 2.2, "spread": 0.2, "pellets": 1, "range": 220.0, "auto": false, "head": 1.8, "zoom": 45, "splash": 0.0, "recoil": 0.04, "sound": 2},
+	{"name": "Canon court", "model": "q/Shotgun_SawedOff", "sfx": "cannon", "len": 0.5, "damage": 10, "rate": 0.3, "mag": 2, "reload": 1.9, "spread": 8.0, "pellets": 14, "range": 20.0, "auto": false, "head": 1.2, "zoom": 0, "splash": 0.0, "recoil": 0.1, "sound": 1},
 	{"name": "Lance-grenades", "model": "GrenadeLauncher", "sfx": "", "len": 0.52, "damage": 90, "rate": 0.9, "mag": 4, "reload": 2.6, "spread": 0.5, "pellets": 1, "range": 60.0, "auto": false, "head": 1.0, "zoom": 0, "splash": 4.0, "recoil": 0.06, "sound": 3},
 	{"name": "Lance-roquettes", "model": "RocketLauncher", "sfx": "", "len": 0.62, "damage": 120, "rate": 1.0, "mag": 1, "reload": 2.8, "spread": 0.0, "pellets": 1, "range": 150.0, "auto": false, "head": 1.0, "zoom": 0, "splash": 5.0, "recoil": 0.08, "sound": 3},
 ]
@@ -110,6 +110,12 @@ const CAMOS := [
 	{"name": "Rouge", "level": 8, "color": Color(0.95, 0.42, 0.36), "add": false},
 	{"name": "Or", "level": 10, "color": Color(1.0, 0.8, 0.32), "add": false},
 	{"name": "Néon", "level": 15, "color": Color(0.05, 0.45, 0.6), "add": true},
+	{"name": "Arctique", "level": 3, "color": Color(1, 1, 1), "add": false, "pattern": "arctic"},
+	{"name": "Digital", "level": 5, "color": Color(1, 1, 1), "add": false, "pattern": "digital"},
+	{"name": "Bois", "level": 7, "color": Color(1, 1, 1), "add": false, "pattern": "woodland"},
+	{"name": "Tigre", "level": 9, "color": Color(1, 1, 1), "add": false, "pattern": "tiger"},
+	{"name": "Carbone", "level": 11, "color": Color(1, 1, 1), "add": false, "pattern": "carbon"},
+	{"name": "Lave", "level": 13, "color": Color(1, 1, 1), "add": false, "pattern": "lava"},
 ]
 
 
@@ -122,3 +128,42 @@ static func level_info(xp: int) -> Array:
 		lvl += 1
 		need = 150 + 50 * (lvl - 1)
 	return [lvl, xp, need]
+
+# Accessoires d'armes (armurerie). Les lance-grenades / roquettes n'en ont pas.
+const ATTACHMENTS := [
+	{"id": "silencer", "name": "Silencieux", "desc": "Tir discret : son faible, pas de flash · dégâts -10 %"},
+	{"id": "mag", "name": "Chargeur étendu", "desc": "+50 % de munitions · rechargement +15 %"},
+	{"id": "grip", "name": "Poignée", "desc": "Recul -35 % · dispersion -20 %"},
+	{"id": "optic", "name": "Viseur point rouge", "desc": "Visée précise au clic droit (zoom léger) · dispersion -25 % en visée"},
+]
+
+
+## Accessoires possibles pour une arme.
+static func attachments_for(wi: int) -> Array:
+	var w: Dictionary = WEAPONS[wi]
+	if float(w.splash) > 0.0:
+		return []
+	var out := []
+	for a in ATTACHMENTS:
+		if a["id"] == "optic" and int(w.zoom) > 0:
+			continue  # déjà une lunette
+		out.append(a["id"])
+	return out
+
+
+## Caractéristiques d'une arme avec ses accessoires. « custom » : {"skin": int, "att": [ids]}.
+static func weapon_stats(wi: int, custom: Dictionary) -> Dictionary:
+	var w: Dictionary = WEAPONS[wi].duplicate()
+	var att: Array = custom.get("att", [])
+	if att.has("silencer"):
+		w["damage"] = int(round(float(w.damage) * 0.9))
+	if att.has("mag"):
+		w["mag"] = int(ceil(float(w.mag) * 1.5))
+		w["reload"] = float(w.reload) * 1.15
+	if att.has("grip"):
+		w["recoil"] = float(w.recoil) * 0.65
+		w["spread"] = float(w.spread) * 0.8
+	if att.has("optic"):
+		w["zoom"] = 55
+		w["optic"] = true
+	return w

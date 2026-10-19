@@ -66,6 +66,13 @@ Très pratique en mode Élimination, où l'on attend la manche suivante.
 - **Entrepôt** : un grand hangar fermé, éclairé par des lampes au plafond, avec des cloisons, des piliers et des caisses.
 - **Base militaire (nuit)** et **Ville (nuit)** : ciel étoilé, lampadaires et lampe torche (L).
 
+## Armurerie
+Bouton **Armurerie** dans le menu. Pour chaque arme :
+- un **skin** : couleurs (Désert, Forêt, Urbain, Nuit, Rouge, Or, Néon) et motifs (Arctique, Digital, Bois, Tigre, Carbone, Lave), débloqués en montant de niveau ;
+- des **accessoires visibles sur l'arme** : silencieux (son étouffé, pas de flash, -10 % de dégâts), chargeur étendu (+50 % de munitions), poignée (moins de recul et de dispersion), viseur point rouge (visée au clic droit).
+
+Un aperçu 3D montre l'arme, et les caractéristiques changent en vert ou en rouge. Les autres joueurs voient ta personnalisation.
+
 ## Progression et personnalisation
 - Chaque match rapporte de l'**expérience** : participation, éliminations, objectifs et victoire. Elle est sauvegardée sur ton PC.
 - Le menu affiche ton **niveau** et ta barre d'expérience.
@@ -142,6 +149,7 @@ Si le jeu rame, choisis **Basse**.
 | `sfx.gd` | Sons, flash du canon, douilles, impacts, tremblement de caméra |
 | `spectator.gd` | Caméra spectateur après la mort (coéquipier ou caméra libre) |
 | `modes.gd` | Modes de jeu : drapeau, colline, course aux armes, élimination |
+| `armory.gd` | Écran Armurerie (skins, accessoires, aperçu 3D) |
 | `items.gd` | Trousses, bonus, barils explosifs, grenades et fumigènes |
 | `options.gd` | Fenêtre d'options (graphismes, souris) |
 | `ui_theme.gd` | Thème visuel (polices, panneaux, boutons) |
@@ -153,6 +161,7 @@ Toute la partie est décidée par l'hôte : dégâts, morts, scores et bots. Cha
 
 ## Crédits
 - **Personnages et animations** : [Universal Base Characters](https://quaternius.com/packs/universalbasecharacters.html), [Modular Character Outfits - Fantasy](https://quaternius.itch.io/modular-character-outfits-fantasy) et [Universal Animation Library](https://quaternius.com/packs/universalanimationlibrary.html) de Quaternius, licence CC0.
+- **Armes réalistes** : [Ultimate Gun Pack](https://opengameart.org/content/low-poly-guns-pack) de Quaternius, licence CC0.
 - **Armes et décor** : [Toon Shooter Game Kit](https://quaternius.com/packs/toonshootergamekit.html) de Quaternius, licence CC0.
 - **Carte Ville** : [City Kit Commercial](https://kenney.nl/assets/city-kit-commercial), [City Kit Roads](https://kenney.nl/assets/city-kit-roads) et [Car Kit](https://kenney.nl/assets/car-kit) de Kenney, licence CC0.
 - **Ciel et textures** : [Kloofendal 48d Partly Cloudy (Pure Sky)](https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky), [Asphalt 02](https://polyhaven.com/a/asphalt_02) et [Concrete Floor 02](https://polyhaven.com/a/concrete_floor_02) de Poly Haven, licence CC0.

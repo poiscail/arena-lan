@@ -12,3 +12,5 @@ sky/ et textures/ : Poly Haven (polyhaven.com) - CC0 1.0
 
 sfx/ : tirs extraits de The Free Firearm Sound Library (opengameart.org) - CC0 1.0
       pas, impacts, couteau, interface : Kenney Impact Sounds, RPG Audio, Interface Sounds - CC0 1.0
+
+guns_q/ : Ultimate Gun Pack par Quaternius (opengameart.org) - CC0 1.0

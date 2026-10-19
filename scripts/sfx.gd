@@ -57,7 +57,7 @@ func _stream(name: String) -> AudioStream:
 
 
 ## Joue un son : en 2D (pos = null, pour le joueur local) ou placé dans le monde.
-func play(name: String, pos = null, volume_db := 0.0, pitch_var := 0.06, max_dist := 120.0) -> void:
+func play(name: String, pos = null, volume_db := 0.0, pitch_var := 0.06, max_dist := 120.0, pitch := 1.0) -> void:
 	var s := _stream(name)
 	if s == null:
 		return
@@ -66,7 +66,7 @@ func play(name: String, pos = null, volume_db := 0.0, pitch_var := 0.06, max_dis
 		var p2 := AudioStreamPlayer.new()
 		p2.stream = s
 		p2.volume_db = volume_db
-		p2.pitch_scale = 1.0 + randf_range(-pitch_var, pitch_var)
+		p2.pitch_scale = pitch + randf_range(-pitch_var, pitch_var)
 		add_child(p2)
 		p2.play()
 		p2.finished.connect(p2.queue_free)
@@ -77,7 +77,7 @@ func play(name: String, pos = null, volume_db := 0.0, pitch_var := 0.06, max_dis
 		p3.volume_db = volume_db
 		p3.unit_size = 10.0
 		p3.max_distance = max_dist
-		p3.pitch_scale = 1.0 + randf_range(-pitch_var, pitch_var)
+		p3.pitch_scale = pitch + randf_range(-pitch_var, pitch_var)
 		add_child(p3)
 		p3.global_position = pos
 		p3.play()

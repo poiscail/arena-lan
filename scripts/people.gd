@@ -85,9 +85,15 @@ static func hold_gun(character: Node3D, model: String, length := GUN_LENGTH) -> 
 	holder.position = GUN_POS
 	holder.rotation_degrees = GUN_ROT
 	hand.add_child(holder)
-	var gun: Node3D = load(GUN_PATH % model).instantiate()
+	var gun: Node3D = load(Models.gun_path(model)).instantiate()
+	gun.set_meta("model", model)
+	gun.set_meta("sign", Models.barrel_sign(model))
 	var native_len: float = maxf(Models._local_aabb(gun).size.x, 0.01)
-	gun.scale = Vector3.ONE * (length / native_len / float(character.get_meta("scale")))
+	var s := length / native_len / float(character.get_meta("scale"))
+	gun.scale = Vector3.ONE * s
+	# La poignée de l'arme est placée dans la main (et non le centre du modèle)
+	var grip: Vector3 = Models.gun_points(gun, model)["grip"]
+	gun.position = -grip * s
 	holder.add_child(gun)
 	return gun
 
@@ -194,6 +200,7 @@ static func aim_gun(gun: Node3D, character: Node3D, fwd: Vector3) -> void:
 		return
 	var holder: Node3D = gun.get_parent()
 	var s: float = character.get_meta("scale")
-	# Les armes du kit pointent vers -X dans leur repère : quart de tour pour viser vers -Z
-	var b := Basis.looking_at(fwd, Vector3.UP) * Basis(Vector3.UP, -PI / 2.0)
+	# Quart de tour pour que le canon (vers -X ou +X selon le pack) vise vers -Z
+	var sign: float = gun.get_meta("sign", -1.0)
+	var b := Basis.looking_at(fwd, Vector3.UP) * Basis(Vector3.UP, PI / 2.0 * sign)
 	holder.global_transform = Transform3D(b.scaled_local(Vector3.ONE * s), holder.global_position)

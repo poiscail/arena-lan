@@ -54,7 +54,9 @@ func show_class(index: int) -> void:
 	var cls: Dictionary = Data.CLASSES[clampi(index, 0, Data.CLASSES.size() - 1)]
 	var w: Dictionary = Data.WEAPONS[cls["weapons"][0]]
 	_showcase_gun = People.hold_gun(_showcase, w.model, float(w.len) * 1.2)
-	Models.apply_camo(_showcase_gun, Data.CAMOS[clampi(Net.player_camo, 0, Data.CAMOS.size() - 1)])
+	var custom: Dictionary = Net.armory.get(str(cls["weapons"][0]), {})
+	Models.add_attachments(_showcase_gun, custom.get("att", []))
+	Models.apply_camo(_showcase_gun, Data.CAMOS[clampi(int(custom.get("skin", 0)), 0, Data.CAMOS.size() - 1)])
 
 
 func _process(delta: float) -> void:

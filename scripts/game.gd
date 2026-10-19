@@ -200,7 +200,8 @@ func score_summary() -> String:
 
 ## Appelé par le personnage local quand le joueur tire.
 func local_fire(c, weapon: int, origin: Vector3, dirs: PackedVector3Array) -> void:
-	var w: Dictionary = Data.WEAPONS[weapon]
+	var w: Dictionary = c.wstats(weapon)
+	var silenced: bool = c.custom(weapon)["att"].has("silencer")
 	var muzzle: Vector3 = c.muzzle_position()
 	var ex: Array[RID] = [c.get_rid()]
 	for d in dirs:
@@ -214,8 +215,9 @@ func local_fire(c, weapon: int, origin: Vector3, dirs: PackedVector3Array) -> vo
 			sfx.bullet_impact(hit.position, hit.normal, on_char)
 			if not on_char and randf() < 0.5:
 				sfx.play_random("impactGeneric_light", 3, hit.position, -14.0)
-	play_shot_sound(weapon, muzzle, true)
-	sfx.muzzle_flash(muzzle, int(w.pellets) > 1 or float(w.splash) > 0.0, true)
+	play_shot_sound(weapon, muzzle, true, silenced)
+	if not silenced:
+		sfx.muzzle_flash(muzzle, int(w.pellets) > 1 or float(w.splash) > 0.0, true)
 	if float(w.splash) == 0.0:
 		var b: Basis = c.camera.global_transform.basis
 		sfx.eject_shell(muzzle - b.z * -0.25 + b.x * 0.05, b.x, int(w.pellets) > 1)
@@ -259,7 +261,7 @@ func _server_shoot(shooter_id: String, weapon: int, origin: Vector3, dirs: Packe
 		return
 	if not s.loadout.has(weapon):
 		return  # arme qui n'appartient pas à la classe du tireur
-	var w: Dictionary = Data.WEAPONS[weapon]
+	var w: Dictionary = s.wstats(weapon)
 	var splash := float(w.splash)
 	if origin.distance_to(s.eye_position()) > 3.0:
 		origin = s.eye_position()
@@ -530,7 +532,7 @@ func _server_add_human(peer: int) -> void:
 	var id := _pid(peer)
 	if not scores.has(id):
 		scores[id] = _new_score(info["name"], team, false)
-	_broadcast("spawn_char", [id, info["name"], team, false, peer, _pick_spawn(team), true, 100, int(info.get("skin", 0)), int(info.get("class", 0)), int(info.get("camo", 0))])
+	_broadcast("spawn_char", [id, info["name"], team, false, peer, _pick_spawn(team), true, 100, int(info.get("skin", 0)), int(info.get("class", 0)), info.get("armory", {})])
 	if chars.has(id):
 		modes.gungame_weapon(chars[id])
 	_broadcast_scores()
@@ -541,7 +543,7 @@ func _server_add_bot(team: int) -> String:
 	var id := "B%d" % _bot_serial
 	var bname := "%s (bot)" % BOT_NAMES[(_bot_serial - 1) % BOT_NAMES.size()]
 	scores[id] = _new_score(bname, team, true)
-	_broadcast("spawn_char", [id, bname, team, true, 1, _pick_spawn(team), true, 100, randi() % Data.SKINS.size(), randi() % Data.CLASSES.size(), randi() % 6])
+	_broadcast("spawn_char", [id, bname, team, true, 1, _pick_spawn(team), true, 100, randi() % Data.SKINS.size(), randi() % Data.CLASSES.size(), _bot_armory()])
 	modes.gungame_weapon(chars[id])
 	return id
 
@@ -673,7 +675,7 @@ func client_ready() -> void:
 	ready_peers[peer] = true
 	for id in chars:
 		var c = chars[id]
-		spawn_char.rpc_id(peer, id, c.display_name, c.team, c.is_bot, c.owner_peer, c.position, c.alive, c.hp, c.skin, c.class_id, c.camo)
+		spawn_char.rpc_id(peer, id, c.display_name, c.team, c.is_bot, c.owner_peer, c.position, c.alive, c.hp, c.skin, c.class_id, c.armory)
 	sync_scores.rpc_id(peer, scores, time_left)
 	items.sync_to(peer)
 	modes.sync_to(peer)
@@ -701,7 +703,7 @@ func req_shoot(weapon: int, origin: Vector3, dirs: PackedVector3Array) -> void:
 # --- RPC serveur -> clients -----------------------------------------------------
 
 @rpc("authority", "call_remote", "reliable")
-func spawn_char(id: String, dname: String, team: int, is_bot: bool, owner_peer: int, pos: Vector3, alive: bool, hp: int, skin: int, cls: int, camo: int) -> void:
+func spawn_char(id: String, dname: String, team: int, is_bot: bool, owner_peer: int, pos: Vector3, alive: bool, hp: int, skin: int, cls: int, arm: Dictionary) -> void:
 	if chars.has(id):
 		return
 	var c = CharacterScript.new()
@@ -709,7 +711,7 @@ func spawn_char(id: String, dname: String, team: int, is_bot: bool, owner_peer: 
 	c.char_id = id
 	c.skin = skin
 	c.class_id = cls
-	c.camo = clampi(camo, 0, Data.CAMOS.size() - 1)
+	c.armory = arm
 	c.display_name = dname
 	c.team = team
 	c.is_bot = is_bot
@@ -808,8 +810,10 @@ func shot_fx(shooter_id: String, weapon: int, ends: PackedVector3Array) -> void:
 			spawn_explosion(e, splash)
 		elif hit_something and from.distance_to(e) < 60.0:
 			sfx.bullet_impact(e, Vector3.ZERO, false)
-	play_shot_sound(weapon, from, false)
-	sfx.muzzle_flash(from, int(Data.WEAPONS[weapon].pellets) > 1 or splash > 0.0)
+	var silenced: bool = s.custom(weapon)["att"].has("silencer")
+	play_shot_sound(weapon, from, false, silenced)
+	if not silenced:
+		sfx.muzzle_flash(from, int(Data.WEAPONS[weapon].pellets) > 1 or splash > 0.0)
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -906,10 +910,14 @@ func _noise_sound(duration: float, brightness: float) -> AudioStreamWAV:
 	return s
 
 
-func play_shot_sound(weapon: int, pos: Vector3, local: bool) -> void:
+func play_shot_sound(weapon: int, pos: Vector3, local: bool, silenced := false) -> void:
 	var name := String(Data.WEAPONS[weapon].get("sfx", ""))
 	if name != "":
-		sfx.play(name, null if local else pos, -7.0 if local else 0.0, 0.05, 160.0)
+		if silenced:
+			# Silencieux : son étouffé (plus grave, bien moins fort, porte moins loin)
+			sfx.play(name, null if local else pos, -20.0 if local else -16.0, 0.03, 40.0, 1.6)
+		else:
+			sfx.play(name, null if local else pos, -7.0 if local else 0.0, 0.05, 160.0)
 		return
 	var p: Node
 	if local:
@@ -1109,3 +1117,15 @@ func ping_mark(from_id: String, pos: Vector3, enemy: bool) -> void:
 		return
 	hud.add_ping(pos, c.display_name, enemy)
 	sfx.play("select_001", null, -6.0, 0.0)
+
+
+## Armes personnalisées au hasard pour un bot (skins simples et quelques accessoires).
+func _bot_armory() -> Dictionary:
+	var out := {}
+	for wi in Data.WEAPONS.size():
+		var att := []
+		for a in Data.attachments_for(wi):
+			if randf() < 0.3:
+				att.append(a)
+		out[str(wi)] = {"skin": randi() % 8, "att": att}
+	return out

@@ -329,12 +329,19 @@ func _prop(root: Node3D, model: String, x: float, z: float, rot_deg: float, scal
 	body.collision_mask = 0
 	body.position = inst.position
 	body.rotation.y = inst.rotation.y
-	var shape := CollisionShape3D.new()
-	var bs := BoxShape3D.new()
-	bs.size = size
-	shape.shape = bs
-	shape.position = center
-	body.add_child(shape)
+	# Collision qui suit la vraie forme du modèle (on peut tirer au-dessus d'un capot, sous un auvent...)
+	for m in inst.find_children("*", "MeshInstance3D", true, false):
+		if not m.visible or m.mesh == null:
+			continue
+		var xf := Transform3D.IDENTITY
+		var n: Node = m
+		while n != inst and n is Node3D:
+			xf = (n as Node3D).transform * xf
+			n = n.get_parent()
+		var shape := CollisionShape3D.new()
+		shape.shape = m.mesh.create_trimesh_shape()
+		shape.transform = Transform3D(Basis().scaled(Vector3.ONE * scale), Vector3.ZERO) * xf
+		body.add_child(shape)
 	root.add_child(body)
 	var c2 := Vector2(center.x, center.z).rotated(-inst.rotation.y)
 	var half := Vector2(size.x, size.z) / 2.0

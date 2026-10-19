@@ -630,7 +630,7 @@ func _process(delta: float) -> void:
 		var hp_col := Color(0.35, 0.9, 0.5) if c.hp > 60 else (Color(1, 0.75, 0.25) if c.hp > 30 else Color(1, 0.3, 0.25))
 		_hp_fill.bg_color = hp_col
 		_hp_value.add_theme_color_override("font_color", hp_col if c.hp <= 30 else Color.WHITE)
-		var w: Dictionary = Data.WEAPONS[c.weapon]
+		var w: Dictionary = c.wstats(c.weapon)
 		_weapon_name.text = String(w.name).to_upper()
 		_ammo_value.text = str(c.ammo[c.weapon])
 		_ammo_max.text = " / %d" % w.mag
@@ -642,7 +642,7 @@ func _process(delta: float) -> void:
 				continue
 			_slots[i].text = "%d  %s" % [i + 1, String(Data.WEAPONS[c.loadout[i]].name).to_upper()]
 			_slots[i].add_theme_color_override("font_color", UiTheme.ACCENT if i == c.slot else Color(1, 1, 1, 0.35))
-		_scope.visible = c.zoomed and c.alive
+		_scope.visible = c.zoomed and c.alive and not c.wstats(c.weapon).get("optic", false)
 		_bottom.visible = c.alive and not c.zoomed and not game.match_over
 	var t := int(ceil(game.time_left))
 	_timer.text = "%d:%02d" % [t / 60, t % 60]
@@ -733,6 +733,8 @@ func _update_scores_top() -> void:
 
 func _draw_crosshair() -> void:
 	var c = game.local_char
+	if c != null and c.alive and c.zoomed and not game.match_over and c.wstats(c.weapon).get("optic", false):
+		_crosshair.draw_circle(Vector2.ZERO, 2.5, Color(1, 0.15, 0.1))
 	if c != null and c.alive and not c.zoomed and not game.match_over:
 		var gap := 7.0
 		if int(Data.WEAPONS[c.weapon].pellets) > 1:

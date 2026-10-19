@@ -13,6 +13,7 @@ var player_name := "Joueur"
 var player_skin := 0
 var player_class := 0
 var player_camo := 0
+var armory := {}  # str(n° arme) -> {"skin": int, "att": [ids]} (personnalisation des armes)
 var xp := 0  # expérience totale du joueur (sauvegardée)
 var port := DEFAULT_PORT
 var players := {}  # peer_id -> {"name": String, "team": int}
@@ -81,9 +82,16 @@ func load_options() -> void:
 	player_skin = cfg.get_value("player", "skin", player_skin)
 	player_camo = cfg.get_value("player", "camo", player_camo)
 	xp = cfg.get_value("player", "xp", xp)
+	armory = cfg.get_value("player", "armory", {})
+	# Ancien camouflage unique (v2.0) : appliqué à toutes les armes
+	if armory.is_empty() and player_camo > 0:
+		for wi in 10:
+			armory[str(wi)] = {"skin": player_camo, "att": []}
 
 
 func save_options() -> void:
+	if "--no-save" in OS.get_cmdline_user_args():
+		return  # lancements de test : ne pas toucher au profil du joueur
 	var cfg := ConfigFile.new()
 	for k in gfx:
 		cfg.set_value("graphics", k, gfx[k])
@@ -94,6 +102,7 @@ func save_options() -> void:
 	cfg.set_value("player", "skin", player_skin)
 	cfg.set_value("player", "camo", player_camo)
 	cfg.set_value("player", "xp", xp)
+	cfg.set_value("player", "armory", armory)
 	cfg.save(CONFIG_PATH)
 
 
@@ -203,7 +212,7 @@ func host(p_port: int) -> String:
 		return "Impossible d'héberger sur le port %d (déjà utilisé ?)." % p_port
 	multiplayer.multiplayer_peer = peer
 	port = p_port
-	players = {1: {"name": player_name, "team": 0, "skin": player_skin, "class": player_class, "camo": player_camo}}
+	players = {1: {"name": player_name, "team": 0, "skin": player_skin, "class": player_class, "armory": armory}}
 	in_game = false
 	print("[net] Serveur ouvert sur le port %d" % p_port)
 	lobby_changed.emit()
@@ -272,14 +281,14 @@ func end_match_to_lobby() -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func register_player(pname: String, skin: int, cls: int, camo: int) -> void:
+func register_player(pname: String, skin: int, cls: int, arm: Dictionary) -> void:
 	if not multiplayer.is_server():
 		return
 	var id := multiplayer.get_remote_sender_id()
 	pname = pname.strip_edges().substr(0, 16)
 	if pname == "":
 		pname = "Joueur%d" % id
-	players[id] = {"name": pname, "team": _smallest_team(), "skin": clampi(skin, 0, 99), "class": clampi(cls, 0, 99), "camo": clampi(camo, 0, 99)}
+	players[id] = {"name": pname, "team": _smallest_team(), "skin": clampi(skin, 0, 99), "class": clampi(cls, 0, 99), "armory": arm}
 	print("[net] %s a rejoint (id %d)" % [pname, id])
 	_broadcast_lobby()
 	if in_game:
@@ -333,7 +342,7 @@ func _broadcast_lobby() -> void:
 
 func _on_connected_ok() -> void:
 	print("[net] Connecté au serveur")
-	register_player.rpc_id(1, player_name, player_skin, player_class, player_camo)
+	register_player.rpc_id(1, player_name, player_skin, player_class, armory)
 
 
 func _on_peer_disconnected(id: int) -> void:

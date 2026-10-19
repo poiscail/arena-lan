@@ -14,7 +14,7 @@ const SPRINT_SPEED := 9.0
 const EYE_HEIGHT := 1.6
 const FOV := 80.0
 const ZOOM_FOV := 25.0
-const VIEWMODEL_POS := Vector3(0.2, -0.2, -0.5)
+const VIEWMODEL_POS := Vector3(0.17, -0.165, -0.6)
 const DEATH_SHOW_TIME := 1.6
 const SLIDE_SPEED := 13.0
 const SLIDE_END_SPEED := 4.5
@@ -31,7 +31,7 @@ var owner_peer := 1
 var is_local := false
 var skin := 0
 var class_id := 0
-var camo := 0
+var armory := {}  # personnalisation des armes du joueur (voir Net.armory)
 var next_class := -1  # classe demandée pour la prochaine réapparition (serveur)
 var loadout: Array = [0, 1, 2]
 var slot := 0
@@ -50,6 +50,7 @@ var _sprint_blend := 0.0
 var _was_on_floor := true
 var _fall_speed := 0.0
 var _step := 0.0
+var _ads := 0.0
 var _flashlight: SpotLight3D
 var alive := true
 var bot = null
@@ -260,7 +261,7 @@ func respawn(pos: Vector3, cls := -1) -> void:
 	set_dead(false)
 	if is_local:
 		for i in ammo.size():
-			ammo[i] = Data.WEAPONS[i].mag
+			ammo[i] = wstats(i).mag
 		reloading = 0.0
 		head.rotation.x = 0.0
 		head.rotation.z = 0.0
@@ -478,7 +479,7 @@ func switch_weapon(i: int) -> void:
 
 
 func start_reload() -> void:
-	var w: Dictionary = Data.WEAPONS[weapon]
+	var w: Dictionary = wstats(weapon)
 	if reloading > 0.0 or ammo[weapon] >= w.mag:
 		return
 	reloading = w.reload
@@ -487,7 +488,7 @@ func start_reload() -> void:
 
 
 func _weapons(delta: float, captured: bool) -> void:
-	var w: Dictionary = Data.WEAPONS[weapon]
+	var w: Dictionary = wstats(weapon)
 	_fire_cd -= delta
 	_kick = move_toward(_kick, 0.0, delta * 0.6)
 	if reloading > 0.0:
@@ -499,7 +500,9 @@ func _weapons(delta: float, captured: bool) -> void:
 	zoomed = captured and int(w.zoom) > 0 and reloading <= 0.0 and Input.is_action_pressed("zoom")
 	var base_fov := float(Net.gfx.fov) + (8.0 if sliding else 0.0)
 	camera.fov = lerpf(camera.fov, _zoom_fov() if zoomed else base_fov, minf(1.0, delta * (18.0 if zoomed else 8.0)))
-	_viewmodel.visible = not zoomed
+	var ads: bool = zoomed and w.get("optic", false)  # visée au point rouge : l'arme reste visible, centrée
+	_viewmodel.visible = not zoomed or ads
+	_ads = move_toward(_ads, 1.0 if ads else 0.0, delta * 7.0)
 
 	# Animations à la première personne : balancement, course, recul, rechargement, changement d'arme,
 	# atterrissage et inertie quand on tourne la souris
@@ -522,7 +525,7 @@ func _weapons(delta: float, captured: bool) -> void:
 	if reloading > 0.0:
 		r = 1.0 - reloading / float(w.reload)
 	var reload_curve := sin(r * PI)
-	var target := VIEWMODEL_POS + bob + Vector3(0, 0, _kick)
+	var target := VIEWMODEL_POS.lerp(Vector3(0, -0.105, -0.36), _ads) + bob * (1.0 - _ads * 0.7) + Vector3(0, 0, _kick)
 	target += Vector3(-0.08, -0.08, 0.04) * _sprint_blend
 	target += Vector3(0.02, -0.14, 0.06) * reload_curve
 	target += Vector3(0, -0.35, 0.1) * _draw
@@ -550,8 +553,8 @@ func _weapons(delta: float, captured: bool) -> void:
 	_fire_cd = w.rate
 	ammo[weapon] -= 1
 
-	var spread: float = w.spread
-	if int(w.zoom) > 0 and not zoomed:
+	var spread: float = w.spread * (0.75 if ads else 1.0)
+	if int(w.zoom) > 0 and not zoomed and not w.get("optic", false):
 		spread = 6.0
 	if int(w.pellets) == 1 and (not is_on_floor() or (hspeed > 6.5 and not sliding)):
 		spread += 2.5
@@ -579,7 +582,7 @@ func _update_viewmodel() -> void:
 
 
 func _zoom_fov() -> float:
-	var z := int(Data.WEAPONS[weapon].zoom)
+	var z := int(wstats(weapon).zoom)
 	return float(z) if z > 0 else ZOOM_FOV
 
 
@@ -593,8 +596,8 @@ func _set_loadout(cls: int) -> void:
 	reloading = 0.0
 	zoomed = false
 	ammo.clear()
-	for w in Data.WEAPONS:
-		ammo.append(w.mag)
+	for i in Data.WEAPONS.size():
+		ammo.append(wstats(i).mag)
 	show_weapon(weapon)
 	if _viewmodel != null:
 		_build_viewmodel()
@@ -607,7 +610,8 @@ func _build_viewmodel() -> void:
 	_view_guns.clear()
 	for wi in loadout:
 		var g := Models.weapon(Data.WEAPONS[wi].model, Data.WEAPONS[wi].len)
-		Models.apply_camo(g, Data.CAMOS[camo])
+		Models.add_attachments(g.get_child(0).get_child(0), custom(wi)["att"])
+		Models.apply_camo(g, Data.CAMOS[custom(wi)["skin"]])
 		_viewmodel.add_child(g)
 		_view_guns.append(g)
 
@@ -618,7 +622,8 @@ func show_weapon(wi: int) -> void:
 		return
 	_gun = People.hold_gun(_model, Data.WEAPONS[wi].model, float(Data.WEAPONS[wi].len) * 1.2)
 	_gun.set_meta("weapon", wi)
-	Models.apply_camo(_gun, Data.CAMOS[camo])
+	Models.add_attachments(_gun, custom(wi)["att"])
+	Models.apply_camo(_gun, Data.CAMOS[custom(wi)["skin"]])
 
 
 func _on_graphics_changed() -> void:
@@ -685,7 +690,7 @@ func apply_pickup(kind: String) -> void:
 	match kind:
 		"ammo":
 			for i in ammo.size():
-				ammo[i] = Data.WEAPONS[i].mag
+				ammo[i] = wstats(i).mag
 			grenades = Data.GRENADES_START.duplicate()
 			reloading = 0.0
 		"damage":
@@ -699,9 +704,25 @@ func set_custom_loadout(weapons: Array) -> void:
 	weapon = loadout[0]
 	reloading = 0.0
 	zoomed = false
-	ammo[weapon] = Data.WEAPONS[weapon].mag
+	ammo[weapon] = wstats(weapon).mag
 	show_weapon(weapon)
 	if _viewmodel != null:
 		_build_viewmodel()
 		_update_viewmodel()
 		_draw = 1.0
+
+
+## Personnalisation d'une arme (skin + accessoires autorisés), vérifiée.
+func custom(wi: int) -> Dictionary:
+	var c: Dictionary = armory.get(str(wi), {}) if armory is Dictionary else {}
+	var allowed := Data.attachments_for(wi)
+	var att := []
+	for a in c.get("att", []):
+		if allowed.has(a) and not att.has(a):
+			att.append(a)
+	return {"skin": clampi(int(c.get("skin", 0)), 0, Data.CAMOS.size() - 1), "att": att}
+
+
+## Caractéristiques de l'arme avec ses accessoires.
+func wstats(wi: int) -> Dictionary:
+	return Data.weapon_stats(wi, custom(wi))
