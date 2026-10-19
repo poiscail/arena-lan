@@ -685,6 +685,17 @@ func _apply_cmdline() -> void:
 				if b.is_bot and b.alive and game.is_enemy(game.local_char, b):
 					game._deal_damage(game.local_char, {id: 500.0}, game.local_char.weapon)
 					break)
+	if opts.has("zbuy"):
+		# Test zombies : 5000 points, le joueur va au poste n° zbuy et achète
+		get_tree().create_timer(3.0).timeout.connect(func() -> void:
+			var c = game.local_char
+			var s: Dictionary = game.modes.shops[int(opts["zbuy"])]
+			game.scores[c.char_id]["money"] = 5000
+			c.position = s["pos"] + Vector3(1.5, 0.1, 0)
+			c.look_at(s["pos"] + Vector3(0, 1.6, 0) - Vector3(0, 0, 0), Vector3.UP)
+			c.rotation.x = 0
+			c.rotation.z = 0
+			game.modes._buy(c, s["item"]))
 	if opts.has("slot"):
 		get_tree().create_timer(2.0).timeout.connect(func() -> void: game.local_char.switch_weapon(int(opts["slot"])))
 	if opts.has("loadout"):

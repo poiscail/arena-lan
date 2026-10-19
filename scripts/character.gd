@@ -37,6 +37,8 @@ var armory := {}  # personnalisation des armes du joueur (voir Net.armory)
 var next_class := -1  # classe demandée pour la prochaine réapparition (serveur)
 var next_armory := {}  # armes / accessoires modifiés en jeu, appliqués à la prochaine réapparition (serveur)
 var interacting := false  # (serveur) touche d'action maintenue (poser / désamorcer la bombe)
+var zombie := false  # mode Zombies : pas d'arme, attaque au corps à corps
+var zombie_fast := false
 var loadout: Array = [0, 1, 2]
 var slot := 0
 var hp := 100
@@ -456,6 +458,8 @@ func _move(delta: float, dir: Vector3, want_jump: bool, want_sprint: bool) -> vo
 	else:
 		velocity.y -= GRAVITY * delta
 	var speed := (SPRINT_SPEED if want_sprint else WALK_SPEED) * float(Data.CLASSES[class_id].speed)
+	if zombie:
+		speed = SPRINT_SPEED * 0.95 if zombie_fast else WALK_SPEED * 0.75
 	if speed_t > 0.0:
 		speed *= 1.3
 	var accel := (60.0 if is_on_floor() else 15.0) * delta
@@ -652,7 +656,34 @@ func _build_viewmodel() -> void:
 
 
 ## Arme tenue en main vue par les autres joueurs.
+## Transforme ce personnage en zombie : peau verdâtre, yeux rouges, pas d'arme, nom en rouge.
+func make_zombie(p_hp: int, fast: bool) -> void:
+	zombie = true
+	zombie_fast = fast
+	hp = p_hp
+	People.hold_gun(_model, "")
+	_gun = null
+	var tint := StandardMaterial3D.new()
+	tint.albedo_color = Color(0.55, 0.85, 0.45) if not fast else Color(0.85, 0.55, 0.45)
+	tint.blend_mode = BaseMaterial3D.BLEND_MODE_MUL
+	tint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	for m in _model.find_children("*", "MeshInstance3D", true, false):
+		m.material_overlay = tint
+	# Yeux rouges lumineux
+	var eyes := OmniLight3D.new()
+	eyes.light_color = Color(1, 0.1, 0.05)
+	eyes.light_energy = 0.8
+	eyes.omni_range = 1.2
+	eyes.position = Vector3(0, 1.65, -0.15)
+	add_child(eyes)
+	if _label != null:
+		_label.text = "Zombie" if not fast else "Zombie coureur"
+		_label.modulate = Color(0.6, 1.0, 0.4) if not fast else Color(1.0, 0.5, 0.3)
+
+
 func show_weapon(wi: int) -> void:
+	if zombie:
+		return
 	if _gun != null and _gun.get_meta("weapon", -1) == wi:
 		return
 	_gun = People.hold_gun(_model, Data.WEAPONS[wi].model, float(Data.WEAPONS[wi].len) * 1.2)
@@ -667,7 +698,7 @@ func _on_graphics_changed() -> void:
 
 func _process(_delta: float) -> void:
 	# L'arme pointe toujours dans la direction visée (et pas selon la rotation de la main)
-	if not is_local and alive and visible:
+	if not is_local and alive and visible and _gun != null:
 		People.aim_gun(_gun, _model, -head.global_transform.basis.z)
 
 

@@ -86,7 +86,18 @@ const KILL_KNIFE := 101
 const KILL_BARREL := 102
 const KILL_AIRSTRIKE := 103
 const KILL_BOMB := 104
-const KILL_NAMES := {100: "Grenade", 101: "Couteau", 102: "Baril", 103: "Frappe aérienne", 104: "Bombe"}
+const KILL_ZOMBIE := 105
+# Postes d'achat du mode Zombies
+const ZOMBIE_SHOP := [
+	{"name": "Munitions", "kind": "ammo", "price": 400},
+	{"name": "Mitraillette", "kind": "weapon", "wi": 3, "price": 900},
+	{"name": "Pompe", "kind": "weapon", "wi": 1, "price": 1200},
+	{"name": "AK-47", "kind": "weapon", "wi": 0, "price": 1500},
+	{"name": "Armure", "kind": "armor", "price": 750},
+	{"name": "Fusil de précision", "kind": "weapon", "wi": 6, "price": 1800},
+	{"name": "Lance-roquettes", "kind": "weapon", "wi": 9, "price": 4000},
+]
+const KILL_NAMES := {100: "Grenade", 101: "Couteau", 102: "Baril", 103: "Frappe aérienne", 104: "Bombe", 105: "Zombie"}
 
 # Grenades : [explosives, fumigènes] au début de chaque vie
 const GRENADES_START := [2, 1]
@@ -130,8 +141,10 @@ const RULES := {
 		"desc": "Une vie par manche. La dernière équipe debout gagne la manche."},
 	"snd": {"name": "Recherche et destruction", "unit": "manches", "limit": 4, "teams": true,
 		"desc": "Une vie par manche. L'attaque pose la bombe sur A ou B (touche F), la défense la désamorce. Changement de camp toutes les 2 manches."},
+	"zombies": {"name": "Zombies (coopération)", "unit": "vagues", "limit": 999, "teams": true,
+		"desc": "Tous ensemble contre des vagues de zombies. Gagne des points et achète des armes aux postes (touche F). Les morts reviennent à la vague suivante."},
 }
-const RULE_ORDER := ["dm", "ctf", "koth", "gungame", "elim", "snd"]
+const RULE_ORDER := ["dm", "ctf", "koth", "gungame", "elim", "snd", "zombies"]
 # Course aux armes : ordre des armes (indices dans WEAPONS)
 const GUNGAME_LADDER := [0, 3, 1, 6, 2, 7, 5, 8, 9, 4]
 

@@ -70,6 +70,10 @@ func think(delta: float) -> void:
 	_fire_cd -= delta
 	_repath_t -= delta
 	_alert_t -= delta
+	if c.zombie:
+		_zombie(delta)
+		_check_stuck(delta)
+		return
 	if _reload > 0.0:
 		_reload -= delta
 		if _reload <= 0.0:
@@ -202,6 +206,43 @@ func _roam(delta: float) -> void:
 		_face(_alert.position + Vector3(0, 1.3, 0), delta)
 	else:
 		_face(Vector3(p.x, c.eye_position().y, p.z), delta)
+
+
+## Zombie : fonce vers le survivant le plus proche (chemin de navigation, puis tout droit quand
+## il est en vue). L'attaque au corps à corps est gérée par le mode de jeu.
+func _zombie(delta: float) -> void:
+	var target = null
+	var best := 1e9
+	for o in game.chars.values():
+		if o.alive and o.team == 0:
+			var d: float = c.position.distance_to(o.position)
+			if d < best:
+				best = d
+				target = o
+	if target == null:
+		return
+	if best < 1.1:
+		_face(target.position + Vector3(0, 1.3, 0), delta)
+		return
+	if best < 9.0 and map.segment_clear(c.position, target.position):
+		var to: Vector3 = target.position - c.position
+		to.y = 0
+		move_dir = to.normalized()
+	else:
+		if _repath_t <= 0.0 or _path_i >= _path.size():
+			_repath_t = 0.8
+			_path = map.find_path(c.position, target.position)
+			_path_i = 0
+			if _path.size() > 1 and map.segment_clear(c.position, _path[1]):
+				_path_i = 1
+		if _path_i < _path.size():
+			var to: Vector3 = _path[_path_i] - c.position
+			to.y = 0
+			if to.length() < 1.0:
+				_path_i += 1
+			else:
+				move_dir = to.normalized()
+	_face(c.position + move_dir * 5.0 + Vector3(0, c.eye_position().y - c.position.y, 0), delta)
 
 
 func _pick_goal() -> Vector3:

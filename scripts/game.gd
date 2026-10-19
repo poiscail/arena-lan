@@ -463,6 +463,7 @@ func _apply_damage(t, s, dmg: int, weapon: int) -> bool:
 	if scores.has(s.char_id):
 		scores[s.char_id]["dmg"] = int(scores[s.char_id].get("dmg", 0)) + dealt + absorbed
 	_broadcast("on_health", [t.char_id, t.hp, t.armor, true])
+	modes.on_hit(s, t)
 	if t.bot != null:
 		t.bot.alert(s)
 	if t.hp > 0:
@@ -576,6 +577,8 @@ func _server_add_human(peer: int) -> void:
 		return
 	var info: Dictionary = Net.players[peer]
 	var team: int = info["team"] if settings.mode == "team" else -1
+	if rules == "zombies":
+		team = 0  # tous les joueurs ensemble contre les zombies
 	var id := _pid(peer)
 	if not scores.has(id):
 		scores[id] = _new_score(info["name"], team, false)
@@ -600,10 +603,12 @@ func _rebalance_bots() -> void:
 	if not multiplayer.is_server() or match_over:
 		return
 	var teams := [0, 1] if settings.mode == "team" else [-1]
+	if rules == "zombies":
+		teams = [0]  # des bots alliés complètent l'équipe ; les zombies sont gérés par le mode
 	for t in teams:
 		var humans := 0
 		for pid in Net.players:
-			if t == -1 or Net.players[pid]["team"] == t:
+			if t == -1 or Net.players[pid]["team"] == t or rules == "zombies":
 				humans += 1
 		var want := 0
 		if settings.bots:
@@ -676,7 +681,7 @@ func _ffa_leader() -> Dictionary:
 	return best
 
 
-func _end_match() -> void:
+func _end_match(text_override := "") -> void:
 	if match_over:
 		return
 	var text := ""
@@ -695,6 +700,8 @@ func _end_match() -> void:
 			text = "Fin de la partie"
 		else:
 			text = "%s gagne avec %d %s" % [leader["name"], int(leader[score_key()]), unit]
+	if text_override != "":
+		text = text_override
 	print("[match] " + text)
 	_broadcast_scores()
 	_broadcast("on_match_end", [text])
@@ -912,7 +919,7 @@ func _award_xp() -> void:
 	var m: Dictionary = scores[local_char.char_id]
 	var gain := 25 + int(m["kills"]) * 10
 	var pts := int(m.get("pts", 0))
-	gain += pts * {"ctf": 50, "koth": 1, "gungame": 10, "elim": 0, "dm": 0, "snd": 30}.get(rules, 0)
+	gain += pts * {"ctf": 50, "koth": 1, "gungame": 10, "elim": 0, "dm": 0, "snd": 30, "zombies": 2}.get(rules, 0)
 	var won := false
 	if settings.mode == "team":
 		var t := team_scores()

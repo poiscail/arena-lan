@@ -47,6 +47,20 @@ var _interact_sent := false
 var _beep_t := 0.0
 var _sync_t := 0.0
 
+# Zombies (coopération) : vagues de zombies de plus en plus nombreux et résistants
+const ZOMBIE_MAX := 14          # zombies en même temps sur la carte
+const ZOMBIE_REACH := 1.6
+const WAVE_PAUSE := 9.0
+const START_WEAPON := 4         # pistolet de départ
+var wave := 0
+var zombies_left := 0           # (affiché) zombies encore à éliminer dans la vague
+var _to_spawn := 0
+var _spawn_t := 0.0
+var _wave_wait := 6.0
+var _zatk := {}                 # (serveur) zombie -> recharge de son attaque
+var _was_inter := {}            # (serveur) joueur -> touche d'action déjà maintenue
+var shops := []                 # [{pos, item}] : achats aux murs (Data.ZOMBIE_SHOP)
+
 
 func setup(p_rules: String) -> void:
 	rules = p_rules
@@ -58,6 +72,8 @@ func setup(p_rules: String) -> void:
 		_make_hill()
 	elif rules == "snd":
 		_make_sites()
+	elif rules == "zombies":
+		_make_shops()
 
 
 func limit() -> int:
@@ -380,11 +396,270 @@ func _end_round(winner: int, why: String) -> void:
 	_start_bomb_round()
 
 
+# --- Zombies ----------------------------------------------------------------------------
+
+const Models := preload("res://scripts/models.gd")
+
+## Postes d'achat posés sur la carte (mêmes positions sur toutes les machines).
+func _make_shops() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4242
+	var pts: Array = game.map.nav_points.duplicate()
+	var chosen: Array[Vector3] = []
+	for tries in 400:
+		if chosen.size() >= Data.ZOMBIE_SHOP.size() or pts.is_empty():
+			break
+		var p: Vector3 = pts[rng.randi() % pts.size()]
+		var ok: bool = game.map.is_clear(p)
+		for q in chosen:
+			if q.distance_to(p) < 11.0:
+				ok = false
+		if ok:
+			chosen.append(p)
+	for i in chosen.size():
+		var item: Dictionary = Data.ZOMBIE_SHOP[i]
+		var root := Node3D.new()
+		root.position = chosen[i]
+		add_child(root)
+		var base := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.9, 0.9, 0.9)
+		base.mesh = bm
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(0.16, 0.14, 0.12)
+		base.material_override = mat
+		base.position.y = 0.45
+		root.add_child(base)
+		var glow := OmniLight3D.new()
+		glow.light_color = Color(0.4, 1.0, 0.5)
+		glow.omni_range = 3.5
+		glow.light_energy = 0.8
+		glow.position.y = 1.6
+		root.add_child(glow)
+		var spin := Node3D.new()
+		spin.position.y = 1.35
+		root.add_child(spin)
+		if item["kind"] == "weapon":
+			var w: Dictionary = Data.WEAPONS[item["wi"]]
+			var g := Models.weapon(w.model, minf(float(w.len), 0.75))
+			g.rotation.y = PI / 2.0
+			spin.add_child(g)
+		else:
+			var icon := MeshInstance3D.new()
+			var im := BoxMesh.new()
+			im.size = Vector3(0.35, 0.35, 0.35)
+			icon.mesh = im
+			var imat := StandardMaterial3D.new()
+			imat.albedo_color = Color(1.0, 0.8, 0.3) if item["kind"] == "ammo" else Color(0.3, 0.7, 1.0)
+			imat.emission_enabled = true
+			imat.emission = imat.albedo_color
+			imat.emission_energy_multiplier = 0.6
+			icon.material_override = imat
+			spin.add_child(icon)
+		var label := Label3D.new()
+		label.text = "%s\n%d pts" % [item["name"], item["price"]]
+		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		label.font_size = 40
+		label.outline_size = 10
+		label.modulate = Color(0.6, 1.0, 0.6)
+		label.position.y = 2.1
+		root.add_child(label)
+		shops.append({"pos": chosen[i], "item": item, "spin": spin})
+
+
+## Poste d'achat à portée d'un joueur (ou {}).
+func shop_near(pos: Vector3) -> Dictionary:
+	for s in shops:
+		if _dist2d(pos, s["pos"]) < 1.9:
+			return s
+	return {}
+
+
+func _zombie_count() -> int:
+	var n := 0
+	for id in game.chars:
+		var c = game.chars[id]
+		if c.zombie and c.alive:
+			n += 1
+	return n
+
+
+func _update_zombies(delta: float) -> void:
+	# Plus aucun survivant : fin de la partie
+	var humans_alive := 0
+	var humans := 0
+	for id in game.chars:
+		var c = game.chars[id]
+		if c.team == 0:
+			humans += 1
+			if c.alive:
+				humans_alive += 1
+	if wave > 0 and humans > 0 and humans_alive == 0:
+		game._end_match("Les zombies ont gagné · vague %d atteinte" % wave)
+		return
+	var alive_z := _zombie_count()
+	# Vague terminée : pause, puis vague suivante (les morts reviennent)
+	if wave == 0 or (_to_spawn == 0 and alive_z == 0):
+		var was := _wave_wait
+		_wave_wait -= delta
+		if wave > 0 and was == WAVE_PAUSE:
+			_event("Vague %d terminée ! La suivante arrive..." % wave, 0)
+		if _wave_wait <= 0.0:
+			_next_wave(humans)
+	# Apparition progressive des zombies
+	_spawn_t -= delta
+	if _to_spawn > 0 and alive_z < ZOMBIE_MAX and _spawn_t <= 0.0:
+		_spawn_t = maxf(0.35, 1.6 - wave * 0.1)
+		_to_spawn -= 1
+		_spawn_zombie()
+	# Attaques au corps à corps
+	for id in game.chars:
+		var z = game.chars[id]
+		if not z.zombie or not z.alive:
+			continue
+		_zatk[id] = float(_zatk.get(id, 0.0)) - delta
+		if _zatk[id] > 0.0:
+			continue
+		for hid in game.chars:
+			var h = game.chars[hid]
+			if h.team == 0 and h.alive and z.position.distance_to(h.position) < ZOMBIE_REACH:
+				_zatk[id] = 1.1
+				game._broadcast("melee_fx", [id])
+				game._deal_damage(z, {hid: float(18 + wave * 3)}, Data.KILL_ZOMBIE)
+				break
+	# Achats : appui sur la touche d'action près d'un poste
+	for id in game.chars:
+		var c = game.chars[id]
+		var inter: bool = c.interacting and c.alive and c.team == 0
+		if inter and not _was_inter.get(id, false):
+			var s := shop_near(c.position)
+			if not s.is_empty():
+				_buy(c, s["item"])
+		_was_inter[id] = inter
+	# État de la vague affiché aux joueurs
+	_sync_t -= delta
+	if _sync_t <= 0.0:
+		_sync_t = 0.5
+		_broadcast("zombie_tick", [wave, _to_spawn + alive_z])
+
+
+func _next_wave(humans: int) -> void:
+	wave += 1
+	_wave_wait = WAVE_PAUSE
+	_to_spawn = 4 + wave * 3 + maxi(0, humans - 1) * 2
+	team_pts[0] = wave
+	_sync_pts()
+	# Les joueurs morts reviennent avec le pistolet
+	for id in game.chars:
+		var c = game.chars[id]
+		if c.team == 0 and not c.alive:
+			game._broadcast("on_respawn", [id, game._pick_spawn(0), c.class_id, {}])
+			game._broadcast("set_loadout", [id, [START_WEAPON]])
+	_event("VAGUE %d : %d zombies !" % [wave, _to_spawn], 1)
+
+
+func _spawn_zombie() -> void:
+	game._bot_serial += 1
+	var id := "Z%d" % game._bot_serial
+	# Loin des joueurs, sur un point de navigation
+	var best: Vector3 = game.map.random_point()
+	var best_d := -1.0
+	for i in 12:
+		var p: Vector3 = game.map.random_point()
+		var nearest := 1e9
+		for hid in game.chars:
+			var h = game.chars[hid]
+			if h.team == 0 and h.alive:
+				nearest = minf(nearest, h.position.distance_to(p))
+		if nearest > best_d and nearest < 60.0:
+			best_d = nearest
+			best = p
+			if nearest > 18.0:
+				break
+	var hp := 60 + wave * 18
+	var fast := wave >= 4 and randf() < minf(0.15 * (wave - 3), 0.7)
+	game._broadcast("spawn_char", [id, "Zombie", 1, true, 1, best, true, hp, randi() % Data.SKINS.size(), 0, {}])
+	_broadcast("make_zombie", [id, hp, fast])
+
+
+## (Serveur) Achat à un poste : arme (remplace l'arme en main s'il y en a déjà 2), munitions ou armure.
+func _buy(c, item: Dictionary) -> void:
+	var sc: Dictionary = game.scores.get(c.char_id, {})
+	var money := int(sc.get("money", 0))
+	var price := int(item["price"])
+	var kind: String = item["kind"]
+	if kind == "weapon" and c.loadout.has(int(item["wi"])):
+		kind = "ammo"  # déjà en main : on recharge
+		price = price / 3
+	if money < price:
+		_event("Pas assez de points (%d / %d)" % [money, price], 0, c.char_id)
+		return
+	sc["money"] = money - price
+	match kind:
+		"weapon":
+			var inv: Array = c.loadout.duplicate()
+			inv.erase(int(item["wi"]))
+			if inv.size() >= 2:
+				inv.erase(c.weapon)
+				if inv.size() >= 2:
+					inv.resize(1)
+			game._broadcast("set_loadout", [c.char_id, [int(item["wi"])] + inv])
+		"ammo":
+			game.items._broadcast("on_pickup", [c.char_id, "ammo", c.hp, c.armor])
+		"armor":
+			game.items._broadcast("on_pickup", [c.char_id, "armor", c.hp, 100])
+	_event("Acheté : %s (-%d pts)" % [item["name"], price], 0, c.char_id)
+	game._broadcast_scores()
+
+
+@rpc("authority", "call_remote", "reliable")
+func make_zombie(id: String, hp: int, fast: bool) -> void:
+	var c = game.chars.get(id)
+	if c != null:
+		c.make_zombie(hp, fast)
+
+
+@rpc("authority", "call_remote", "unreliable_ordered")
+func zombie_tick(w: int, left: int) -> void:
+	wave = w
+	zombies_left = left
+
+
+func _zombies_text() -> String:
+	var c = game.local_char
+	var money := 0
+	if c != null and game.scores.has(c.char_id):
+		money = int(game.scores[c.char_id].get("money", 0))
+	var t := "ZOMBIES · VAGUE %d · %d RESTANTS · %d PTS" % [wave, zombies_left, money]
+	if wave == 0:
+		t = "ZOMBIES · PRÉPARE-TOI · %d PTS" % money
+	if c != null and c.alive:
+		var s := shop_near(c.position)
+		if not s.is_empty():
+			var item: Dictionary = s["item"]
+			var price := int(item["price"])
+			var label: String = item["name"]
+			if item["kind"] == "weapon" and c.loadout.has(int(item["wi"])):
+				price = price / 3
+				label = "munitions " + label
+			t += "  ·  %s : acheter %s (%d pts)" % [Net.binding_text("interact"), label, price]
+	return t
+
+
 # --- Boucle -------------------------------------------------------------------------
 
 func _process(delta: float) -> void:
 	if rules == "snd":
 		_process_snd(delta)
+	elif rules == "zombies":
+		for s in shops:
+			(s["spin"] as Node3D).rotation.y += delta * 0.8
+		var c = game.local_char
+		if c != null:
+			var held: bool = Input.is_action_pressed("interact") and c.alive and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+			if held != _interact_sent:
+				_interact_sent = held
+				game.send_interact(held)
 	# Les drapeaux portés suivent leur porteur (sur toutes les machines)
 	for f in _flags:
 		var n: Node3D = f["node"]
@@ -416,6 +691,8 @@ func _physics_process(delta: float) -> void:
 		_update_koth(delta)
 	elif rules == "snd":
 		_update_snd(delta)
+	elif rules == "zombies":
+		_update_zombies(delta)
 
 
 ## (Toutes les machines) Bombe visible, bips qui accélèrent, touche d'action envoyée à l'hôte.
@@ -565,6 +842,24 @@ func on_kill(s, t, weapon: int) -> void:
 			_event("%s a lâché la bombe" % t.display_name, attackers())
 		_progress.erase(t.char_id)
 		_check_snd_teams()
+	elif rules == "zombies":
+		if t.zombie:
+			if s.team == 0 and game.scores.has(s.char_id):
+				var sc: Dictionary = game.scores[s.char_id]
+				sc["money"] = int(sc.get("money", 0)) + (130 if weapon == Data.KILL_KNIFE else 100)
+				_add_pts(s, 1)
+			_zatk.erase(t.char_id)
+			var zid: String = t.char_id
+			get_tree().create_timer(2.5).timeout.connect(func() -> void:
+				if game.chars.has(zid):
+					game._broadcast("despawn_char", [zid]))
+
+
+## (Serveur) Touche d'un zombie : quelques points à chaque balle.
+func on_hit(s, t) -> void:
+	if rules == "zombies" and t.zombie and s.team == 0 and game.scores.has(s.char_id):
+		var sc: Dictionary = game.scores[s.char_id]
+		sc["money"] = int(sc.get("money", 0)) + 10
 
 
 ## (Serveur) Une équipe entièrement éliminée : les défenseurs perdent ; les attaquants aussi,
@@ -586,11 +881,14 @@ func _check_snd_teams() -> void:
 
 ## Peut-on réapparaître automatiquement ? (non en manches : on attend la manche suivante)
 func allows_respawn() -> bool:
-	return rules != "elim" and rules != "snd"
+	return rules != "elim" and rules != "snd" and rules != "zombies"
 
 
 ## (Serveur) Donne à un personnage l'arme de son niveau en course aux armes.
 func gungame_weapon(c) -> void:
+	if rules == "zombies" and c.team == 0:
+		game._broadcast("set_loadout", [c.char_id, [START_WEAPON]])  # tout le monde commence au pistolet
+		return
 	if rules != "gungame":
 		return
 	var lvl := clampi(int(game.scores.get(c.char_id, {}).get("pts", 0)), 0, Data.GUNGAME_LADDER.size() - 1)
@@ -713,6 +1011,11 @@ func sync_to(peer: int) -> void:
 		hill_state.rpc_id(peer, hill_owner)
 	if rules == "snd":
 		bomb_state.rpc_id(peer, bomb["state"], bomb["pos"], bomb["carrier"], bomb["site"], float(bomb["timer"]))
+	if rules == "zombies":
+		for id in game.chars:
+			var z = game.chars[id]
+			if z.zombie:
+				make_zombie.rpc_id(peer, id, z.hp, z.zombie_fast)
 	if rules == "gungame":
 		for id in game.chars:
 			var lvl := clampi(int(game.scores.get(id, {}).get("pts", 0)), 0, Data.GUNGAME_LADDER.size() - 1)
@@ -797,6 +1100,8 @@ func objective_text() -> String:
 			return "ÉLIMINATION · MANCHE %d · PREMIER À %d" % [round_num, limit()]
 		"snd":
 			return _snd_text()
+		"zombies":
+			return _zombies_text()
 	return ""
 
 
