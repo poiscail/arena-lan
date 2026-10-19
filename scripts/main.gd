@@ -674,6 +674,10 @@ func _apply_cmdline() -> void:
 		get_tree().create_timer(float(opts["lean"])).timeout.connect(func() -> void:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 			Input.action_press("lean_right"))
+	if opts.has("ads"):
+		get_tree().create_timer(float(opts["ads"])).timeout.connect(func() -> void:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			Input.action_press("zoom"))
 	if opts.has("probe"):
 		get_tree().create_timer(2.0).timeout.connect(func() -> void:
 			var line := ""

@@ -15,6 +15,7 @@ const EYE_HEIGHT := 1.6
 const FOV := 80.0
 const ZOOM_FOV := 25.0
 const VIEWMODEL_POS := Vector3(0.17, -0.165, -0.6)
+const ADS_EYE := 0.27  # distance entre l'œil et le point rouge en visée
 const DEATH_SHOW_TIME := 1.6
 const SLIDE_SPEED := 13.0
 const SLIDE_END_SPEED := 4.5
@@ -540,7 +541,11 @@ func _weapons(delta: float, captured: bool) -> void:
 	if reloading > 0.0:
 		r = 1.0 - reloading / float(w.reload)
 	var reload_curve := sin(r * PI)
-	var target := VIEWMODEL_POS.lerp(Vector3(0, -0.105, -0.36), _ads) + bob * (1.0 - _ads * 0.7) + Vector3(0, 0, _kick)
+	# En visée, le point rouge du viseur est placé exactement dans l'axe de la caméra
+	var ads_pos := Vector3(0, -0.105, -0.36)
+	if slot < _view_guns.size() and _view_guns[slot].has_meta("sight"):
+		ads_pos = Vector3(0, 0, -ADS_EYE) - (_view_guns[slot].get_meta("sight") as Vector3)
+	var target := VIEWMODEL_POS.lerp(ads_pos, _ads) + bob * (1.0 - _ads * 0.9) + Vector3(0, 0, _kick)
 	target += Vector3(-0.08, -0.08, 0.04) * _sprint_blend
 	target += Vector3(0.02, -0.14, 0.06) * reload_curve
 	target += Vector3(0, -0.35, 0.1) * _draw
@@ -548,6 +553,7 @@ func _weapons(delta: float, captured: bool) -> void:
 	target += Vector3(-_sway.x, _sway.y, 0) * 0.0006
 	_viewmodel.position = _viewmodel.position.lerp(target, minf(1.0, delta * 20.0))
 	var rot := Vector3(_kick * 2.0 - 0.6 * reload_curve - 0.5 * _draw - 0.15 * _land, 0.55 * _sprint_blend - _sway.x * 0.002, 0.5 * reload_curve + 0.25 * _sprint_blend)
+	rot *= 1.0 - _ads * 0.85  # en visée, l'arme reste droite pour garder le point au centre
 	_viewmodel.rotation = _viewmodel.rotation.lerp(rot, minf(1.0, delta * 15.0))
 	# Tremblement de caméra (explosions proches)
 	var sh: float = game.sfx.shake if game.sfx != null else 0.0
@@ -631,6 +637,10 @@ func _build_viewmodel() -> void:
 		Models.add_attachments(g.get_child(0).get_child(0), custom(wi)["att"])
 		Models.apply_camo(g, Data.CAMOS[custom(wi)["skin"]])
 		_viewmodel.add_child(g)
+		# Centre du viseur point rouge dans le repère de l'arme : sert à aligner l'œil en visée
+		var sp := g.find_child("SightPoint", true, false) as Node3D
+		if sp != null:
+			g.set_meta("sight", g.to_local(sp.global_position))
 		_view_guns.append(g)
 
 

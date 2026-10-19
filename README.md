@@ -74,7 +74,7 @@ Shaders maison : eau animée (vagues, reflets, écume), vent dans les arbres, et
 ## Armurerie
 Bouton **Armurerie** dans le menu. Pour chaque arme :
 - un **skin** : couleurs (Désert, Forêt, Urbain, Nuit, Rouge, Or, Néon) et motifs (Arctique, Digital, Bois, Tigre, Carbone, Lave), débloqués en montant de niveau ;
-- des **accessoires visibles sur l'arme**, un par emplacement : silencieux, baïonnette (couteau plus fort), chargeur étendu, poignée, bipied (immobile : recul et dispersion divisés par 2), lampe tactique, crosse, viseur point rouge, lunette x4.
+- des **accessoires visibles sur l'arme**, un par emplacement : silencieux, baïonnette (couteau plus fort), chargeur étendu, poignée, bipied (immobile : recul et dispersion divisés par 2), lampe tactique, crosse, viseur point rouge (on vise vraiment à travers), lunette x4. Le chargeur étendu prolonge le vrai chargeur de chaque arme.
 
 Un aperçu 3D montre l'arme, et les caractéristiques changent en vert ou en rouge. Les autres joueurs voient ta personnalisation.
 

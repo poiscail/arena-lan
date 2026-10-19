@@ -176,6 +176,25 @@ const ATTACHMENTS := [
 ]
 
 
+# Où se trouve le chargeur de chaque modèle (relevé à la main, en fraction de la boîte du modèle
+# d'origine) : [x du chargeur depuis la crosse, hauteur du bas du boîtier, demi-largeur de recherche].
+# Pour les pistolets, c'est la poignée (le chargeur est dedans). Pas de chargeur visible = pas d'accessoire.
+const MAG_HINTS := {
+	"q/AssaultRifle2_1": [0.47, 0.55, 0.06], "q/AssaultRifle2_2": [0.49, 0.55, 0.06],
+	"q/AssaultRifle2_3": [0.27, 0.6, 0.07], "q/AssaultRifle2_4": [0.7, 0.45, 0.07],
+	"q/AssaultRifle_1": [0.37, 0.6, 0.05], "q/AssaultRifle_2": [0.5, 0.65, 0.08],
+	"q/AssaultRifle_3": [0.42, 0.7, 0.1], "q/AssaultRifle_4": [0.5, 0.65, 0.08],
+	"q/AssaultRifle_5": [0.55, 0.65, 0.08],
+	"q/Bullpup_1": [0.28, 0.6, 0.05], "q/Bullpup_2": [0.12, 0.6, 0.06], "q/Bullpup_3": [0.12, 0.6, 0.09],
+	"q/SubmachineGun_1": [0.47, 0.45, 0.06], "q/SubmachineGun_2": [0.65, 0.45, 0.06],
+	"q/SubmachineGun_3": [0.66, 0.45, 0.05], "q/SubmachineGun_4": [0.5, 0.55, 0.1],
+	"q/SubmachineGun_5": [0.52, 0.45, 0.04],
+	"q/Pistol_1": [0.2, 0.45, 0.12], "q/Pistol_2": [0.2, 0.45, 0.12], "q/Pistol_3": [0.2, 0.45, 0.12],
+	"q/Pistol_4": [0.2, 0.55, 0.14], "q/Pistol_5": [0.22, 0.45, 0.12], "q/Pistol_6": [0.15, 0.5, 0.1],
+	"q/SniperRifle_2": [0.45, 0.3, 0.04],
+}
+
+
 ## Accessoires possibles pour une arme.
 static func attachments_for(wi: int) -> Array:
 	var w: Dictionary = WEAPONS[wi]
@@ -183,6 +202,8 @@ static func attachments_for(wi: int) -> Array:
 		return []
 	var out := []
 	for a in ATTACHMENTS:
+		if a["id"] == "mag" and not MAG_HINTS.has(w.model):
+			continue  # chargeur tubulaire ou caché : pas de chargeur étendu
 		if a["slot"] == "dessus" and int(w.zoom) > 0:
 			continue  # déjà une lunette
 		if not a["cats"].is_empty() and not a["cats"].has(w.cat):
