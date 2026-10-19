@@ -70,9 +70,10 @@ func _ready() -> void:
 	_shape.position.y = 0.9
 	add_child(_shape)
 
-	_model = Models.character(_model_name(), 1.8)
+	_model = Models.character(_model_name(), 1.85)
 	add_child(_model)
 	_anim = _model.find_child("AnimationPlayer", true, false)
+	_gun = Models.attach_weapon(_model, Data.WEAPON_MODELS[0][0])
 
 	# Anneau de couleur au sol pour repérer l'équipe
 	_ring = MeshInstance3D.new()
@@ -92,9 +93,6 @@ func _ready() -> void:
 	head = Node3D.new()
 	head.position.y = EYE_HEIGHT
 	add_child(head)
-	_gun = Models.weapon(Data.WEAPON_MODELS[0][0], 0.6)
-	_gun.position = Vector3(0.22, -0.5, -0.45)
-	head.add_child(_gun)
 
 	_label = Label3D.new()
 	_label.text = display_name
@@ -111,7 +109,7 @@ func _ready() -> void:
 	_net_pos = position
 	_net_yaw = rotation.y
 	_prev_pos = position
-	_play("holding-both")
+	_play(Data.ANIM_IDLE)
 
 	if is_bot and multiplayer.is_server():
 		bot = BotScript.new()
@@ -161,7 +159,7 @@ func muzzle_position() -> Vector3:
 	if is_local and _viewmodel != null and _viewmodel.visible:
 		var length: float = Data.WEAPON_MODELS[weapon][1]
 		return _viewmodel.global_position - camera.global_transform.basis.z * (length / 2.0)
-	return _gun.global_position - head.global_transform.basis.z * 0.3
+	return _gun.global_position - head.global_transform.basis.z * 0.55 + Vector3(0, 0.1, 0)
 
 
 func face_center() -> void:
@@ -189,8 +187,7 @@ func set_dead(dead: bool) -> void:
 		if is_local:
 			visible = false
 		else:
-			_play("die")
-			_gun.visible = false
+			_play(Data.ANIM_DEATH)
 			_label.visible = false
 			_ring.visible = false
 			_hide_t = DEATH_SHOW_TIME
@@ -198,10 +195,9 @@ func set_dead(dead: bool) -> void:
 		visible = true
 		_hide_t = 0.0
 		if not is_local:
-			_gun.visible = true
 			_label.visible = true
 			_ring.visible = true
-		_play("holding-both")
+		_play(Data.ANIM_IDLE)
 
 
 func respawn(pos: Vector3) -> void:
@@ -253,12 +249,12 @@ func _update_animation(delta: float) -> void:
 			if _hide_t <= 0.0:
 				visible = false
 		return
-	if _speed > 7.5:
-		_play("sprint")
+	if _speed > 7.0:
+		_play(Data.ANIM_RUN)
 	elif _speed > 0.8:
-		_play("walk")
+		_play(Data.ANIM_WALK)
 	else:
-		_play("holding-both")
+		_play(Data.ANIM_IDLE)
 
 
 func _play(anim: String) -> void:

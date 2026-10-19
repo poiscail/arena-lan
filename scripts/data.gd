@@ -13,14 +13,19 @@ const WEAPONS := [
 	{"name": "Sniper", "damage": 80, "rate": 1.3, "mag": 5, "reload": 2.6, "spread": 0.0, "pellets": 1, "range": 300.0, "auto": false, "head": 2.0},
 ]
 
-# Modèle 3D de chaque arme (Kenney Blaster Kit) et sa longueur en vue à la première personne
-const WEAPON_MODELS := [["blaster-d", 0.4], ["blaster-b", 0.32], ["blaster-e", 0.55]]
+# Modèle 3D de chaque arme (Quaternius Toon Shooter) et sa longueur en vue à la première personne
+const WEAPON_MODELS := [["AK", 0.62], ["Shotgun", 0.62], ["Sniper", 0.8]]
 
-# Modèles des personnages (Kenney Blocky Characters) : un robot par équipe, au hasard en mêlée
-const TEAM_MODELS := ["character-h", "character-g"]
-const FFA_MODELS := ["character-a", "character-b", "character-c", "character-d", "character-e",
-		"character-f", "character-i", "character-j", "character-k", "character-l", "character-m",
-		"character-n", "character-o", "character-p", "character-q", "character-r"]
+# Modèles des personnages (Quaternius Toon Shooter) : un par équipe, au hasard en mêlée
+const TEAM_MODELS := ["Character_Soldier", "Character_Enemy"]
+const FFA_MODELS := ["Character_Soldier", "Character_Enemy", "Character_Hazmat"]
+
+# Animations du kit utilisées pour chaque état
+const ANIM_IDLE := "Idle_Shoot"
+const ANIM_WALK := "Walk_Shoot"
+const ANIM_RUN := "Run_Gun"
+const ANIM_AIR := "Jump_Idle"
+const ANIM_DEATH := "Death"
 
 # Recul vertical de la caméra (radians) par tir
 const RECOIL := [0.012, 0.05, 0.09]

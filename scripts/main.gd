@@ -103,7 +103,7 @@ func _build_ui() -> void:
 	panel.add_child(stack)
 
 	var credits := Label.new()
-	credits.text = "Modèles et interface : Kenney (CC0)  ·  Polices : Rajdhani, Orbitron (OFL)  ·  Godot 4.7"
+	credits.text = "Soldats et armes : Quaternius (CC0)  ·  Polices : Rajdhani, Orbitron (OFL)  ·  Godot 4.7"
 	credits.add_theme_font_size_override("font_size", 14)
 	credits.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
 	credits.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT

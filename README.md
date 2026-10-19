@@ -67,7 +67,6 @@ Quelqu'un peut rejoindre en cours de partie. Il remplace alors un bot.
 Toute la partie est décidée par l'hôte : dégâts, morts, scores et bots. Chaque joueur envoie seulement sa position et ses tirs.
 
 ## Crédits
-- **Personnages** : [Blocky Characters](https://kenney.nl/assets/blocky-characters) de Kenney, licence CC0.
-- **Armes** : [Blaster Kit](https://kenney.nl/assets/blaster-kit) de Kenney, licence CC0.
+- **Soldats et armes** : [Toon Shooter Game Kit](https://quaternius.com/packs/toonshootergamekit.html) de Quaternius, licence CC0.
 - **Polices** : [Rajdhani](https://fonts.google.com/specimen/Rajdhani) et [Orbitron](https://fonts.google.com/specimen/Orbitron), licence SIL Open Font.
 - **Moteur** : [Godot 4.7](https://godotengine.org).
