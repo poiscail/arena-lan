@@ -230,9 +230,42 @@ static func add_attachments(gun: Node3D, atts: Array) -> void:
 				var h: float = part.get_meta("height")
 				part.position = p["top"] + Vector3(-dir * L * 0.04, h * 0.5 + L * 0.005, 0)
 			"grip":
-				var part := _part(gun, "Grip", L * 0.07, Vector3.ZERO, dir, true)
+				var part := _part(gun, "Grip", L * 0.14, Vector3.ZERO, dir, true)
 				var h: float = part.get_meta("height")
 				part.position = p["front_bottom"] - Vector3(0, h * 0.45, 0)
+			"scope":
+				var len := L * 0.42
+				var part := _part(gun, "Scope_1", len, Vector3.ZERO, dir)
+				var h: float = part.get_meta("height")
+				part.position = p["top"] + Vector3(-dir * L * 0.05, h * 0.5 + L * 0.01, 0)
+			"bayonet":
+				var len := L * 0.24
+				var m: Vector3 = p["muzzle"]
+				_part(gun, "Bayonet", len, Vector3(m.x - dir * len * 0.15, m.y - L * 0.045, m.z), dir)
+			"flashlight":
+				var len := L * 0.13
+				var fb: Vector3 = p["front_bottom"]
+				var m: Vector3 = p["muzzle"]
+				var part := _part(gun, "Flashlight", len, Vector3(fb.x + dir * L * 0.08, lerpf(fb.y, m.y, 0.6), m.z + L * 0.035), dir)
+				var spot := SpotLight3D.new()
+				spot.rotation.y = -dir * PI / 2.0  # éclaire dans l'axe du canon
+				spot.spot_range = 22.0
+				spot.spot_angle = 18.0
+				spot.light_energy = 1.6
+				spot.light_color = Color(1.0, 0.97, 0.9)
+				spot.shadow_enabled = false
+				spot.position = Vector3(dir * len * 0.5, 0, 0)
+				part.add_child(spot)
+			"bipod":
+				var part := _part(gun, "Bipod", L * 0.16, Vector3.ZERO, dir, true)
+				var fb: Vector3 = p["front_bottom"]
+				part.position = Vector3(fb.x + dir * L * 0.12, fb.y - L * 0.08, fb.z)
+			"stock":
+				var len := L * 0.45
+				var box: AABB = p["box"]
+				var g: Vector3 = p["grip"]
+				var rear := box.position.x if dir > 0.0 else box.end.x
+				_part(gun, "Stock", len, Vector3(rear - dir * len * 0.42, g.y + L * 0.06, g.z), dir)
 			"mag":
 				var m := MeshInstance3D.new()
 				var bm := BoxMesh.new()
@@ -255,7 +288,7 @@ static func _part(gun: Node3D, name: String, size: float, pos: Vector3, dir: flo
 	var wrap := Node3D.new()
 	var inst: Node3D = load("res://assets/guns_q/%s.fbx" % name).instantiate()
 	var box := _local_aabb(inst)
-	var ref := box.size.x if not by_width else box.size.x
+	var ref := box.size.x if not by_width else box.size.y  # by_width : taille donnée = hauteur
 	var s := size / maxf(ref, 0.001)
 	inst.scale = Vector3.ONE * s
 	inst.position = -box.get_center() * s

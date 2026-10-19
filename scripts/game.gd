@@ -110,11 +110,11 @@ func _physics_process(delta: float) -> void:
 		var data := []
 		for id in chars:
 			var c = chars[id]
-			data.append([id, c.position, c.rotation.y, c.head.rotation.x, c.sliding])
+			data.append([id, c.position, c.rotation.y, c.head.rotation.x, c.sliding, c.lean])
 		for p in ready_peers:
 			snapshot.rpc_id(p, data)
 	elif local_char != null and local_char.alive:
-		client_state.rpc_id(1, local_char.position, local_char.rotation.y, local_char.head.rotation.x, local_char.sliding)
+		client_state.rpc_id(1, local_char.position, local_char.rotation.y, local_char.head.rotation.x, local_char.sliding, local_char.lean)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -364,7 +364,8 @@ func _server_melee(s) -> void:
 		return
 	var fwd: Vector3 = -s.global_transform.basis.z
 	var best = null
-	var best_d := Data.KNIFE_RANGE
+	var bayonet: bool = s.loadout.size() > 0 and s.custom(s.loadout[0])["att"].has("bayonet")
+	var best_d := Data.KNIFE_RANGE + (0.6 if bayonet else 0.0)
 	for id in chars:
 		var t = chars[id]
 		if not t.alive or not is_enemy(s, t):
@@ -379,7 +380,7 @@ func _server_melee(s) -> void:
 	if best == null:
 		return
 	var behind: bool = (-best.global_transform.basis.z).dot(fwd) > 0.5
-	_deal_damage(s, {best.char_id: 200.0 if behind else float(Data.KNIFE_DAMAGE)}, Data.KILL_KNIFE, behind)
+	_deal_damage(s, {best.char_id: 200.0 if behind else float(Data.KNIFE_DAMAGE) * (1.5 if bayonet else 1.0)}, Data.KILL_KNIFE, behind)
 
 
 func local_melee(c) -> void:
@@ -687,11 +688,12 @@ func client_ready() -> void:
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func client_state(pos: Vector3, yaw: float, pitch: float, slide: bool) -> void:
+func client_state(pos: Vector3, yaw: float, pitch: float, slide: bool, lean: float) -> void:
 	var c = chars.get(_pid(multiplayer.get_remote_sender_id()))
 	if c != null and c.alive:
 		c.net_target(pos, yaw, pitch)
 		c.set_sliding(slide)
+		c.set_lean(lean)
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -747,6 +749,7 @@ func snapshot(data: Array) -> void:
 		if c != null and not c.is_local:
 			c.net_target(e[1], e[2], e[3])
 			c.set_sliding(e[4])
+			c.set_lean(e[5])
 
 
 @rpc("authority", "call_remote", "reliable")

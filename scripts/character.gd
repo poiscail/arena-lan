@@ -51,6 +51,8 @@ var _was_on_floor := true
 var _fall_speed := 0.0
 var _step := 0.0
 var _ads := 0.0
+var lean := 0.0  # inclinaison : -1 gauche, +1 droite
+var _tilt := 0.0
 var _flashlight: SpotLight3D
 var alive := true
 var bot = null
@@ -396,7 +398,20 @@ func _local_control(delta: float) -> void:
 	# Caméra plus basse et légèrement penchée pendant la glissade
 	var k := minf(1.0, delta * 12.0)
 	head.position.y = lerpf(head.position.y, SLIDE_EYE if sliding else EYE_HEIGHT, k)
-	head.rotation.z = lerpf(head.rotation.z, 0.06 if sliding else 0.0, k)
+	# Inclinaison à gauche / droite (limitée si un mur est trop près)
+	var want := 0.0
+	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not sliding:
+		want = Input.get_action_strength("lean_right") - Input.get_action_strength("lean_left")
+	if want != 0.0:
+		var from: Vector3 = global_position + Vector3(0, head.position.y, 0)
+		var side: Vector3 = global_transform.basis.x * signf(want)
+		var hit: Dictionary = game._ray(from, from + side * 0.7, [get_rid()] as Array[RID], 1)
+		if not hit.is_empty():
+			want *= clampf((from.distance_to(hit.position) - 0.25) / 0.45, 0.0, 1.0)
+	lean = move_toward(lean, want, delta * 5.0)
+	_apply_lean()
+	_tilt = lerpf(_tilt, 0.06 if sliding else 0.0, k)
+	head.rotation.z = _tilt - lean * 0.2
 
 
 ## Glissade : possible au sol en courant, garde l'élan puis ralentit.
@@ -553,7 +568,8 @@ func _weapons(delta: float, captured: bool) -> void:
 	_fire_cd = w.rate
 	ammo[weapon] -= 1
 
-	var spread: float = w.spread * (0.75 if ads else 1.0)
+	var steady: bool = w.get("bipod", false) and Vector2(velocity.x, velocity.z).length() < 0.5 and is_on_floor()
+	var spread: float = w.spread * (0.75 if ads else 1.0) * (0.5 if steady else 1.0) * (float(w.get("hip_spread", 1.0)) if not zoomed else 1.0)
 	if int(w.zoom) > 0 and not zoomed and not w.get("optic", false):
 		spread = 6.0
 	if int(w.pellets) == 1 and (not is_on_floor() or (hspeed > 6.5 and not sliding)):
@@ -564,7 +580,7 @@ func _weapons(delta: float, captured: bool) -> void:
 		dirs.append(_spread_dir(b, spread))
 	game.local_fire(self, weapon, camera.global_position, dirs)
 
-	head.rotation.x = clampf(head.rotation.x + float(w.recoil), -1.5, 1.5)
+	head.rotation.x = clampf(head.rotation.x + float(w.recoil) * (0.5 if steady else 1.0), -1.5, 1.5)
 	_kick = clampf(float(w.recoil) * 1.5, 0.04, 0.14)
 	if ammo[weapon] <= 0:
 		start_reload()
@@ -720,7 +736,12 @@ func custom(wi: int) -> Dictionary:
 	var allowed := Data.attachments_for(wi)
 	var att := []
 	for a in c.get("att", []):
-		if allowed.has(a) and not att.has(a):
+		var slot := Data.attachment_slot(String(a))
+		var taken := false
+		for b in att:
+			if Data.attachment_slot(b) == slot:
+				taken = true
+		if allowed.has(a) and not att.has(a) and not taken:
 			att.append(a)
 	return {"skin": clampi(int(c.get("skin", 0)), 0, Data.CAMOS.size() - 1), "att": att}
 
@@ -728,3 +749,18 @@ func custom(wi: int) -> Dictionary:
 ## Caractéristiques de l'arme avec ses accessoires.
 func wstats(wi: int) -> Dictionary:
 	return Data.weapon_stats(wi, custom(wi))
+
+
+## Inclinaison : tête décalée sur le côté, corps penché et hitbox déplacée (sur toutes les machines).
+func _apply_lean() -> void:
+	head.position.x = lean * 0.45
+	_shape.position.x = lean * 0.3
+	if _model != null and not is_local:
+		_model.rotation.z = -lean * 0.22
+
+
+## Inclinaison reçue par le réseau (joueurs distants).
+func set_lean(v: float) -> void:
+	lean = clampf(v, -1.0, 1.0)
+	head.rotation.z = -lean * 0.2
+	_apply_lean()

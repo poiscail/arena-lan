@@ -161,12 +161,18 @@ static func level_info(xp: int) -> Array:
 		need = 150 + 50 * (lvl - 1)
 	return [lvl, xp, need]
 
-# Accessoires d'armes (armurerie). Les lance-grenades / roquettes n'en ont pas.
+# Accessoires d'armes (armurerie). « slot » : un seul accessoire par emplacement.
+# « cats » : familles d'armes autorisées (vide = toutes). Les lance-grenades / roquettes n'en ont pas.
 const ATTACHMENTS := [
-	{"id": "silencer", "name": "Silencieux", "desc": "Tir discret : son faible, pas de flash · dégâts -10 %"},
-	{"id": "mag", "name": "Chargeur étendu", "desc": "+50 % de munitions · rechargement +15 %"},
-	{"id": "grip", "name": "Poignée", "desc": "Recul -35 % · dispersion -20 %"},
-	{"id": "optic", "name": "Viseur point rouge", "desc": "Visée précise au clic droit (zoom léger) · dispersion -25 % en visée"},
+	{"id": "silencer", "slot": "bouche", "cats": [], "name": "Silencieux", "desc": "Tir discret : son faible, pas de flash · dégâts -10 %"},
+	{"id": "bayonet", "slot": "dessous_avant", "cats": ["ar", "shotgun", "sniper", "dmr"], "name": "Baïonnette", "desc": "Coup de couteau +50 % de dégâts et plus long (sur l'arme principale)"},
+	{"id": "mag", "slot": "chargeur", "cats": [], "name": "Chargeur étendu", "desc": "+50 % de munitions · rechargement +15 %"},
+	{"id": "grip", "slot": "poignee", "cats": [], "name": "Poignée", "desc": "Recul -35 % · dispersion -20 %"},
+	{"id": "bipod", "slot": "poignee", "cats": ["ar", "sniper", "dmr", "shotgun"], "name": "Bipied", "desc": "Immobile : recul et dispersion divisés par 2"},
+	{"id": "flashlight", "slot": "cote", "cats": [], "name": "Lampe tactique", "desc": "Éclaire devant toi · dispersion sans viser -15 %"},
+	{"id": "stock", "slot": "crosse", "cats": ["pistol", "smg", "sawed", "revolver"], "name": "Crosse", "desc": "Recul -20 % · rechargement -10 %"},
+	{"id": "optic", "slot": "dessus", "cats": [], "name": "Viseur point rouge", "desc": "Visée précise au clic droit (zoom léger) · dispersion -25 % en visée"},
+	{"id": "scope", "slot": "dessus", "cats": ["ar", "smg", "shotgun"], "name": "Lunette x4", "desc": "Vraie lunette au clic droit (zoom fort)"},
 ]
 
 
@@ -177,10 +183,19 @@ static func attachments_for(wi: int) -> Array:
 		return []
 	var out := []
 	for a in ATTACHMENTS:
-		if a["id"] == "optic" and int(w.zoom) > 0:
+		if a["slot"] == "dessus" and int(w.zoom) > 0:
 			continue  # déjà une lunette
+		if not a["cats"].is_empty() and not a["cats"].has(w.cat):
+			continue
 		out.append(a["id"])
 	return out
+
+
+static func attachment_slot(id: String) -> String:
+	for a in ATTACHMENTS:
+		if a["id"] == id:
+			return a["slot"]
+	return ""
 
 
 ## Caractéristiques d'une arme avec ses accessoires. « custom » : {"skin": int, "att": [ids]}.
@@ -195,9 +210,18 @@ static func weapon_stats(wi: int, custom: Dictionary) -> Dictionary:
 	if att.has("grip"):
 		w["recoil"] = float(w.recoil) * 0.65
 		w["spread"] = float(w.spread) * 0.8
+	if att.has("stock"):
+		w["recoil"] = float(w.recoil) * 0.8
+		w["reload"] = float(w.reload) * 0.9
+	if att.has("bipod"):
+		w["bipod"] = true
+	if att.has("flashlight"):
+		w["hip_spread"] = 0.85
 	if att.has("optic"):
 		w["zoom"] = 55
 		w["optic"] = true
+	if att.has("scope"):
+		w["zoom"] = 30
 	return w
 
 # Familles d'armes : dans l'armurerie, on choisit l'arme utilisée pour chaque famille.

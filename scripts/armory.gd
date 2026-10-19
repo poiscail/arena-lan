@@ -198,11 +198,17 @@ func _toggle_att(on: bool, id: String) -> void:
 	var c := _custom()
 	var att: Array = c.get("att", []).duplicate()
 	if on and not att.has(id):
+		# Un seul accessoire par emplacement : l'autre est retiré
+		var slot := Data.attachment_slot(id)
+		for other in att.duplicate():
+			if Data.attachment_slot(other) == slot:
+				att.erase(other)
 		att.append(id)
 	elif not on:
 		att.erase(id)
 	c["att"] = att
-	_save()
+	Net.save_options()
+	_select(_wi)
 
 
 func _save() -> void:

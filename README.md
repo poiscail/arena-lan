@@ -44,6 +44,7 @@ Quelqu'un peut rejoindre en cours de partie. Il remplace alors un bot.
 | H | Lancer un fumigène (1 par vie) |
 | V | Coup de couteau (élimine d'un coup dans le dos) |
 | 1 / 2 / 3 ou molette | Changer d'arme |
+| A / E | Se pencher à gauche / à droite |
 | T | Chat |
 | X ou clic molette | Signaler un endroit à ton équipe |
 | L | Lampe torche (cartes de nuit) |
@@ -69,7 +70,7 @@ Très pratique en mode Élimination, où l'on attend la manche suivante.
 ## Armurerie
 Bouton **Armurerie** dans le menu. Pour chaque arme :
 - un **skin** : couleurs (Désert, Forêt, Urbain, Nuit, Rouge, Or, Néon) et motifs (Arctique, Digital, Bois, Tigre, Carbone, Lave), débloqués en montant de niveau ;
-- des **accessoires visibles sur l'arme** : silencieux (son étouffé, pas de flash, -10 % de dégâts), chargeur étendu (+50 % de munitions), poignée (moins de recul et de dispersion), viseur point rouge (visée au clic droit).
+- des **accessoires visibles sur l'arme**, un par emplacement : silencieux, baïonnette (couteau plus fort), chargeur étendu, poignée, bipied (immobile : recul et dispersion divisés par 2), lampe tactique, crosse, viseur point rouge, lunette x4.
 
 Un aperçu 3D montre l'arme, et les caractéristiques changent en vert ou en rouge. Les autres joueurs voient ta personnalisation.
 

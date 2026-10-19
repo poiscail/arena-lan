@@ -209,7 +209,7 @@ func _build_ui() -> void:
 	_menu.add_child(HSeparator.new())
 	_menu.add_child(_button("Options (graphismes, souris)", func() -> void: _options.open()))
 	_menu.add_child(HSeparator.new())
-	var help := _label("ZQSD : bouger   ·   Souris : viser   ·   Clic gauche : tirer   ·   Clic droit : zoom\nEspace : sauter   ·   Maj : sprint   ·   Ctrl : glisser   ·   R : recharger   ·   1/2/3 ou molette : armes\nG : grenade   ·   H : fumigène   ·   V : couteau   ·   L : lampe   ·   T : chat   ·   X ou clic molette : signaler
+	var help := _label("ZQSD : bouger   ·   Souris : viser   ·   Clic gauche : tirer   ·   Clic droit : zoom\nEspace : sauter   ·   Maj : sprint   ·   Ctrl : glisser   ·   R : recharger   ·   1/2/3 ou molette : armes\nA / E : se pencher   ·   G : grenade   ·   H : fumigène   ·   V : couteau   ·   L : lampe   ·   T : chat   ·   X ou clic molette : signaler
 Tab : scores   ·   Échap : pause   ·   Touches modifiables dans Options", 15)
 	help.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
 	_menu.add_child(help)
@@ -670,6 +670,10 @@ func _apply_cmdline() -> void:
 		get_tree().create_timer(float(opts["airstrike"])).timeout.connect(func() -> void:
 			game.on_streak(game.local_char.char_id, 7)
 			game._airstrike(game.local_char))
+	if opts.has("lean"):
+		get_tree().create_timer(float(opts["lean"])).timeout.connect(func() -> void:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			Input.action_press("lean_right"))
 	if opts.has("probe"):
 		get_tree().create_timer(2.0).timeout.connect(func() -> void:
 			var line := ""
