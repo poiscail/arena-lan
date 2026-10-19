@@ -99,6 +99,7 @@ Choisis ta classe dans le menu. En partie, tu peux la changer dans la pause (Éc
 - **Fusil de précision** : 45 dégâts, 10 balles, petit zoom.
 - **Lance-grenades** : explosion de 4 m, jusqu'à 90 dégâts.
 - **Lance-roquettes** : explosion de 5 m, jusqu'à 120 dégâts, 1 roquette.
+- **Chiffres de dégâts** : les dégâts que tu infliges s'affichent au-dessus de l'ennemi (jaune à la tête, rouge quand il est éliminé).
 - **Tir à la tête** : les dégâts sont multipliés (×1,2 à ×2 selon l'arme).
 
 ## Sur la carte

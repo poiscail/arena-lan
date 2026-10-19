@@ -45,6 +45,7 @@ var chat_open := false
 var _chat_box: VBoxContainer
 var _chat_edit: LineEdit
 var _pings := []  # {"pos", "name", "enemy", "t"}
+var _dmg_numbers := []  # {"pos", "text", "color", "size", "t", "dx"}
 var _bottom: Control
 
 var _hit_t := 0.0
@@ -416,6 +417,17 @@ func add_chat(pname: String, team: int, text: String) -> void:
 		_chat_box.get_child(0).free()
 
 
+## Chiffre de dégâts au-dessus de l'ennemi touché (jaune à la tête, rouge s'il est éliminé).
+func add_damage_number(pos: Vector3, dmg: int, head: bool, killed: bool) -> void:
+	var col := Color(1, 1, 1)
+	if killed:
+		col = Color(1, 0.3, 0.25)
+	elif head:
+		col = Color(1, 0.85, 0.2)
+	_dmg_numbers.append({"pos": pos, "text": str(dmg), "color": col, "size": 30 if (head or killed) else 24,
+		"t": 0.9, "dx": randf_range(-18.0, 18.0)})
+
+
 func add_ping(pos: Vector3, pname: String, enemy: bool) -> void:
 	_pings.append({"pos": pos, "name": pname, "enemy": enemy, "t": 6.0})
 
@@ -443,6 +455,20 @@ func _draw_radar() -> void:
 		_radar.draw_string(UiTheme.font_title(), s + Vector2(-5, 7), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, col)
 		var label := "%s%s · %d m" % ["ENNEMI · " if p["enemy"] else "", p["name"], int(c.position.distance_to(p["pos"]))]
 		_radar.draw_string(UiTheme.font_bold(), s + Vector2(16, 6), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, col)
+	# Chiffres de dégâts : montent et s'effacent
+	for n in _dmg_numbers:
+		var np: Vector3 = n["pos"]
+		if cam.is_position_behind(np):
+			continue
+		var age: float = 0.9 - n["t"]
+		var sp := cam.unproject_position(np) + Vector2(n["dx"], -age * 60.0)
+		var col: Color = n["color"]
+		col.a = clampf(n["t"] / 0.4, 0.0, 1.0)
+		var font := UiTheme.font_title()
+		var fs: int = n["size"]
+		var w := font.get_string_size(n["text"], HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		_radar.draw_string_outline(font, sp - Vector2(w / 2.0, 0), n["text"], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 6, Color(0, 0, 0, col.a * 0.8))
+		_radar.draw_string(font, sp - Vector2(w / 2.0, 0), n["text"], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
 	if radar_t <= 0.0:
 		return
 	for id in game.chars:
@@ -638,6 +664,10 @@ func _process(delta: float) -> void:
 	_crosshair.queue_redraw()
 	radar_t = maxf(0.0, radar_t - delta)
 	_radar.queue_redraw()
+	for i in range(_dmg_numbers.size() - 1, -1, -1):
+		_dmg_numbers[i]["t"] -= delta
+		if _dmg_numbers[i]["t"] <= 0.0:
+			_dmg_numbers.remove_at(i)
 	for i in range(_pings.size() - 1, -1, -1):
 		_pings[i]["t"] -= delta
 		if _pings[i]["t"] <= 0.0:

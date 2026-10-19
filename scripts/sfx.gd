@@ -186,9 +186,6 @@ func eject_shell(pos: Vector3, side: Vector3, big := false) -> void:
 	b.linear_velocity = side * randf_range(2.0, 3.0) + Vector3(0, randf_range(1.5, 2.5), 0)
 	b.angular_velocity = Vector3(randf_range(-20, 20), randf_range(-20, 20), randf_range(-20, 20))
 	get_tree().create_timer(1.5).timeout.connect(b.queue_free)
-	get_tree().create_timer(0.35).timeout.connect(func() -> void:
-		if is_instance_valid(b):
-			play("impactMetal_light_00%d" % (randi() % 2), b.global_position, -18.0, 0.15, 15.0))
 
 
 func _process(delta: float) -> void:

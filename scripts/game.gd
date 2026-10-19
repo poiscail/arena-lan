@@ -300,14 +300,22 @@ func _deal_damage(s, damage: Dictionary, weapon: int, head_hit := false) -> void
 	if damage.is_empty():
 		return
 	var killed := false
+	var hits := []  # [position au-dessus de la cible, dégâts, éliminé] pour l'affichage chez le tireur
 	for tid in damage:
-		if chars.has(tid) and _apply_damage(chars[tid], s, int(round(damage[tid])), weapon):
-			killed = true
+		if not chars.has(tid):
+			continue
+		var t = chars[tid]
+		var dmg := int(round(damage[tid]))
+		var was_alive: bool = t.alive
+		var k := _apply_damage(t, s, dmg, weapon)
+		if was_alive:
+			hits.append([t.global_position + Vector3(0, 2.0, 0), dmg, k])
+		killed = killed or k
 	if s != null and not s.is_bot:
 		if s.owner_peer == multiplayer.get_unique_id():
-			hit_confirm(head_hit, killed)
+			hit_confirm(head_hit, killed, hits)
 		elif ready_peers.has(s.owner_peer):
-			hit_confirm.rpc_id(s.owner_peer, head_hit, killed)
+			hit_confirm.rpc_id(s.owner_peer, head_hit, killed, hits)
 
 
 ## Explosion (lance-grenades, lance-roquettes) : dégâts qui diminuent avec la distance,
@@ -794,9 +802,10 @@ func shot_fx(shooter_id: String, weapon: int, ends: PackedVector3Array) -> void:
 
 
 @rpc("authority", "call_remote", "reliable")
-func hit_confirm(head: bool, killed: bool) -> void:
+func hit_confirm(head: bool, killed: bool, hits: Array) -> void:
 	hud.hit_marker(head, killed)
-	sfx.play("impactPunch_medium_000", null, -10.0 if not killed else -4.0, 0.1)
+	for h in hits:
+		hud.add_damage_number(h[0], int(h[1]), head, bool(h[2]))
 
 
 @rpc("authority", "call_remote", "reliable")

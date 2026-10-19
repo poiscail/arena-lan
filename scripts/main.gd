@@ -672,6 +672,8 @@ func _apply_cmdline() -> void:
 		get_tree().create_timer(float(opts["airstrike"])).timeout.connect(func() -> void:
 			game.on_streak(game.local_char.char_id, 7)
 			game._airstrike(game.local_char))
+	if opts.has("hit"):
+		get_tree().create_timer(float(opts["hit"])).timeout.connect(_test_hit)
 	if opts.has("knife"):
 		get_tree().create_timer(float(opts["knife"])).timeout.connect(_test_knife)
 	if opts.has("barrel"):
@@ -731,6 +733,24 @@ func _test_knife() -> void:
 			print("[test] couteau sur ", o.display_name, " (PV ", o.hp, ")")
 			break
 	c.melee()
+
+
+## Test : un ennemi est placé à 7 m devant le joueur local, qui lui tire dessus deux fois (corps puis tête).
+func _test_hit() -> void:
+	var c = game.local_char
+	for id in game.chars:
+		var o = game.chars[id]
+		if o.is_bot and game.is_enemy(c, o):
+			o.position = c.position - c.transform.basis.z * 5.0
+			o._net_pos = o.position
+			o.rotation.y = c.rotation.y + PI
+			await get_tree().physics_frame
+			await get_tree().physics_frame
+			o.bot = null
+			var origin: Vector3 = c.camera.global_position
+			game.local_fire(c, c.weapon, origin, PackedVector3Array([(o.position + Vector3(0, 1.1, 0) - origin).normalized()]))
+			game.local_fire(c, c.weapon, origin, PackedVector3Array([(o.position + Vector3(0, 1.62, 0) - origin).normalized()]))
+			break
 
 
 func _quit(screenshot: String) -> void:
