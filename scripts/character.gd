@@ -589,7 +589,9 @@ func _zoom_fov() -> float:
 ## Change de classe : 3 nouvelles armes, chargeurs pleins.
 func _set_loadout(cls: int) -> void:
 	class_id = clampi(cls, 0, Data.CLASSES.size() - 1)
-	loadout = Data.CLASSES[class_id]["weapons"].duplicate()
+	loadout = []
+	for wi in Data.CLASSES[class_id]["weapons"]:
+		loadout.append(Data.resolve_weapon(wi, armory if armory is Dictionary else {}))
 	slot = 0
 	weapon = bot_weapon() if is_bot else loadout[0]
 	slot = loadout.find(weapon)

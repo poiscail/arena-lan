@@ -9,6 +9,7 @@ const Models := preload("res://scripts/models.gd")
 const UiTheme := preload("res://scripts/ui_theme.gd")
 
 var _list: ItemList
+var _equip: Button
 var _skin_opt: OptionButton
 var _att_box: VBoxContainer
 var _stats: RichTextLabel
@@ -49,10 +50,12 @@ func _ready() -> void:
 
 	# Liste des armes
 	_list = ItemList.new()
-	_list.custom_minimum_size = Vector2(220, 0)
-	for w in Data.WEAPONS:
-		_list.add_item(w.name)
-	_list.item_selected.connect(_select)
+	_list.custom_minimum_size = Vector2(270, 0)
+	_list.item_selected.connect(func(i: int) -> void:
+		var wi = _list.get_item_metadata(i)
+		if wi != null:
+			_select(int(wi)))
+	_fill_list()
 	row.add_child(_list)
 
 	# Aperçu 3D
@@ -80,7 +83,7 @@ func _ready() -> void:
 	sun.light_energy = 1.3
 	vp.add_child(sun)
 	var cam := Camera3D.new()
-	cam.position = Vector3(0, 0.05, 1.35)
+	cam.position = Vector3(0, 0.04, 1.5)
 	cam.fov = 40.0
 	vp.add_child(cam)
 	_preview_root = Node3D.new()
@@ -91,6 +94,9 @@ func _ready() -> void:
 	side.custom_minimum_size = Vector2(320, 0)
 	side.add_theme_constant_override("separation", 8)
 	row.add_child(side)
+	_equip = Button.new()
+	_equip.pressed.connect(_equip_weapon)
+	side.add_child(_equip)
 	side.add_child(_section("SKIN"))
 	_skin_opt = OptionButton.new()
 	_skin_opt.item_selected.connect(func(i: int) -> void:
@@ -120,7 +126,7 @@ func _ready() -> void:
 
 func open() -> void:
 	visible = true
-	_list.select(_wi)
+	_fill_list()
 	_select(_wi)
 
 
@@ -183,6 +189,7 @@ func _select(i: int) -> void:
 		_att_box.add_child(d)
 	_updating = false
 	_refresh()
+	_refresh_equip()
 
 
 func _toggle_att(on: bool, id: String) -> void:
@@ -208,7 +215,7 @@ func _refresh() -> void:
 	if _gun != null:
 		_gun.queue_free()
 	var w: Dictionary = Data.WEAPONS[_wi]
-	_gun = Models.weapon(w.model, 0.62)
+	_gun = Models.weapon(w.model, float(w.len) * 1.05)
 	Models.add_attachments(_gun.get_child(0).get_child(0), c.get("att", []))
 	Models.apply_camo(_gun, Data.CAMOS[clampi(int(c.get("skin", 0)), 0, Data.CAMOS.size() - 1)])
 	# Vu de profil : canon vers la droite
@@ -238,3 +245,55 @@ func _section(text: String) -> Label:
 	l.add_theme_font_size_override("font_size", 16)
 	l.add_theme_color_override("font_color", UiTheme.ACCENT)
 	return l
+
+
+## Liste des armes rangées par famille ; ★ = arme utilisée pour sa famille.
+func _fill_list() -> void:
+	_list.clear()
+	for cat in Data.CAT_ORDER:
+		var h := _list.add_item("— " + String(Data.CATS[cat]).to_upper() + " —")
+		_list.set_item_selectable(h, false)
+		_list.set_item_custom_fg_color(h, UiTheme.ACCENT)
+		for wi in Data.WEAPONS.size():
+			if Data.WEAPONS[wi].cat != cat:
+				continue
+			var used := _used_for(cat) == wi
+			var idx := _list.add_item(("★ " if used else "    ") + String(Data.WEAPONS[wi].name))
+			_list.set_item_metadata(idx, wi)
+			if wi == _wi:
+				_list.select(idx)
+				_list.ensure_current_is_visible()
+
+
+## Arme choisie pour une famille (par défaut celle des classes).
+func _used_for(cat: String) -> int:
+	var picks = Net.armory.get("pick", {})
+	if picks is Dictionary and picks.has(cat):
+		return int(picks[cat])
+	for cl in Data.CLASSES:
+		for wi in cl["weapons"]:
+			if Data.WEAPONS[wi].cat == cat:
+				return wi
+	return -1
+
+
+func _equip_weapon() -> void:
+	var cat: String = Data.WEAPONS[_wi].cat
+	var picks = Net.armory.get("pick", {})
+	if not (picks is Dictionary):
+		picks = {}
+	picks[cat] = _wi
+	Net.armory["pick"] = picks
+	Net.save_options()
+	_fill_list()
+	_refresh_equip()
+
+
+func _refresh_equip() -> void:
+	var cat: String = Data.WEAPONS[_wi].cat
+	if _used_for(cat) == _wi:
+		_equip.text = "✓ Utilisée pour les %s" % String(Data.CATS[cat]).to_lower()
+		_equip.disabled = true
+	else:
+		_equip.text = "Utiliser cette arme (%s)" % String(Data.CATS[cat]).to_lower()
+		_equip.disabled = false

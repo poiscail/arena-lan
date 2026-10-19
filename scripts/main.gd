@@ -652,6 +652,7 @@ func _apply_cmdline() -> void:
 		_ip_edit.text = opts["join"]
 		_on_join_pressed()
 	if opts.has("armory"):
+		_armory._wi = int(opts["armory"]) if opts["armory"] != "" else 0
 		_armory.open()
 	if opts.has("options"):
 		_options.open()

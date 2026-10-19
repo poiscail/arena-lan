@@ -1128,4 +1128,12 @@ func _bot_armory() -> Dictionary:
 			if randf() < 0.3:
 				att.append(a)
 		out[str(wi)] = {"skin": randi() % 8, "att": att}
+	var picks := {}
+	for cat in Data.CAT_ORDER:
+		var options := []
+		for wi in Data.WEAPONS.size():
+			if Data.WEAPONS[wi].cat == cat:
+				options.append(wi)
+		picks[cat] = options.pick_random()
+	out["pick"] = picks
 	return out

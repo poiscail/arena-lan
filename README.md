@@ -103,6 +103,9 @@ Choisis ta classe dans le menu. En partie, tu peux la changer dans la pause (Éc
 | Classique | Fusil d'assaut, pompe, sniper | — |
 
 ## Armes
+Il y a **42 armes**, rangées en familles : fusils d'assaut (AK-47, AKM, AK-74, M4, M16, bullpups…), mitraillettes, pistolets, revolvers (dont le Magnum), fusils à pompe (dont un fusil de chasse à balle), canons courts, snipers, fusils de précision, lance-grenades et lance-roquettes. Dans l'**Armurerie**, choisis l'arme utilisée pour chaque famille : elle remplace celle de ta classe.
+
+Armes de base des classes :
 - **Fusil d'assaut** : automatique, 20 dégâts, 30 balles.
 - **Mitraillette** : très rapide, 14 dégâts, 35 balles.
 - **Pistolet** : 26 dégâts, 12 balles.
