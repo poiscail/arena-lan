@@ -620,6 +620,8 @@ func _apply_cmdline() -> void:
 	for a in OS.get_cmdline_user_args():
 		var parts := a.trim_prefix("--").split("=", true, 1)
 		opts[parts[0]] = parts[1] if parts.size() > 1 else ""
+	if opts.has("port"):
+		_port_spin.value = int(opts["port"])
 	if opts.has("name"):
 		_name_edit.text = opts["name"]
 	if opts.has("camo"):
@@ -672,6 +674,14 @@ func _apply_cmdline() -> void:
 		get_tree().create_timer(float(opts["airstrike"])).timeout.connect(func() -> void:
 			game.on_streak(game.local_char.char_id, 7)
 			game._airstrike(game.local_char))
+	if opts.has("die"):
+		get_tree().create_timer(float(opts["die"])).timeout.connect(func() -> void:
+			for id in game.chars:
+				if game.chars[id].is_bot and game.is_enemy(game.local_char, game.chars[id]):
+					game._deal_damage(game.chars[id], {game.local_char.char_id: 500.0}, 0)
+					break)
+	if opts.has("freecam"):
+		get_tree().create_timer(float(opts["freecam"])).timeout.connect(func() -> void: game.spectator.free = true)
 	if opts.has("hit"):
 		get_tree().create_timer(float(opts["hit"])).timeout.connect(_test_hit)
 	if opts.has("knife"):

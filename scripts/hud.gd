@@ -45,6 +45,7 @@ var chat_open := false
 var _chat_box: VBoxContainer
 var _chat_edit: LineEdit
 var _pings := []  # {"pos", "name", "enemy", "t"}
+var _spec_label: Label
 var _dmg_numbers := []  # {"pos", "text", "color", "size", "t", "dx"}
 var _bottom: Control
 
@@ -157,6 +158,14 @@ func _ready() -> void:
 	_radar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_radar.draw.connect(_draw_radar)
 	root.add_child(_radar)
+
+	# Mode spectateur (après la mort)
+	_spec_label = _label(17, UiTheme.font_bold())
+	_spec_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_spec_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	_spec_label.add_theme_constant_override("outline_size", 6)
+	_place(_spec_label, 0, 1, 1, 1, 0, -60, 0, -30)
+	root.add_child(_spec_label)
 
 	# Chat (bas gauche, au-dessus des bonus)
 	_chat_box = VBoxContainer.new()
@@ -441,7 +450,9 @@ func _draw_radar() -> void:
 	var c = game.local_char
 	if c == null or c.camera == null:
 		return
-	var cam: Camera3D = c.camera
+	var cam: Camera3D = get_viewport().get_camera_3d()
+	if cam == null:
+		return
 	# Signalements des coéquipiers
 	for p in _pings:
 		var pos: Vector3 = p["pos"] + Vector3(0, 0.6, 0)
@@ -640,15 +651,24 @@ func _process(delta: float) -> void:
 	_board.visible = game.match_over or Input.is_action_pressed("scoreboard")
 	_big.text = game.end_text if game.match_over else ""
 
-	if game.match_over:
+	var dead: bool = c != null and not c.alive
+	if game.match_over or not dead:
 		_center.text = ""
-	elif _death_t > 0.0:
+	else:
 		_death_t -= delta
 		var by := ("Éliminé par %s\n" % _death_by) if _death_by != "" else ""
-		_center.text = by + "Réapparition dans %d" % int(ceil(maxf(_death_t, 0.0)))
-	else:
-		_center.text = ""
+		if not game.modes.allows_respawn():
+			_center.text = by + "Attends la manche suivante"
+		elif _death_t > 0.0:
+			_center.text = by + "Réapparition dans %d" % int(ceil(maxf(_death_t, 0.0)))
+		else:
+			_center.text = ""
 	_center_box.visible = _center.text != ""
+	# En spectateur, le message descend en bas de l'écran pour ne pas cacher la vue
+	if game.spectator != null and game.spectator.active:
+		_place(_center_box, 0.5, 1, 0.5, 1, -260, -160, 260, -76)
+	else:
+		_place(_center_box, 0.5, 0.5, 0.5, 0.5, -260, 70, 260, 120)
 
 	_hit_t = maxf(0.0, _hit_t - delta)
 	_heal_t = maxf(0.0, _heal_t - delta)
@@ -664,6 +684,7 @@ func _process(delta: float) -> void:
 	_crosshair.queue_redraw()
 	radar_t = maxf(0.0, radar_t - delta)
 	_radar.queue_redraw()
+	_spec_label.text = game.spectator.info_text() if game.spectator != null and game.spectator.active and not game.match_over else ""
 	for i in range(_dmg_numbers.size() - 1, -1, -1):
 		_dmg_numbers[i]["t"] -= delta
 		if _dmg_numbers[i]["t"] <= 0.0:

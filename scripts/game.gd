@@ -12,6 +12,7 @@ const Data := preload("res://scripts/data.gd")
 const ItemsScript := preload("res://scripts/items.gd")
 const SfxScript := preload("res://scripts/sfx.gd")
 const ModesScript := preload("res://scripts/modes.gd")
+const SpectatorScript := preload("res://scripts/spectator.gd")
 
 const NET_RATE := 1.0 / 30.0
 const BOT_NAMES := ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel",
@@ -39,6 +40,7 @@ var _no_exclude: Array[RID] = []
 var items
 var sfx
 var modes
+var spectator
 var rules := "dm"
 var streaks := {}  # (serveur) id -> éliminations sans mourir
 
@@ -69,6 +71,10 @@ func _ready() -> void:
 	modes.game = self
 	add_child(modes)
 	modes.setup(rules)
+	spectator = SpectatorScript.new()
+	spectator.name = "Spectator"
+	spectator.game = self
+	add_child(spectator)
 	hud = HudScript.new()
 	hud.game = self
 	add_child(hud)
@@ -772,6 +778,9 @@ func on_died(victim_id: String, killer_id: String, weapon: int) -> void:
 		khex, Data.esc(kname), Data.esc(Data.kill_name(weapon)), vhex, Data.esc(v.display_name)])
 	if v == local_char:
 		hud.show_death(kname)
+		get_tree().create_timer(1.3).timeout.connect(func() -> void:
+			if local_char != null and not local_char.alive and not match_over:
+				spectator.start())
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -779,6 +788,8 @@ func on_respawn(id: String, pos: Vector3, cls: int) -> void:
 	var c = chars.get(id)
 	if c != null:
 		c.respawn(pos, cls)
+		if c == local_char:
+			spectator.stop()
 
 
 @rpc("authority", "call_remote", "reliable")

@@ -54,6 +54,13 @@ Toutes les touches se changent dans **Options > Touches**.
 
 **Glissade** : en courant, appuie sur Ctrl. Tu glisses vite et bas pendant presque une seconde, et tu restes précis en tirant. Saute pendant la glissade pour garder l'élan.
 
+## Après la mort : mode spectateur
+Quand tu es éliminé, la caméra suit un coéquipier (n'importe quel joueur en chacun pour soi) :
+- **clic gauche / droit** : joueur suivant / précédent ;
+- **Espace** : caméra libre (ZQSD + souris, Maj pour aller plus vite), puis Espace pour revenir.
+
+Très pratique en mode Élimination, où l'on attend la manche suivante.
+
 ## Cartes
 - **Base militaire** et **Ville**, de jour.
 - **Entrepôt** : un grand hangar fermé, éclairé par des lampes au plafond, avec des cloisons, des piliers et des caisses.
@@ -133,6 +140,7 @@ Si le jeu rame, choisis **Basse**.
 | `map.gd` | Construction de l'arène, points d'apparition, chemins des bots |
 | `hud.gd` | Interface en jeu |
 | `sfx.gd` | Sons, flash du canon, douilles, impacts, tremblement de caméra |
+| `spectator.gd` | Caméra spectateur après la mort (coéquipier ou caméra libre) |
 | `modes.gd` | Modes de jeu : drapeau, colline, course aux armes, élimination |
 | `items.gd` | Trousses, bonus, barils explosifs, grenades et fumigènes |
 | `options.gd` | Fenêtre d'options (graphismes, souris) |
