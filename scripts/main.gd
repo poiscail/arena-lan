@@ -20,6 +20,7 @@ var _port_spin: SpinBox
 var _address: Label
 var _players: RichTextLabel
 var _mode: OptionButton
+var _map_opt: OptionButton
 var _slots_label: Label
 var _slots: SpinBox
 var _bots: CheckBox
@@ -104,7 +105,7 @@ func _build_ui() -> void:
 	panel.add_child(stack)
 
 	var credits := Label.new()
-	credits.text = "Personnages, animations, armes et décor : Quaternius (CC0)  ·  Polices : Rajdhani, Orbitron (OFL)  ·  Godot 4.7"
+	credits.text = "Modèles : Quaternius, Kenney (CC0)  ·  Ciel et textures : Poly Haven (CC0)  ·  Polices : Rajdhani, Orbitron (OFL)"
 	credits.add_theme_font_size_override("font_size", 14)
 	credits.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
 	credits.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -193,6 +194,12 @@ func _build_ui() -> void:
 	_mode.add_item("Chacun pour soi")
 	_mode.item_selected.connect(_on_mode_changed)
 	_add_row(grid, "Mode", _mode)
+
+	_map_opt = OptionButton.new()
+	for m in Data.MAPS:
+		_map_opt.add_item(m)
+	_map_opt.item_selected.connect(_on_setting_changed)
+	_add_row(grid, "Carte", _map_opt)
 
 	_slots = _spin(1, 6)
 	_slots_label = _add_row(grid, "Joueurs par équipe", _slots)
@@ -309,6 +316,7 @@ func _refresh_lobby() -> void:
 	var is_host := multiplayer.is_server()
 	var team: bool = s.mode == "team"
 	_mode.select(0 if team else 1)
+	_map_opt.select(int(s.get("map", 0)))
 	_slots_label.text = "Joueurs par équipe" if team else "Combattants au total"
 	_slots.min_value = 1 if team else 2
 	_slots.max_value = 6 if team else 12
@@ -318,6 +326,7 @@ func _refresh_lobby() -> void:
 	_score.set_value_no_signal(s.score_limit)
 	_time.set_value_no_signal(s.time_limit)
 	_mode.disabled = not is_host
+	_map_opt.disabled = not is_host
 	_difficulty.disabled = not is_host
 	_bots.disabled = not is_host
 	_slots.editable = is_host
@@ -411,6 +420,7 @@ func _on_setting_changed(_value) -> void:
 	s["difficulty"] = _difficulty.selected
 	s["score_limit"] = int(_score.value)
 	s["time_limit"] = int(_time.value)
+	s["map"] = _map_opt.selected
 	Net.set_settings(s)
 
 
@@ -476,6 +486,8 @@ func _apply_cmdline() -> void:
 			s["slots"] = int(opts["slots"])
 		if opts.has("difficulty"):
 			s["difficulty"] = int(opts["difficulty"])
+		if opts.has("map"):
+			s["map"] = int(opts["map"])
 		if opts.has("time"):
 			s["time_limit"] = int(opts["time"])
 		if opts.has("score"):

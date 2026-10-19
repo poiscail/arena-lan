@@ -20,6 +20,7 @@ var settings := {
 	"difficulty": 1,     # 0 facile, 1 normal, 2 difficile
 	"score_limit": 30,
 	"time_limit": 10,    # minutes
+	"map": 0,            # 0 base militaire, 1 ville
 }
 var in_game := false
 var mouse_sensitivity := 0.0025

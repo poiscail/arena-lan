@@ -70,5 +70,7 @@ Toute la partie est décidée par l'hôte : dégâts, morts, scores et bots. Cha
 ## Crédits
 - **Personnages et animations** : [Universal Base Characters](https://quaternius.com/packs/universalbasecharacters.html), [Modular Character Outfits - Fantasy](https://quaternius.itch.io/modular-character-outfits-fantasy) et [Universal Animation Library](https://quaternius.com/packs/universalanimationlibrary.html) de Quaternius, licence CC0.
 - **Armes et décor** : [Toon Shooter Game Kit](https://quaternius.com/packs/toonshootergamekit.html) de Quaternius, licence CC0.
+- **Carte Ville** : [City Kit Commercial](https://kenney.nl/assets/city-kit-commercial), [City Kit Roads](https://kenney.nl/assets/city-kit-roads) et [Car Kit](https://kenney.nl/assets/car-kit) de Kenney, licence CC0.
+- **Ciel et textures** : [Kloofendal 48d Partly Cloudy (Pure Sky)](https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky), [Asphalt 02](https://polyhaven.com/a/asphalt_02) et [Concrete Floor 02](https://polyhaven.com/a/concrete_floor_02) de Poly Haven, licence CC0.
 - **Polices** : [Rajdhani](https://fonts.google.com/specimen/Rajdhani) et [Orbitron](https://fonts.google.com/specimen/Orbitron), licence SIL Open Font.
 - **Moteur** : [Godot 4.7](https://godotengine.org).

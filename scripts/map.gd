@@ -58,8 +58,60 @@ const DECOR := [
 
 const HEALTH_POINTS := [Vector3(-8, 0, 0), Vector3(8, 0, 0), Vector3(0, 0, -7), Vector3(0, 0, 7)]
 
+# --- Carte « Ville » (Kenney City Kit, Car Kit et City Kit Roads, CC0) -------------
+# Chemins relatifs à res://assets/ ; disposition symétrique par rapport au centre.
+const B := "city/buildings/%s.glb"
+const S := "city/street/%s.glb"
+const C := "city/cars/%s.glb"
+const CITY_PROPS := [
+	# Immeubles (échelle 7)
+	[B % "building-k", 20, 12, 0, 7.0], [B % "building-k", -20, -12, 180, 7.0],
+	[B % "building-a", 11.5, 20, 0, 7.0], [B % "building-a", -11.5, -20, 180, 7.0],
+	[B % "building-e", -19, 13, 0, 7.0], [B % "building-e", 19, -13, 180, 7.0],
+	[B % "building-c", -12, 21, 0, 7.0], [B % "building-c", 12, -21, 180, 7.0],
+	[B % "building-skyscraper-b", 25.5, 25.5, 0, 6.0], [B % "building-skyscraper-b", -25.5, -25.5, 180, 6.0],
+	[B % "building-skyscraper-d", -25.5, 25.5, 0, 6.0], [B % "building-skyscraper-d", 25.5, -25.5, 180, 6.0],
+	# Véhicules (échelle 1.3)
+	[C % "taxi", 3.5, 5, 0, 1.3], [C % "taxi", -3.5, -5, 180, 1.3],
+	[C % "garbage-truck", -5, 3, 90, 1.3], [C % "garbage-truck", 5, -3, 270, 1.3],
+	[C % "police", 17, -2, 90, 1.3], [C % "police", -17, 2, 270, 1.3],
+	[C % "ambulance", 2, 16, 0, 1.3], [C % "ambulance", -2, -16, 180, 1.3],
+	[C % "van", 24, -4, 0, 1.3], [C % "van", -24, 4, 180, 1.3],
+	# Mobilier urbain (échelle 8)
+	[S % "dumpster", 8, -10, 90, 8.0], [S % "dumpster", -8, 10, 270, 8.0],
+	[S % "construction-barrier", 6, 10, 0, 8.0], [S % "construction-barrier", -6, -10, 180, 8.0],
+	[S % "construction-fence", 5, 23, 90, 8.0], [S % "construction-fence", -5, -23, 90, 8.0],
+	[S % "construction-fence", -5, 23, 90, 8.0], [S % "construction-fence", 5, -23, 90, 8.0],
+	[C % "box", 10, 3, 0, 1.4], [C % "box", -10, -3, 0, 1.4],
+	[C % "box", 24, 6.5, 0, 1.4], [C % "box", -24, -6.5, 0, 1.4],
+]
+const CITY_DECOR := [
+	[S % "traffic-light", 5.6, 5.6, 0, 5.0], [S % "traffic-light", -5.6, -5.6, 180, 5.0],
+	[S % "traffic-light", -5.6, 5.6, 90, 5.0], [S % "traffic-light", 5.6, -5.6, 270, 5.0],
+	[S % "light-square", 6, 18, 90, 8.0], [S % "light-square", -6, -18, 270, 8.0],
+	[S % "light-square", 18, 6, 0, 8.0], [S % "light-square", -18, -6, 180, 8.0],
+	[S % "road-sign-stop", -6, 7, 0, 5.0], [S % "road-sign-stop", 6, -7, 180, 5.0],
+	[S % "construction-cone", 8, 13, 0, 8.0], [S % "construction-cone", 9, 14, 0, 8.0],
+	[S % "construction-cone", -8, -13, 0, 8.0], [S % "construction-cone", -9, -14, 0, 8.0],
+	[B % "detail-parasol-a", 14, 26, 0, 7.0], [B % "detail-parasol-b", -14, -26, 0, 7.0],
+	# Arrière-plan (hors de l'arène)
+	[B % "building-skyscraper-a", -10, -44, 0, 9.0], [B % "building-skyscraper-c", 12, -46, 0, 9.0],
+	[B % "building-skyscraper-e", -14, 45, 180, 9.0], [B % "building-skyscraper-a", 10, 44, 180, 9.0],
+	[B % "building-n", 44, -12, 270, 8.0], [B % "building-j", 44, 14, 270, 8.0],
+	[B % "building-n", -44, 12, 90, 8.0], [B % "building-j", -44, -14, 90, 8.0],
+	[B % "building-skyscraper-d", 42, 40, 0, 8.0], [B % "building-skyscraper-b", -42, -40, 0, 8.0],
+	[B % "building-skyscraper-c", -42, 40, 0, 8.0], [B % "building-skyscraper-e", 42, -40, 0, 8.0],
+]
+const CITY_HEALTH := [Vector3(-10, 0, 0), Vector3(10, 0, 0), Vector3(0, 0, -10), Vector3(0, 0, 10)]
+const CITY_FFA := [[0, 27], [0, -27], [27, 0], [-27, 0], [15, 27], [-15, -27], [-15, 27], [15, -27],
+		[0, 13], [0, -13], [13, -5], [-13, 5]]
+
+const MIL_FFA := [[-27, -27], [27, 27], [-27, 27], [27, -27], [0, 27], [0, -27], [27, 0], [-27, 0],
+		[-14, -14], [14, 14], [-14, 14], [14, -14], [0, -16], [0, 16], [-16, 0], [16, 0]]
+
 var team_spawns := [[], []]
 var ffa_spawns := []
+var health_points := []
 var nav_points := []
 var astar := AStar3D.new()
 
@@ -67,15 +119,28 @@ var _obstacles := []  # [centre Vector2(x, z), demi-taille Vector2]
 var _checker: ImageTexture
 
 
-func build(root: Node3D, with_nav: bool) -> void:
+## map_index : 0 = base militaire, 1 = ville.
+func build(root: Node3D, with_nav: bool, map_index := 0) -> void:
 	_build_environment(root)
 	_checker = _make_checker()
+	var city := map_index == 1
 
-	# Sol : asphalte dans l'arène, terre autour
-	_box(root, Vector3(0, -0.52, 0), Vector3(140, 1, 140), Color(0.42, 0.4, 0.33), false, true)
-	_box(root, Vector3(0, -0.5, 0), Vector3(HALF * 2 + 1, 1, HALF * 2 + 1), Color(0.4, 0.41, 0.44), false, true)
-	_patch(root, Vector3(0, 0.01, 26.5), Vector3(36, 0.02, 7), Color(0.25, 0.4, 0.85))
-	_patch(root, Vector3(0, 0.01, -26.5), Vector3(36, 0.02, 7), Color(0.85, 0.3, 0.25))
+	# Sol : béton (texture Poly Haven) dans l'arène, terrain autour
+	_box(root, Vector3(0, -0.52, 0), Vector3(140, 1, 140), Color(0.5, 0.48, 0.42), false, true)
+	var floor_body := _box(root, Vector3(0, -0.5, 0), Vector3(HALF * 2 + 1, 1, HALF * 2 + 1), Color.WHITE, false, true)
+	_set_textured(floor_body, "concrete_floor_02", Color(0.62, 0.62, 0.62), 0.25)
+	if city:
+		# Deux rues en asphalte qui se croisent, avec un marquage au sol
+		for road in [Vector3(HALF * 2, 0.02, 10), Vector3(10, 0.02, HALF * 2)]:
+			var r := _patch(root, Vector3(0, 0.012, 0), road, Color.WHITE)
+			_set_textured(r, "asphalt_02", Color(0.75, 0.75, 0.75), 0.2)
+		for i in range(-13, 14):
+			if absi(i) < 3:
+				continue
+			_patch(root, Vector3(i * 2.2, 0.026, 0), Vector3(1.2, 0.01, 0.18), Color(1, 0.85, 0.2))
+			_patch(root, Vector3(0, 0.026, i * 2.2), Vector3(0.18, 0.01, 1.2), Color(1, 0.85, 0.2))
+	_patch(root, Vector3(0, 0.03, 26.5), Vector3(36, 0.02, 7), Color(0.25, 0.4, 0.85, 0.35))
+	_patch(root, Vector3(0, 0.03, -26.5), Vector3(36, 0.02, 7), Color(0.85, 0.3, 0.25, 0.35))
 
 	# Enceinte : murs invisibles + grillages
 	var size := HALF * 2.0 + 2.0
@@ -93,17 +158,17 @@ func build(root: Node3D, with_nav: bool) -> void:
 		_prop(root, "MetalFence", -HALF, t, 90, 1.0, false)
 		_prop(root, "MetalFence", HALF, t, 270, 1.0, false)
 
-	for p in PROPS:
+	for p in (CITY_PROPS if city else PROPS):
 		_prop(root, p[0], p[1], p[2], p[3], p[4], true)
-	for d in DECOR:
+	for d in (CITY_DECOR if city else DECOR):
 		_prop(root, d[0], d[1], d[2], d[3], d[4], false)
 
 	for x in [-15, -9, -3, 3, 9, 15]:
 		team_spawns[0].append(Vector3(x, 0.1, 27))
 		team_spawns[1].append(Vector3(x, 0.1, -27))
-	for p in [[-27, -27], [27, 27], [-27, 27], [27, -27], [0, 27], [0, -27], [27, 0], [-27, 0],
-			[-14, -14], [14, 14], [-14, 14], [14, -14], [0, -16], [0, 16], [-16, 0], [16, 0]]:
+	for p in (CITY_FFA if city else MIL_FFA):
 		ffa_spawns.append(Vector3(p[0], 0.1, p[1]))
+	health_points = (CITY_HEALTH if city else HEALTH_POINTS).duplicate()
 
 	if with_nav:
 		_build_nav()
@@ -167,7 +232,8 @@ func _build_nav() -> void:
 
 ## Place un élément du kit ; avec collision, ajoute une boîte qui l'englobe (et un obstacle pour les bots).
 func _prop(root: Node3D, model: String, x: float, z: float, rot_deg: float, scale: float, collide: bool) -> void:
-	var inst: Node3D = load(ENV_PATH % model).instantiate()
+	var path := ("res://assets/" + model) if "/" in model else (ENV_PATH % model)
+	var inst: Node3D = load(path).instantiate()
 	inst.position = Vector3(x, 0, z)
 	inst.rotation.y = deg_to_rad(rot_deg)
 	inst.scale = Vector3.ONE * scale
@@ -197,33 +263,31 @@ func _prop(root: Node3D, model: String, x: float, z: float, rot_deg: float, scal
 
 
 func _build_environment(root: Node3D) -> void:
-	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.22, 0.42, 0.78)
-	sky_mat.sky_horizon_color = Color(0.68, 0.76, 0.88)
-	sky_mat.ground_horizon_color = Color(0.6, 0.65, 0.7)
-	sky_mat.ground_bottom_color = Color(0.2, 0.2, 0.22)
+	# Ciel photographique (HDRI Poly Haven « Kloofendal 48d Partly Cloudy (Pure Sky) », CC0)
+	var sky_mat := PanoramaSkyMaterial.new()
+	sky_mat.panorama = load("res://assets/sky/sky_day.hdr")
+	sky_mat.energy_multiplier = 1.0
 	var sky := Sky.new()
 	sky.sky_material = sky_mat
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.55, 0.57, 0.62)
-	env.ambient_light_energy = 0.55
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.ambient_light_energy = 0.7
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.68, 0.76, 0.88)
-	env.fog_density = 0.0035
-	env.fog_sky_affect = 0.15
+	env.fog_light_color = Color(0.72, 0.78, 0.86)
+	env.fog_density = 0.003
+	env.fog_sky_affect = 0.0
 	var we := WorldEnvironment.new()
 	we.environment = env
 	root.add_child(we)
 
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-55, 35, 0)
-	sun.light_energy = 0.8
+	sun.rotation_degrees = Vector3(-50, 35, 0)
+	sun.light_energy = 0.9
 	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 80.0
+	sun.directional_shadow_max_distance = 90.0
 	root.add_child(sun)
 
 
@@ -247,10 +311,30 @@ func _material(color: Color) -> StandardMaterial3D:
 	mat.uv1_world_triplanar = true
 	mat.uv1_scale = Vector3(0.25, 0.25, 0.25)
 	mat.roughness = 0.95
+	if color.a < 1.0:
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	return mat
 
 
-func _box(root: Node3D, center: Vector3, size: Vector3, color: Color, obstacle: bool, visible: bool) -> void:
+## Applique une texture Poly Haven (couleur + relief) répétée dans l'espace du monde.
+func _set_textured(node: Node, tex: String, tint: Color, uv_scale: float) -> void:
+	var mesh := node as MeshInstance3D
+	for c in node.get_children():
+		if c is MeshInstance3D:
+			mesh = c
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = tint
+	mat.albedo_texture = load("res://assets/textures/%s_diff_1k.jpg" % tex)
+	mat.normal_enabled = true
+	mat.normal_texture = load("res://assets/textures/%s_nor_gl_1k.jpg" % tex)
+	mat.uv1_triplanar = true
+	mat.uv1_world_triplanar = true
+	mat.uv1_scale = Vector3.ONE * uv_scale
+	mat.roughness = 0.95
+	mesh.material_override = mat
+
+
+func _box(root: Node3D, center: Vector3, size: Vector3, color: Color, obstacle: bool, visible: bool) -> StaticBody3D:
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	body.collision_mask = 0
@@ -270,16 +354,18 @@ func _box(root: Node3D, center: Vector3, size: Vector3, color: Color, obstacle: 
 	root.add_child(body)
 	if obstacle:
 		_obstacles.append([Vector2(center.x, center.z), Vector2(size.x, size.z) / 2.0])
+	return body
 
 
-func _patch(root: Node3D, center: Vector3, size: Vector3, color: Color) -> void:
+func _patch(root: Node3D, center: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
 	var mesh := MeshInstance3D.new()
 	var bm := BoxMesh.new()
 	bm.size = size
 	mesh.mesh = bm
 	var mat := _material(color)
-	mat.albedo_color.a = 0.55
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_texture = null
 	mesh.material_override = mat
 	mesh.position = center
+	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(mesh)
+	return mesh

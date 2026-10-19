@@ -44,7 +44,7 @@ func _ready() -> void:
 	settings = Net.settings.duplicate()
 	time_left = float(settings.time_limit) * 60.0
 	map = MapScript.new()
-	map.build(self, multiplayer.is_server())
+	map.build(self, multiplayer.is_server(), int(settings.get("map", 0)))
 	_chars_root = Node3D.new()
 	_chars_root.name = "Characters"
 	add_child(_chars_root)
@@ -541,7 +541,7 @@ func on_match_end(text: String) -> void:
 # --- Effets -------------------------------------------------------------------------
 
 func _spawn_health_packs() -> void:
-	for p in map.HEALTH_POINTS:
+	for p in map.health_points:
 		var node: Node3D = load(map.ENV_PATH % "Health").instantiate()
 		node.position = p
 		node.scale = Vector3.ONE * 0.8

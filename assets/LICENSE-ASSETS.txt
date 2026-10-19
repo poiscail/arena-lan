@@ -6,3 +6,6 @@ people/ : Universal Base Characters + Modular Character Outfits - Fantasy par Qu
 ual/ : Universal Animation Library par Quaternius (version gratuite)
 https://quaternius.com - Licence : CC0 1.0 Universal (domaine public)
 env/ et guns/ : Toon Shooter Game Kit par Quaternius - CC0 1.0
+
+city/ : City Kit Commercial, City Kit Roads, Car Kit par Kenney (kenney.nl) - CC0 1.0
+sky/ et textures/ : Poly Haven (polyhaven.com) - CC0 1.0

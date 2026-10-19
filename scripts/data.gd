@@ -30,3 +30,6 @@ const RECOIL := [0.012, 0.05, 0.09]
 
 static func esc(text: String) -> String:
 	return text.replace("[", "[lb]")
+
+# Cartes disponibles (index utilisé dans les paramètres de partie)
+const MAPS := ["Base militaire", "Ville"]
