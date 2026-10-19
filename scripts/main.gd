@@ -5,6 +5,7 @@ const GameScript := preload("res://scripts/game.gd")
 const Data := preload("res://scripts/data.gd")
 const UiTheme := preload("res://scripts/ui_theme.gd")
 const MenuBgScript := preload("res://scripts/menu_bg.gd")
+const OptionsScript := preload("res://scripts/options.gd")
 
 var game: Node = null
 var _background: Node3D = null
@@ -15,6 +16,8 @@ var _lobby: VBoxContainer
 var _status: Label
 var _name_edit: LineEdit
 var _skin_opt: OptionButton
+var _class_opt: OptionButton
+var _class_desc: Label
 var _ip_edit: LineEdit
 var _port_spin: SpinBox
 var _address: Label
@@ -30,6 +33,7 @@ var _time: SpinBox
 var _team_btn: Button
 var _start_btn: Button
 var _updating := false
+var _options: Control
 
 
 func _ready() -> void:
@@ -135,6 +139,18 @@ func _build_ui() -> void:
 		_skin_opt.add_item(s["name"])
 	_skin_opt.item_selected.connect(_on_skin_selected)
 	_menu.add_child(_skin_opt)
+	_skin_opt.select(Net.player_skin)
+
+	_menu.add_child(_section("CLASSE"))
+	_class_opt = OptionButton.new()
+	for cl in Data.CLASSES:
+		_class_opt.add_item(cl["name"])
+	_class_opt.select(Net.player_class)
+	_class_opt.item_selected.connect(_on_class_selected)
+	_menu.add_child(_class_opt)
+	_class_desc = _label(Data.CLASSES[Net.player_class]["desc"], 15)
+	_class_desc.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
+	_menu.add_child(_class_desc)
 
 	var port_row := HBoxContainer.new()
 	port_row.add_theme_constant_override("separation", 10)
@@ -161,7 +177,9 @@ func _build_ui() -> void:
 	_menu.add_child(join_row)
 
 	_menu.add_child(HSeparator.new())
-	var help := _label("ZQSD : bouger   ·   Souris : viser   ·   Clic gauche : tirer   ·   Clic droit : zoom\nEspace : sauter   ·   Maj : sprint   ·   R : recharger   ·   1/2/3 ou molette : armes\nTab : scores   ·   Échap : pause", 15)
+	_menu.add_child(_button("Options (graphismes, souris)", func() -> void: _options.open()))
+	_menu.add_child(HSeparator.new())
+	var help := _label("ZQSD : bouger   ·   Souris : viser   ·   Clic gauche : tirer   ·   Clic droit : zoom\nEspace : sauter   ·   Maj : sprint   ·   Ctrl : glisser   ·   R : recharger   ·   1/2/3 ou molette : armes\nTab : scores   ·   Échap : pause", 15)
 	help.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
 	_menu.add_child(help)
 
@@ -234,6 +252,10 @@ func _build_ui() -> void:
 	_status.add_theme_color_override("font_color", Color(1, 0.62, 0.5))
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(_status)
+
+	_options = OptionsScript.new()
+	_options.visible = false
+	_ui.add_child(_options)
 
 
 func _section(text: String) -> Label:
@@ -378,8 +400,17 @@ func _clean_name() -> String:
 
 func _on_skin_selected(index: int) -> void:
 	Net.player_skin = index
+	Net.save_options()
 	if _background != null:
 		_background.show_skin(index)
+
+
+func _on_class_selected(index: int) -> void:
+	Net.player_class = index
+	Net.save_options()
+	_class_desc.text = Data.CLASSES[index]["desc"]
+	if _background != null:
+		_background.show_class(index)
 
 
 func _on_host_pressed() -> void:
@@ -474,6 +505,9 @@ func _apply_cmdline() -> void:
 		opts[parts[0]] = parts[1] if parts.size() > 1 else ""
 	if opts.has("name"):
 		_name_edit.text = opts["name"]
+	if opts.has("class"):
+		_class_opt.select(int(opts["class"]))
+		_on_class_selected(int(opts["class"]))
 	if opts.has("skin"):
 		_skin_opt.select(int(opts["skin"]))
 		_on_skin_selected(int(opts["skin"]))
@@ -499,8 +533,35 @@ func _apply_cmdline() -> void:
 	elif opts.has("join"):
 		_ip_edit.text = opts["join"]
 		_on_join_pressed()
+	if opts.has("options"):
+		_options.open()
+	if opts.has("slide"):
+		get_tree().create_timer(float(opts["slide"])).timeout.connect(_test_slide)
+	if opts.has("fire"):
+		get_tree().create_timer(float(opts["fire"])).timeout.connect(_test_fire)
 	if opts.has("quit-after"):
 		get_tree().create_timer(float(opts["quit-after"])).timeout.connect(_quit.bind(opts.get("screenshot", "")))
+
+
+## Test : le joueur local court tout droit puis glisse.
+func _test_slide() -> void:
+	if game == null or game.local_char == null:
+		return
+	var c = game.local_char
+	c.velocity = -c.transform.basis.z * 9.0
+	c.start_slide()
+	print("[test] glissade : ", c.sliding, " vitesse ", c.velocity.length())
+
+
+## Test : le joueur local prend sa 2e arme et tire droit devant, un peu vers le sol.
+func _test_fire() -> void:
+	if game == null or game.local_char == null:
+		return
+	var c = game.local_char
+	c.switch_weapon(1)
+	var dir: Vector3 = (-c.camera.global_transform.basis.z + Vector3(0, -0.25, 0)).normalized()
+	game.local_fire(c, c.weapon, c.camera.global_position, PackedVector3Array([dir]))
+	print("[test] tir : ", Data.WEAPONS[c.weapon].name)
 
 
 func _quit(screenshot: String) -> void:

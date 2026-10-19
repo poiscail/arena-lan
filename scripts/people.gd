@@ -6,6 +6,7 @@ const PEOPLE_PATH := "res://assets/people/%s.gltf"
 const UAL_PATH := "res://assets/ual/UAL1_Standard.glb"
 const GUN_PATH := "res://assets/guns/%s.gltf"
 const SKELETON := "Armature/Skeleton3D"
+const Models := preload("res://scripts/models.gd")
 const LOOPING := ["Idle", "Walk", "Jog_Fwd", "Sprint", "Crouch_Idle", "Crouch_Fwd",
 		"Pistol_Idle", "Pistol_Aim_Neutral", "Pistol_Aim_Up", "Pistol_Aim_Down", "Dance", "Idle_Talking"]
 
@@ -45,6 +46,7 @@ static func build(parts: Array, height: float) -> Node3D:
 		for m in extra_skel.get_children():
 			if m is MeshInstance3D:
 				extra_skel.remove_child(m)
+				m.owner = null
 				skel.add_child(m)
 				m.skeleton = NodePath("..")
 		extra.free()
@@ -73,7 +75,7 @@ static func build(parts: Array, height: float) -> Node3D:
 
 
 ## Met une arme du kit Toon Shooter dans la main droite.
-static func hold_gun(character: Node3D, model: String) -> Node3D:
+static func hold_gun(character: Node3D, model: String, length := GUN_LENGTH) -> Node3D:
 	var hand: BoneAttachment3D = character.get_meta("hand")
 	for c in hand.get_children():
 		c.queue_free()
@@ -84,9 +86,8 @@ static func hold_gun(character: Node3D, model: String) -> Node3D:
 	holder.rotation_degrees = GUN_ROT
 	hand.add_child(holder)
 	var gun: Node3D = load(GUN_PATH % model).instantiate()
-	var native_len := 1.42
-	var s := GUN_LENGTH / native_len / float(character.get_meta("scale"))
-	gun.scale = Vector3.ONE * s
+	var native_len: float = maxf(Models._local_aabb(gun).size.x, 0.01)
+	gun.scale = Vector3.ONE * (length / native_len / float(character.get_meta("scale")))
 	holder.add_child(gun)
 	return gun
 
@@ -107,6 +108,13 @@ static func _make_tree(skel: Skeleton3D) -> AnimationTree:
 	loco.add_blend_point(_anim("Sprint"), 9.5, -1, "sprint")
 	bt.add_node("loco", loco, Vector2(0, 0))
 
+	# Glissade : posture accroupie mélangée aux jambes
+	var slide := AnimationNodeBlend2.new()
+	bt.add_node("slide", slide, Vector2(150, 0))
+	bt.add_node("crouch", _anim("Crouch_Idle"), Vector2(0, -150))
+	bt.connect_node("slide", 0, "loco")
+	bt.connect_node("slide", 1, "crouch")
+
 	var aim := AnimationNodeBlendSpace1D.new()
 	aim.min_space = -1.0
 	aim.max_space = 1.0
@@ -119,7 +127,7 @@ static func _make_tree(skel: Skeleton3D) -> AnimationTree:
 	upper.filter_enabled = true
 	_filter_upper(upper, skel)
 	bt.add_node("upper", upper, Vector2(300, 100))
-	bt.connect_node("upper", 0, "loco")
+	bt.connect_node("upper", 0, "slide")
 	bt.connect_node("upper", 1, "aim")
 
 	var shoot := AnimationNodeOneShot.new()
@@ -178,3 +186,14 @@ static func _mesh_aabb(skel: Skeleton3D) -> AABB:
 			else:
 				result = result.merge(a)
 	return result
+
+
+## Oriente l'arme tenue dans la direction visée « fwd » (au lieu de suivre la rotation de la main).
+static func aim_gun(gun: Node3D, character: Node3D, fwd: Vector3) -> void:
+	if gun == null or not is_instance_valid(gun):
+		return
+	var holder: Node3D = gun.get_parent()
+	var s: float = character.get_meta("scale")
+	# Les armes du kit pointent vers -X dans leur repère : quart de tour pour viser vers -Z
+	var b := Basis.looking_at(fwd, Vector3.UP) * Basis(Vector3.UP, -PI / 2.0)
+	holder.global_transform = Transform3D(b.scaled_local(Vector3.ONE * s), holder.global_position)

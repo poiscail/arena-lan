@@ -35,19 +35,49 @@ Quelqu'un peut rejoindre en cours de partie. Il remplace alors un bot.
 | ZQSD / flèches | Se déplacer |
 | Souris | Viser |
 | Clic gauche | Tirer |
-| Clic droit | Zoom (sniper) |
+| Clic droit | Zoom (armes à lunette) |
 | Espace | Sauter |
 | Maj | Sprinter |
+| Ctrl (ou C) en courant | Glisser |
 | R | Recharger |
-| 1 / 2 / 3 ou molette | Fusil / Pompe / Sniper |
+| 1 / 2 / 3 ou molette | Changer d'arme |
 | Tab | Tableau des scores |
-| Échap | Pause (sensibilité, quitter) |
+| Échap | Pause (classe, options, quitter) |
+
+**Glissade** : en courant, appuie sur Ctrl. Tu glisses vite et bas pendant presque une seconde, et tu restes précis en tirant. Saute pendant la glissade pour garder l'élan.
+
+## Classes
+Choisis ta classe dans le menu. En partie, tu peux la changer dans la pause (Échap) : elle s'applique à ta prochaine réapparition.
+
+| Classe | Armes (1 / 2 / 3) | Bonus |
+|---|---|---|
+| Assaut | Fusil d'assaut, pistolet, lance-grenades | — |
+| Commando | Mitraillette, canon court, revolver | +10 % de vitesse |
+| Tireur d'élite | Sniper, fusil de précision, pistolet | — |
+| Lourd | Pompe, lance-roquettes, revolver | −10 % de vitesse |
+| Classique | Fusil d'assaut, pompe, sniper | — |
 
 ## Armes
-- **Fusil** : automatique, 20 dégâts, 30 balles.
+- **Fusil d'assaut** : automatique, 20 dégâts, 30 balles.
+- **Mitraillette** : très rapide, 14 dégâts, 35 balles.
+- **Pistolet** : 26 dégâts, 12 balles.
+- **Revolver** : 48 dégâts, 6 balles. Très précis.
 - **Pompe** : 9 plombs de 12 dégâts, 6 cartouches. Dévastateur de près.
+- **Canon court** : 14 plombs, 2 coups. Énorme à bout portant.
 - **Sniper** : 80 dégâts, 5 balles. Précis seulement avec le zoom.
-- **Tir à la tête** : les dégâts sont multipliés (×1,3 à ×2 selon l'arme).
+- **Fusil de précision** : 45 dégâts, 10 balles, petit zoom.
+- **Lance-grenades** : explosion de 4 m, jusqu'à 90 dégâts.
+- **Lance-roquettes** : explosion de 5 m, jusqu'à 120 dégâts, 1 roquette.
+- **Tir à la tête** : les dégâts sont multipliés (×1,2 à ×2 selon l'arme).
+
+## Options
+Bouton **Options** dans le menu ou dans la pause. Tous les réglages sont appliqués tout de suite et sauvegardés :
+- préréglages Basse / Moyenne / Haute / Ultra ;
+- ombres (désactivées à hautes), anticrénelage, résolution 3D, distance de vue, brouillard, luminosité ;
+- champ de vision, plein écran, synchro verticale, limite d'images, compteur d'IPS ;
+- sensibilité de la souris.
+
+Si le jeu rame, choisis **Basse**.
 
 ## Organisation du code (`scripts/`)
 | Fichier | Rôle |
@@ -60,10 +90,11 @@ Quelqu'un peut rejoindre en cours de partie. Il remplace alors un bot.
 | `bot.gd` | Intelligence des bots (vision, combat, déplacement sur la carte) |
 | `map.gd` | Construction de l'arène, points d'apparition, chemins des bots |
 | `hud.gd` | Interface en jeu |
+| `options.gd` | Fenêtre d'options (graphismes, souris) |
 | `ui_theme.gd` | Thème visuel (polices, panneaux, boutons) |
 | `models.gd` | Chargement des armes 3D |
 | `people.gd` | Personnages, skins et arbre d'animation |
-| `data.gd` | Réglages des armes, des équipes et des modèles |
+| `data.gd` | Armes, classes, équipes, skins et cartes |
 
 Toute la partie est décidée par l'hôte : dégâts, morts, scores et bots. Chaque joueur envoie seulement sa position et ses tirs.
 

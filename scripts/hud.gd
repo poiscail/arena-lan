@@ -3,6 +3,7 @@ extends CanvasLayer
 
 const Data := preload("res://scripts/data.gd")
 const UiTheme := preload("res://scripts/ui_theme.gd")
+const OptionsScript := preload("res://scripts/options.gd")
 
 var game
 var paused := false
@@ -31,6 +32,8 @@ var _board: PanelContainer
 var _board_text: RichTextLabel
 var _vignette: TextureRect
 var _pause: PanelContainer
+var _options: Control
+var _fps: Label
 var _bottom: Control
 
 var _hit_t := 0.0
@@ -116,7 +119,14 @@ func _ready() -> void:
 	_heal_label.visible = false
 	root.add_child(_heal_label)
 
+	_fps = _label(15, UiTheme.font_bold())
+	_place(_fps, 0, 0, 0, 0, 12, 8, 140, 30)
+	root.add_child(_fps)
+
 	_build_pause(root)
+	_options = OptionsScript.new()
+	_options.visible = false
+	root.add_child(_options)
 	refresh_scores()
 
 
@@ -184,7 +194,7 @@ func _build_bottom(root: Control) -> void:
 	var slots_row := HBoxContainer.new()
 	slots_row.add_theme_constant_override("separation", 14)
 	ammo_v.add_child(slots_row)
-	for i in Data.WEAPONS.size():
+	for i in 3:
 		var s := _label(15, UiTheme.font_bold())
 		s.text = "%d  %s" % [i + 1, String(Data.WEAPONS[i].name).to_upper()]
 		slots_row.add_child(s)
@@ -239,7 +249,7 @@ func _score_box() -> PanelContainer:
 func _build_pause(root: Control) -> void:
 	_pause = PanelContainer.new()
 	_pause.add_theme_stylebox_override("panel", UiTheme.accent_panel(Color(0.04, 0.06, 0.1, 0.96), UiTheme.ACCENT, 26))
-	_place(_pause, 0.5, 0.5, 0.5, 0.5, -220, -170, 220, 170)
+	_place(_pause, 0.5, 0.5, 0.5, 0.5, -220, -180, 220, 180)
 	_pause.mouse_filter = Control.MOUSE_FILTER_STOP
 	_pause.visible = false
 	root.add_child(_pause)
@@ -255,17 +265,23 @@ func _build_pause(root: Control) -> void:
 	resume.text = "Reprendre"
 	resume.pressed.connect(toggle_pause)
 	v.add_child(resume)
-	var sens := _label(16, UiTheme.font_bold())
-	sens.text = "SENSIBILITÉ DE LA SOURIS"
-	sens.add_theme_color_override("font_color", UiTheme.ACCENT)
-	v.add_child(sens)
-	var slider := HSlider.new()
-	slider.min_value = 0.5
-	slider.max_value = 8.0
-	slider.step = 0.1
-	slider.value = Net.mouse_sensitivity * 1000.0
-	slider.value_changed.connect(func(val: float) -> void: Net.mouse_sensitivity = val / 1000.0)
-	v.add_child(slider)
+	var cls_title := _label(16, UiTheme.font_bold())
+	cls_title.text = "CLASSE (À LA PROCHAINE APPARITION)"
+	cls_title.add_theme_color_override("font_color", UiTheme.ACCENT)
+	v.add_child(cls_title)
+	var cls := OptionButton.new()
+	for cl in Data.CLASSES:
+		cls.add_item(cl["name"])
+	cls.select(Net.player_class)
+	cls.item_selected.connect(func(i: int) -> void:
+		Net.player_class = i
+		Net.save_options()
+		game.request_class(i))
+	v.add_child(cls)
+	var opts := Button.new()
+	opts.text = "Options"
+	opts.pressed.connect(func() -> void: _options.open())
+	v.add_child(opts)
 	var quit := Button.new()
 	quit.text = "Quitter la partie"
 	quit.pressed.connect(func() -> void: Net.quit_to_menu.call_deferred())
@@ -277,6 +293,8 @@ func _build_pause(root: Control) -> void:
 func toggle_pause() -> void:
 	paused = not paused
 	_pause.visible = paused
+	if not paused:
+		_options.visible = false
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if paused else Input.MOUSE_MODE_CAPTURED
 
 
@@ -348,6 +366,9 @@ func refresh_scores() -> void:
 # --- Boucle -----------------------------------------------------------------------
 
 func _process(delta: float) -> void:
+	_fps.visible = Net.gfx.show_fps
+	if _fps.visible:
+		_fps.text = "%d IPS" % Engine.get_frames_per_second()
 	var c = game.local_char
 	if c != null:
 		_hp_value.text = str(c.hp)
@@ -362,7 +383,8 @@ func _process(delta: float) -> void:
 		_reload_label.text = "RECHARGEMENT  " if c.reloading > 0.0 else ""
 		_ammo_value.add_theme_color_override("font_color", Color(1, 0.35, 0.3) if c.ammo[c.weapon] <= w.mag / 4 else Color.WHITE)
 		for i in _slots.size():
-			_slots[i].add_theme_color_override("font_color", UiTheme.ACCENT if i == c.weapon else Color(1, 1, 1, 0.35))
+			_slots[i].text = "%d  %s" % [i + 1, String(Data.WEAPONS[c.loadout[i]].name).to_upper()]
+			_slots[i].add_theme_color_override("font_color", UiTheme.ACCENT if i == c.slot else Color(1, 1, 1, 0.35))
 		_scope.visible = c.zoomed and c.alive
 		_bottom.visible = c.alive and not c.zoomed
 	var t := int(ceil(game.time_left))
@@ -427,7 +449,7 @@ func _draw_crosshair() -> void:
 	var c = game.local_char
 	if c != null and c.alive and not c.zoomed and not game.match_over:
 		var gap := 7.0
-		if c.weapon == 1:
+		if int(Data.WEAPONS[c.weapon].pellets) > 1:
 			gap = 16.0
 		var spd: float = Vector2(c.velocity.x, c.velocity.z).length()
 		gap += minf(spd, 9.0) * 0.8

@@ -16,6 +16,11 @@ const FOV := 80.0
 const ZOOM_FOV := 25.0
 const VIEWMODEL_POS := Vector3(0.2, -0.2, -0.5)
 const DEATH_SHOW_TIME := 1.6
+const SLIDE_SPEED := 13.0
+const SLIDE_END_SPEED := 4.5
+const SLIDE_TIME := 0.85
+const SLIDE_COOLDOWN := 0.5
+const SLIDE_EYE := 0.85
 
 var game
 var char_id := ""
@@ -25,6 +30,10 @@ var is_bot := false
 var owner_peer := 1
 var is_local := false
 var skin := 0
+var class_id := 0
+var next_class := -1  # classe demandée pour la prochaine réapparition (serveur)
+var loadout: Array = [0, 1, 2]
+var slot := 0
 var hp := 100
 var alive := true
 var bot = null
@@ -57,6 +66,11 @@ var _net_pos := Vector3.ZERO
 var _net_yaw := 0.0
 var _net_pitch := 0.0
 var _net_ignore_until := 0
+var sliding := false
+var _slide_t := 0.0
+var _slide_cd := 0.0
+var _slide_dir := Vector3.ZERO
+var _slide_blend := 0.0
 
 
 func _ready() -> void:
@@ -76,7 +90,7 @@ func _ready() -> void:
 	_model = People.build(parts, 1.8)
 	add_child(_model)
 	_tree = _model.get_meta("tree")
-	_gun = People.hold_gun(_model, Data.WEAPON_MODELS[0][0])
+	_set_loadout(class_id)
 
 	# Anneau de couleur au sol pour repérer l'équipe
 	_ring = MeshInstance3D.new()
@@ -106,8 +120,6 @@ func _ready() -> void:
 	_label.modulate = color.lightened(0.35)
 	add_child(_label)
 
-	for w in Data.WEAPONS:
-		ammo.append(w.mag)
 	face_center()
 	_net_pos = position
 	_net_yaw = rotation.y
@@ -122,21 +134,19 @@ func _ready() -> void:
 
 	if is_local:
 		_model.visible = false
-		_gun.visible = false
 		_label.visible = false
 		_ring.visible = false
 		camera = Camera3D.new()
-		camera.fov = FOV
+		camera.fov = float(Net.gfx.fov)
+		camera.far = Net.view_distance()
+		Net.graphics_changed.connect(_on_graphics_changed)
 		camera.near = 0.03
 		head.add_child(camera)
 		camera.make_current()
 		_viewmodel = Node3D.new()
 		_viewmodel.position = VIEWMODEL_POS
 		camera.add_child(_viewmodel)
-		for wm in Data.WEAPON_MODELS:
-			var g := Models.weapon(wm[0], wm[1])
-			_viewmodel.add_child(g)
-			_view_guns.append(g)
+		_build_viewmodel()
 		_update_viewmodel()
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -151,9 +161,14 @@ func eye_position() -> Vector3:
 	return global_position + Vector3(0, EYE_HEIGHT, 0)
 
 
+## Hauteur du torse visée par les bots (plus basse pendant une glissade).
+func aim_height() -> float:
+	return 0.7 if sliding else 1.3
+
+
 func muzzle_position() -> Vector3:
 	if is_local and _viewmodel != null and _viewmodel.visible:
-		var length: float = Data.WEAPON_MODELS[weapon][1]
+		var length: float = Data.WEAPONS[weapon].len
 		return _viewmodel.global_position - camera.global_transform.basis.z * (length / 2.0)
 	return _gun.global_position - head.global_transform.basis.z * 0.55 + Vector3(0, 0.1, 0)
 
@@ -176,6 +191,7 @@ func net_target(pos: Vector3, yaw: float, pitch: float) -> void:
 
 func set_dead(dead: bool) -> void:
 	alive = not dead
+	set_sliding(false)
 	_shape.set_deferred("disabled", dead)
 	if dead:
 		zoomed = false
@@ -196,7 +212,9 @@ func set_dead(dead: bool) -> void:
 		_set_state("alive")
 
 
-func respawn(pos: Vector3) -> void:
+func respawn(pos: Vector3, cls := -1) -> void:
+	if cls >= 0 and cls != class_id:
+		_set_loadout(cls)
 	position = pos
 	_net_pos = pos
 	_prev_pos = pos
@@ -211,6 +229,8 @@ func respawn(pos: Vector3) -> void:
 			ammo[i] = Data.WEAPONS[i].mag
 		reloading = 0.0
 		head.rotation.x = 0.0
+		head.rotation.z = 0.0
+		head.position.y = EYE_HEIGHT
 	if bot != null:
 		bot.reset()
 
@@ -224,6 +244,9 @@ func _physics_process(delta: float) -> void:
 	elif bot != null:
 		if alive:
 			bot.think(delta)
+			# Les bots glissent de temps en temps pendant un combat
+			if bot._enemy != null and bot.difficulty > 0 and randf() < delta * 0.25:
+				start_slide()
 			_move(delta, bot.move_dir, bot.jump, bot.sprint)
 	else:
 		var k := minf(1.0, delta * 15.0)
@@ -248,6 +271,8 @@ func _update_animation(delta: float) -> void:
 	# Jambes selon la vitesse (0 arrêt, 2.5 marche, 6 jogging, 9.5 sprint), buste selon l'angle de visée
 	_tree.set("parameters/loco/blend_position", clampf(_speed, 0.0, 10.0))
 	_tree.set("parameters/aim/blend_position", clampf(head.rotation.x, -1.0, 1.0))
+	_slide_blend = move_toward(_slide_blend, 1.0 if sliding else 0.0, delta * 8.0)
+	_tree.set("parameters/slide/blend_amount", _slide_blend)
 
 
 ## Joue l'animation de tir du haut du corps (vue par les autres joueurs).
@@ -267,7 +292,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not is_local or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	if event is InputEventMouseMotion:
-		var s: float = Net.mouse_sensitivity * (ZOOM_FOV / FOV if zoomed else 1.0)
+		var s: float = Net.mouse_sensitivity * (_zoom_fov() / float(Net.gfx.fov) if zoomed else 1.0)
 		rotation.y -= event.relative.x * s
 		head.rotation.x = clampf(head.rotation.x - event.relative.y * s, -1.5, 1.5)
 		return
@@ -283,9 +308,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		start_reload()
 	elif event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			switch_weapon((weapon + 2) % 3)
+			switch_weapon((slot + 2) % 3)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			switch_weapon((weapon + 1) % 3)
+			switch_weapon((slot + 1) % 3)
 
 
 func _local_control(delta: float) -> void:
@@ -296,29 +321,85 @@ func _local_control(delta: float) -> void:
 	var dir := transform.basis * Vector3(input.x, 0, input.y)
 	dir.y = 0
 	var sprint := captured and Input.is_action_pressed("sprint") and input.y < -0.1
+	if captured and Input.is_action_just_pressed("slide"):
+		start_slide()
 	_move(delta, dir, captured and Input.is_action_pressed("jump"), sprint)
 	_weapons(delta, captured)
+	# Caméra plus basse et légèrement penchée pendant la glissade
+	var k := minf(1.0, delta * 12.0)
+	head.position.y = lerpf(head.position.y, SLIDE_EYE if sliding else EYE_HEIGHT, k)
+	head.rotation.z = lerpf(head.rotation.z, 0.06 if sliding else 0.0, k)
+
+
+## Glissade : possible au sol en courant, garde l'élan puis ralentit.
+func start_slide() -> void:
+	var hvel := Vector3(velocity.x, 0, velocity.z)
+	if sliding or _slide_cd > 0.0 or not is_on_floor() or hvel.length() < 4.0:
+		return
+	_slide_dir = hvel.normalized()
+	_slide_t = SLIDE_TIME
+	set_sliding(true)
+
+
+func set_sliding(on: bool) -> void:
+	if sliding == on:
+		return
+	sliding = on
+	# Hitbox plus basse pendant la glissade (aussi sur l'hôte, qui valide les tirs)
+	var cap: CapsuleShape3D = _shape.shape
+	cap.height = 1.1 if on else 1.8
+	_shape.position.y = cap.height / 2.0
+	if not on:
+		_slide_cd = SLIDE_COOLDOWN
 
 
 func _move(delta: float, dir: Vector3, want_jump: bool, want_sprint: bool) -> void:
+	_slide_cd -= delta
+	if sliding:
+		_slide_move(delta, dir, want_jump)
+		return
 	if is_on_floor():
 		if want_jump:
 			velocity.y = JUMP_VELOCITY
 	else:
 		velocity.y -= GRAVITY * delta
-	var speed := SPRINT_SPEED if want_sprint else WALK_SPEED
+	var speed := (SPRINT_SPEED if want_sprint else WALK_SPEED) * float(Data.CLASSES[class_id].speed)
 	var accel := (60.0 if is_on_floor() else 15.0) * delta
 	velocity.x = move_toward(velocity.x, dir.x * speed, accel)
 	velocity.z = move_toward(velocity.z, dir.z * speed, accel)
 	move_and_slide()
 
 
+func _slide_move(delta: float, dir: Vector3, want_jump: bool) -> void:
+	_slide_t -= delta
+	var t := 1.0 - _slide_t / SLIDE_TIME
+	var speed := lerpf(SLIDE_SPEED, SLIDE_END_SPEED, t * t)
+	# On peut un peu orienter la glissade avec les touches
+	if dir.length() > 0.1:
+		_slide_dir = _slide_dir.slerp(dir.normalized(), minf(1.0, delta * 2.0)).normalized()
+	velocity.x = _slide_dir.x * speed
+	velocity.z = _slide_dir.z * speed
+	if is_on_floor():
+		velocity.y = -1.0
+		if want_jump:
+			# Saut glissé : on garde l'élan
+			velocity.y = JUMP_VELOCITY
+			set_sliding(false)
+	else:
+		velocity.y -= GRAVITY * delta
+	move_and_slide()
+	var real := Vector2(get_real_velocity().x, get_real_velocity().z).length()
+	if _slide_t <= 0.0 or (real < 2.0 and _slide_t < SLIDE_TIME - 0.1):
+		set_sliding(false)
+
+
 # --- Armes (joueur local) ----------------------------------------------------------
 
 func switch_weapon(i: int) -> void:
-	if i == weapon or not alive:
+	if i == slot or not alive or i < 0 or i >= loadout.size():
 		return
-	weapon = i
+	slot = i
+	weapon = loadout[i]
 	reloading = 0.0
 	zoomed = false
 	_fire_cd = 0.25
@@ -343,8 +424,9 @@ func _weapons(delta: float, captured: bool) -> void:
 		if reloading <= 0.0:
 			reloading = 0.0
 			ammo[weapon] = w.mag
-	zoomed = captured and weapon == 2 and reloading <= 0.0 and Input.is_action_pressed("zoom")
-	camera.fov = lerpf(camera.fov, ZOOM_FOV if zoomed else FOV, minf(1.0, delta * 18.0))
+	zoomed = captured and int(w.zoom) > 0 and reloading <= 0.0 and Input.is_action_pressed("zoom")
+	var base_fov := float(Net.gfx.fov) + (8.0 if sliding else 0.0)
+	camera.fov = lerpf(camera.fov, _zoom_fov() if zoomed else base_fov, minf(1.0, delta * (18.0 if zoomed else 8.0)))
 	_viewmodel.visible = not zoomed
 
 	# Balancement de l'arme en marchant, recul et abaissement pendant le rechargement
@@ -370,9 +452,9 @@ func _weapons(delta: float, captured: bool) -> void:
 	ammo[weapon] -= 1
 
 	var spread: float = w.spread
-	if weapon == 2 and not zoomed:
+	if int(w.zoom) > 0 and not zoomed:
 		spread = 6.0
-	if weapon != 1 and (not is_on_floor() or hspeed > 6.5):
+	if int(w.pellets) == 1 and (not is_on_floor() or (hspeed > 6.5 and not sliding)):
 		spread += 2.5
 	var b := camera.global_transform.basis
 	var dirs := PackedVector3Array()
@@ -380,8 +462,8 @@ func _weapons(delta: float, captured: bool) -> void:
 		dirs.append(_spread_dir(b, spread))
 	game.local_fire(self, weapon, camera.global_position, dirs)
 
-	head.rotation.x = clampf(head.rotation.x + Data.RECOIL[weapon], -1.5, 1.5)
-	_kick = 0.06 if weapon == 0 else 0.12
+	head.rotation.x = clampf(head.rotation.x + float(w.recoil), -1.5, 1.5)
+	_kick = clampf(float(w.recoil) * 1.5, 0.04, 0.14)
 	if ammo[weapon] <= 0:
 		start_reload()
 
@@ -394,4 +476,63 @@ func _spread_dir(b: Basis, degrees: float) -> Vector3:
 
 func _update_viewmodel() -> void:
 	for i in _view_guns.size():
-		_view_guns[i].visible = i == weapon
+		_view_guns[i].visible = i == slot
+
+
+func _zoom_fov() -> float:
+	var z := int(Data.WEAPONS[weapon].zoom)
+	return float(z) if z > 0 else ZOOM_FOV
+
+
+## Change de classe : 3 nouvelles armes, chargeurs pleins.
+func _set_loadout(cls: int) -> void:
+	class_id = clampi(cls, 0, Data.CLASSES.size() - 1)
+	loadout = Data.CLASSES[class_id]["weapons"].duplicate()
+	slot = 0
+	weapon = bot_weapon() if is_bot else loadout[0]
+	slot = loadout.find(weapon)
+	reloading = 0.0
+	zoomed = false
+	ammo.clear()
+	for w in Data.WEAPONS:
+		ammo.append(w.mag)
+	show_weapon(weapon)
+	if _viewmodel != null:
+		_build_viewmodel()
+		_update_viewmodel()
+
+
+func _build_viewmodel() -> void:
+	for g in _view_guns:
+		g.queue_free()
+	_view_guns.clear()
+	for wi in loadout:
+		var g := Models.weapon(Data.WEAPONS[wi].model, Data.WEAPONS[wi].len)
+		_viewmodel.add_child(g)
+		_view_guns.append(g)
+
+
+## Arme tenue en main vue par les autres joueurs.
+func show_weapon(wi: int) -> void:
+	if _gun != null and _gun.get_meta("weapon", -1) == wi:
+		return
+	_gun = People.hold_gun(_model, Data.WEAPONS[wi].model, float(Data.WEAPONS[wi].len) * 1.2)
+	_gun.set_meta("weapon", wi)
+
+
+func _on_graphics_changed() -> void:
+	camera.far = Net.view_distance()
+
+
+func _process(_delta: float) -> void:
+	# L'arme pointe toujours dans la direction visée (et pas selon la rotation de la main)
+	if not is_local and alive and visible:
+		People.aim_gun(_gun, _model, -head.global_transform.basis.z)
+
+
+## Arme utilisée par un bot : la première arme « simple » (une balle, sans explosion) de sa classe.
+func bot_weapon() -> int:
+	for wi in loadout:
+		if int(Data.WEAPONS[wi].pellets) == 1 and float(Data.WEAPONS[wi].splash) == 0.0:
+			return wi
+	return loadout[0]

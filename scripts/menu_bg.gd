@@ -16,6 +16,8 @@ const EXTRAS := [
 var _cam: Camera3D
 var _showcase: Node3D
 var _t := 0.0
+var _guns := []  # [personnage, arme, visée]
+var _showcase_gun: Node3D
 
 
 func _ready() -> void:
@@ -25,7 +27,7 @@ func _ready() -> void:
 		add_child(c)
 		c.position = e[1]
 		c.rotation_degrees.y = e[2]
-		People.hold_gun(c, e[5])
+		_guns.append([c, People.hold_gun(c, e[5]), e[4]])
 		var tree: AnimationTree = c.get_meta("tree")
 		tree.set("parameters/loco/blend_position", e[3])
 		tree.set("parameters/aim/blend_position", e[4])
@@ -43,7 +45,14 @@ func show_skin(index: int) -> void:
 	_showcase = People.build(Data.SKINS[clampi(index, 0, Data.SKINS.size() - 1)]["parts"], 1.8)
 	add_child(_showcase)
 	_showcase.position = SHOWCASE_POS
-	People.hold_gun(_showcase, "AK")
+	show_class(Net.player_class)
+
+
+## L'arme principale de la classe choisie dans les mains du personnage présenté.
+func show_class(index: int) -> void:
+	var cls: Dictionary = Data.CLASSES[clampi(index, 0, Data.CLASSES.size() - 1)]
+	var w: Dictionary = Data.WEAPONS[cls["weapons"][0]]
+	_showcase_gun = People.hold_gun(_showcase, w.model, float(w.len) * 1.2)
 
 
 func _process(delta: float) -> void:
@@ -52,3 +61,9 @@ func _process(delta: float) -> void:
 	_showcase.rotation.y = 0.6 + sin(_t * 0.35) * 0.9
 	var cam_pos := SHOWCASE_POS + Vector3(-1.9 + sin(_t * 0.2) * 0.2, 1.45, 4.6)
 	_cam.look_at_from_position(cam_pos, SHOWCASE_POS + Vector3(-1.35, 1.05, 0))
+	# Armes alignées sur le regard (sinon elles suivent l'angle de la main)
+	People.aim_gun(_showcase_gun, _showcase, -_showcase.global_transform.basis.z)
+	for g in _guns:
+		var c: Node3D = g[0]
+		var fwd := (-c.global_transform.basis.z).rotated(c.global_transform.basis.x.normalized(), float(g[2]) * 0.5)
+		People.aim_gun(g[1], c, fwd)

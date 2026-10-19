@@ -281,6 +281,7 @@ func _build_environment(root: Node3D) -> void:
 	env.fog_sky_affect = 0.0
 	var we := WorldEnvironment.new()
 	we.environment = env
+	we.add_to_group("gfx_env")
 	root.add_child(we)
 
 	var sun := DirectionalLight3D.new()
@@ -288,7 +289,10 @@ func _build_environment(root: Node3D) -> void:
 	sun.light_energy = 0.9
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 90.0
+	sun.add_to_group("gfx_sun")
 	root.add_child(sun)
+	# Ombres, brouillard et luminosité selon les options du joueur
+	Net.apply_graphics.call_deferred()
 
 
 func _make_checker() -> ImageTexture:

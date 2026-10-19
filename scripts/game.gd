@@ -90,11 +90,11 @@ func _physics_process(delta: float) -> void:
 		var data := []
 		for id in chars:
 			var c = chars[id]
-			data.append([id, c.position, c.rotation.y, c.head.rotation.x])
+			data.append([id, c.position, c.rotation.y, c.head.rotation.x, c.sliding])
 		for p in ready_peers:
 			snapshot.rpc_id(p, data)
 	elif local_char != null and local_char.alive:
-		client_state.rpc_id(1, local_char.position, local_char.rotation.y, local_char.head.rotation.x)
+		client_state.rpc_id(1, local_char.position, local_char.rotation.y, local_char.head.rotation.x, local_char.sliding)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -155,6 +155,8 @@ func local_fire(c, weapon: int, origin: Vector3, dirs: PackedVector3Array) -> vo
 		var to: Vector3 = origin + d * float(w.range)
 		var hit := _ray(origin, to, ex, 3)
 		_spawn_tracer(muzzle, hit.position if not hit.is_empty() else to)
+		if float(w.splash) > 0.0 and not hit.is_empty():
+			_spawn_explosion(hit.position + hit.normal * 0.3, float(w.splash))
 	play_shot_sound(weapon, muzzle, true)
 	if multiplayer.is_server():
 		_server_shoot(c.char_id, weapon, origin, dirs)
@@ -162,17 +164,42 @@ func local_fire(c, weapon: int, origin: Vector3, dirs: PackedVector3Array) -> vo
 		req_shoot.rpc_id(1, weapon, origin, dirs)
 
 
+## Changement de classe demandé par le joueur local : appliqué à sa prochaine réapparition.
+func request_class(cls: int) -> void:
+	if multiplayer.is_server():
+		_set_next_class(_pid(1), cls)
+	else:
+		req_class.rpc_id(1, cls)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func req_class(cls: int) -> void:
+	if multiplayer.is_server():
+		_set_next_class(_pid(multiplayer.get_remote_sender_id()), cls)
+
+
+func _set_next_class(id: String, cls: int) -> void:
+	var c = chars.get(id)
+	if c != null:
+		c.next_class = clampi(cls, 0, Data.CLASSES.size() - 1)
+	var peer := int(id.substr(1))
+	if Net.players.has(peer):
+		Net.players[peer]["class"] = clampi(cls, 0, Data.CLASSES.size() - 1)
+
+
 ## Appelé (sur le serveur) par le cerveau d'un bot.
 func bot_fire(c, dir: Vector3) -> void:
-	_server_shoot(c.char_id, 0, c.eye_position(), PackedVector3Array([dir]))
+	_server_shoot(c.char_id, c.bot_weapon(), c.eye_position(), PackedVector3Array([dir]))
 
 
 func _server_shoot(shooter_id: String, weapon: int, origin: Vector3, dirs: PackedVector3Array) -> void:
 	var s = chars.get(shooter_id)
 	if s == null or not s.alive or match_over:
 		return
-	weapon = clampi(weapon, 0, Data.WEAPONS.size() - 1)
+	if not s.loadout.has(weapon):
+		return  # arme qui n'appartient pas à la classe du tireur
 	var w: Dictionary = Data.WEAPONS[weapon]
+	var splash := float(w.splash)
 	if origin.distance_to(s.eye_position()) > 3.0:
 		origin = s.eye_position()
 	var ex: Array[RID] = [s.get_rid()]
@@ -188,8 +215,11 @@ func _server_shoot(shooter_id: String, weapon: int, origin: Vector3, dirs: Packe
 			continue
 		ends.append(hit.position)
 		var t = hit.collider
+		if splash > 0.0:
+			_explosion_damage(s, hit.position, hit.normal, w, damage)
+			continue
 		if t is CharacterScript and t.alive and is_enemy(s, t):
-			var head: bool = hit.position.y > t.position.y + 1.45
+			var head: bool = hit.position.y > t.position.y + (0.8 if t.sliding else 1.45)
 			var dmg := float(w.damage) * (float(w.head) if head else 1.0)
 			damage[t.char_id] = damage.get(t.char_id, 0.0) + dmg
 			head_hit = head_hit or head
@@ -205,6 +235,25 @@ func _server_shoot(shooter_id: String, weapon: int, origin: Vector3, dirs: Packe
 			hit_confirm(head_hit, killed)
 		elif ready_peers.has(s.owner_peer):
 			hit_confirm.rpc_id(s.owner_peer, head_hit, killed)
+
+
+## Explosion (lance-grenades, lance-roquettes) : dégâts qui diminuent avec la distance,
+## bloqués par les murs. Le tireur ne se blesse pas lui-même.
+func _explosion_damage(s, at: Vector3, normal: Vector3, w: Dictionary, damage: Dictionary) -> void:
+	var radius := float(w.splash)
+	var center := at + normal * 0.3
+	for id in chars:
+		var t = chars[id]
+		if not t.alive or not is_enemy(s, t):
+			continue
+		var body: Vector3 = t.global_position + Vector3(0, 0.9, 0)
+		var dist := center.distance_to(body)
+		if dist > radius + 0.4:
+			continue
+		if not _ray(center, body, [] as Array[RID], 1).is_empty():
+			continue
+		var k := clampf(1.0 - maxf(dist - 0.4, 0.0) / radius, 0.25, 1.0)
+		damage[t.char_id] = damage.get(t.char_id, 0.0) + float(w.damage) * k
 
 
 func _apply_damage(t, s, dmg: int, weapon: int) -> bool:
@@ -256,7 +305,7 @@ func _server_add_human(peer: int) -> void:
 	var id := _pid(peer)
 	if not scores.has(id):
 		scores[id] = {"name": info["name"], "team": team, "kills": 0, "deaths": 0, "bot": false}
-	_broadcast("spawn_char", [id, info["name"], team, false, peer, _pick_spawn(team), true, 100, int(info.get("skin", 0))])
+	_broadcast("spawn_char", [id, info["name"], team, false, peer, _pick_spawn(team), true, 100, int(info.get("skin", 0)), int(info.get("class", 0))])
 	_broadcast_scores()
 
 
@@ -265,7 +314,7 @@ func _server_add_bot(team: int) -> String:
 	var id := "B%d" % _bot_serial
 	var bname := "%s (bot)" % BOT_NAMES[(_bot_serial - 1) % BOT_NAMES.size()]
 	scores[id] = {"name": bname, "team": team, "kills": 0, "deaths": 0, "bot": true}
-	_broadcast("spawn_char", [id, bname, team, true, 1, _pick_spawn(team), true, 100, randi() % Data.SKINS.size()])
+	_broadcast("spawn_char", [id, bname, team, true, 1, _pick_spawn(team), true, 100, randi() % Data.SKINS.size(), randi() % Data.CLASSES.size()])
 	return id
 
 
@@ -315,7 +364,10 @@ func _pick_spawn(team: int) -> Vector3:
 func _respawn(id: String) -> void:
 	if match_over or not chars.has(id):
 		return
-	_broadcast("on_respawn", [id, _pick_spawn(chars[id].team)])
+	var c = chars[id]
+	var cls: int = c.next_class if c.next_class >= 0 else c.class_id
+	c.next_class = -1
+	_broadcast("on_respawn", [id, _pick_spawn(c.team), cls])
 
 
 func _check_win() -> void:
@@ -386,7 +438,7 @@ func client_ready() -> void:
 	ready_peers[peer] = true
 	for id in chars:
 		var c = chars[id]
-		spawn_char.rpc_id(peer, id, c.display_name, c.team, c.is_bot, c.owner_peer, c.position, c.alive, c.hp, c.skin)
+		spawn_char.rpc_id(peer, id, c.display_name, c.team, c.is_bot, c.owner_peer, c.position, c.alive, c.hp, c.skin, c.class_id)
 	sync_scores.rpc_id(peer, scores, time_left)
 	for i in _health.size():
 		pickup_state.rpc_id(peer, i, _health[i]["active"])
@@ -398,10 +450,11 @@ func client_ready() -> void:
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func client_state(pos: Vector3, yaw: float, pitch: float) -> void:
+func client_state(pos: Vector3, yaw: float, pitch: float, slide: bool) -> void:
 	var c = chars.get(_pid(multiplayer.get_remote_sender_id()))
 	if c != null and c.alive:
 		c.net_target(pos, yaw, pitch)
+		c.set_sliding(slide)
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -413,13 +466,14 @@ func req_shoot(weapon: int, origin: Vector3, dirs: PackedVector3Array) -> void:
 # --- RPC serveur -> clients -----------------------------------------------------
 
 @rpc("authority", "call_remote", "reliable")
-func spawn_char(id: String, dname: String, team: int, is_bot: bool, owner_peer: int, pos: Vector3, alive: bool, hp: int, skin: int) -> void:
+func spawn_char(id: String, dname: String, team: int, is_bot: bool, owner_peer: int, pos: Vector3, alive: bool, hp: int, skin: int, cls: int) -> void:
 	if chars.has(id):
 		return
 	var c = CharacterScript.new()
 	c.name = id
 	c.char_id = id
 	c.skin = skin
+	c.class_id = cls
 	c.display_name = dname
 	c.team = team
 	c.is_bot = is_bot
@@ -454,6 +508,7 @@ func snapshot(data: Array) -> void:
 		var c = chars.get(e[0])
 		if c != null and not c.is_local:
 			c.net_target(e[1], e[2], e[3])
+			c.set_sliding(e[4])
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -496,10 +551,10 @@ func on_died(victim_id: String, killer_id: String, weapon: int) -> void:
 
 
 @rpc("authority", "call_remote", "reliable")
-func on_respawn(id: String, pos: Vector3) -> void:
+func on_respawn(id: String, pos: Vector3, cls: int) -> void:
 	var c = chars.get(id)
 	if c != null:
-		c.respawn(pos)
+		c.respawn(pos, cls)
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -507,10 +562,14 @@ func shot_fx(shooter_id: String, weapon: int, ends: PackedVector3Array) -> void:
 	var s = chars.get(shooter_id)
 	if s == null or s.is_local:
 		return
+	s.show_weapon(weapon)
 	s.play_shoot()
 	var from: Vector3 = s.muzzle_position()
+	var splash := float(Data.WEAPONS[weapon].splash)
 	for e in ends:
 		_spawn_tracer(from, e)
+		if splash > 0.0 and from.distance_to(e) < float(Data.WEAPONS[weapon].range) - 1.5:
+			_spawn_explosion(e, splash)
 	play_shot_sound(weapon, from, false)
 
 
@@ -585,7 +644,7 @@ func _make_effects() -> void:
 	_impact_mat = StandardMaterial3D.new()
 	_impact_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_impact_mat.albedo_color = Color(1.0, 0.65, 0.25)
-	_sounds = [_noise_sound(0.14, 0.4), _noise_sound(0.3, 0.22), _noise_sound(0.5, 0.14)]
+	_sounds = [_noise_sound(0.14, 0.4), _noise_sound(0.3, 0.22), _noise_sound(0.5, 0.14), _noise_sound(0.9, 0.08)]
 
 
 ## Génère un bruit de tir (bruit filtré qui décroît) sans fichier audio externe.
@@ -618,14 +677,14 @@ func play_shot_sound(weapon: int, pos: Vector3, local: bool) -> void:
 	var p: Node
 	if local:
 		var p2 := AudioStreamPlayer.new()
-		p2.stream = _sounds[weapon]
+		p2.stream = _sounds[int(Data.WEAPONS[weapon].sound)]
 		p2.volume_db = -8.0
 		add_child(p2)
 		p2.play()
 		p = p2
 	else:
 		var p3 := AudioStreamPlayer3D.new()
-		p3.stream = _sounds[weapon]
+		p3.stream = _sounds[int(Data.WEAPONS[weapon].sound)]
 		p3.unit_size = 12.0
 		p3.max_distance = 150.0
 		p3.volume_db = -2.0
@@ -634,6 +693,35 @@ func play_shot_sound(weapon: int, pos: Vector3, local: bool) -> void:
 		p3.play()
 		p = p3
 	get_tree().create_timer(1.0).timeout.connect(p.queue_free)
+
+
+## Boule de feu qui grossit et s'efface, avec un flash de lumière et le bruit de l'explosion.
+func _spawn_explosion(pos: Vector3, radius: float) -> void:
+	var m := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.5
+	sm.height = 1.0
+	m.mesh = sm
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(1.0, 0.55, 0.15, 0.9)
+	m.material_override = mat
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(m)
+	m.global_position = pos
+	m.scale = Vector3.ONE * 0.3
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.6, 0.25)
+	light.light_energy = 6.0
+	light.omni_range = radius * 2.5
+	m.add_child(light)
+	var tw := create_tween().set_parallel(true)
+	tw.tween_property(m, "scale", Vector3.ONE * radius * 1.6, 0.35).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(mat, "albedo_color:a", 0.0, 0.45)
+	tw.tween_property(light, "light_energy", 0.0, 0.4)
+	tw.chain().tween_callback(m.queue_free)
+	play_shot_sound(9, pos, false)
 
 
 func _spawn_tracer(from: Vector3, to: Vector3) -> void:

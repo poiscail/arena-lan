@@ -95,7 +95,7 @@ func _find_enemy():
 	for o in game.chars.values():
 		if not o.alive or not game.is_enemy(c, o):
 			continue
-		var to: Vector3 = o.position + Vector3(0, 1.2, 0) - eye
+		var to: Vector3 = o.position + Vector3(0, o.aim_height(), 0) - eye
 		var d := to.length()
 		if d >= best_d:
 			continue
@@ -108,7 +108,7 @@ func _find_enemy():
 
 
 func _fight(delta: float) -> void:
-	var aim: Vector3 = _enemy.position + Vector3(0, 1.3, 0)
+	var aim: Vector3 = _enemy.position + Vector3(0, _enemy.aim_height(), 0)
 	_face(aim, delta)
 	var to: Vector3 = aim - c.eye_position()
 	var dist := to.length()
@@ -139,7 +139,7 @@ func _fight(delta: float) -> void:
 	if look.angle_to(to) > 0.2:
 		return
 	_ammo -= 1
-	_fire_cd = float(Data.WEAPONS[0].rate) * FIRE_SLOW[difficulty] * randf_range(1.0, 1.5)
+	_fire_cd = float(Data.WEAPONS[c.bot_weapon()].rate) * FIRE_SLOW[difficulty] * randf_range(1.0, 1.5)
 	game.bot_fire(c, _cone(look, AIM_ERROR[difficulty]))
 
 

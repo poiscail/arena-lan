@@ -11,6 +11,7 @@ const MAX_HUMANS := 12
 
 var player_name := "Joueur"
 var player_skin := 0
+var player_class := 0
 var port := DEFAULT_PORT
 var players := {}  # peer_id -> {"name": String, "team": int}
 var settings := {
@@ -25,6 +26,30 @@ var settings := {
 var in_game := false
 var mouse_sensitivity := 0.0025
 
+signal graphics_changed
+
+const CONFIG_PATH := "user://options.cfg"
+const SHADOW_SIZES := [0, 1024, 2048, 4096]
+const SHADOW_DISTANCES := [0.0, 40.0, 70.0, 110.0]
+const MSAA_MODES := [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X, Viewport.MSAA_8X]
+const FPS_LIMITS := [0, 60, 120, 144, 240]
+const VIEW_DISTANCES := [80.0, 160.0, 400.0]
+
+# Réglages graphiques (sauvegardés dans user://options.cfg)
+var gfx := {
+	"shadows": 2,        # 0 aucune, 1 basse, 2 moyenne, 3 haute
+	"msaa": 1,           # 0 non, 1 2x, 2 4x, 3 8x
+	"scale": 100,        # résolution 3D en %
+	"fog": true,
+	"view": 1,           # distance de vue : 0 courte, 1 moyenne, 2 longue
+	"brightness": 100,   # %
+	"fov": 80,
+	"fullscreen": false,
+	"vsync": true,
+	"fps_limit": 0,      # index dans FPS_LIMITS (0 = illimité)
+	"show_fps": false,
+}
+
 
 func _ready() -> void:
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
@@ -32,6 +57,68 @@ func _ready() -> void:
 	multiplayer.connection_failed.connect(_on_connected_fail)
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
 	_setup_inputs()
+	load_options()
+	apply_graphics()
+
+
+# --- Options ------------------------------------------------------------------
+
+func load_options() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(CONFIG_PATH) != OK:
+		return
+	for k in gfx:
+		gfx[k] = cfg.get_value("graphics", k, gfx[k])
+	mouse_sensitivity = cfg.get_value("controls", "sensitivity", mouse_sensitivity)
+	player_class = cfg.get_value("player", "class", player_class)
+	player_skin = cfg.get_value("player", "skin", player_skin)
+
+
+func save_options() -> void:
+	var cfg := ConfigFile.new()
+	for k in gfx:
+		cfg.set_value("graphics", k, gfx[k])
+	cfg.set_value("controls", "sensitivity", mouse_sensitivity)
+	cfg.set_value("player", "class", player_class)
+	cfg.set_value("player", "skin", player_skin)
+	cfg.save(CONFIG_PATH)
+
+
+func set_gfx(key: String, value) -> void:
+	gfx[key] = value
+	apply_graphics()
+	save_options()
+
+
+## Applique les réglages à la fenêtre et à la scène 3D en cours (lumière, environnement).
+func apply_graphics() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var vp := get_viewport()
+	vp.msaa_3d = MSAA_MODES[clampi(int(gfx.msaa), 0, 3)]
+	vp.scaling_3d_scale = clampf(float(gfx.scale) / 100.0, 0.5, 1.0)
+	var fs := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
+	if bool(gfx.fullscreen) != fs:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if gfx.fullscreen else DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if gfx.vsync else DisplayServer.VSYNC_DISABLED)
+	Engine.max_fps = FPS_LIMITS[clampi(int(gfx.fps_limit), 0, FPS_LIMITS.size() - 1)]
+	var q := clampi(int(gfx.shadows), 0, 3)
+	if q > 0:
+		RenderingServer.directional_shadow_atlas_set_size(SHADOW_SIZES[q], true)
+	for sun in get_tree().get_nodes_in_group("gfx_sun"):
+		sun.shadow_enabled = q > 0
+		sun.directional_shadow_max_distance = SHADOW_DISTANCES[q]
+		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL if q == 1 else DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	for we in get_tree().get_nodes_in_group("gfx_env"):
+		var env: Environment = we.environment
+		env.fog_enabled = gfx.fog
+		env.adjustment_enabled = int(gfx.brightness) != 100
+		env.adjustment_brightness = float(gfx.brightness) / 100.0
+	graphics_changed.emit()
+
+
+func view_distance() -> float:
+	return VIEW_DISTANCES[clampi(int(gfx.view), 0, 2)]
 
 
 func host(p_port: int) -> String:
@@ -41,7 +128,7 @@ func host(p_port: int) -> String:
 		return "Impossible d'héberger sur le port %d (déjà utilisé ?)." % p_port
 	multiplayer.multiplayer_peer = peer
 	port = p_port
-	players = {1: {"name": player_name, "team": 0, "skin": player_skin}}
+	players = {1: {"name": player_name, "team": 0, "skin": player_skin, "class": player_class}}
 	in_game = false
 	print("[net] Serveur ouvert sur le port %d" % p_port)
 	lobby_changed.emit()
@@ -110,14 +197,14 @@ func end_match_to_lobby() -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func register_player(pname: String, skin: int) -> void:
+func register_player(pname: String, skin: int, cls: int) -> void:
 	if not multiplayer.is_server():
 		return
 	var id := multiplayer.get_remote_sender_id()
 	pname = pname.strip_edges().substr(0, 16)
 	if pname == "":
 		pname = "Joueur%d" % id
-	players[id] = {"name": pname, "team": _smallest_team(), "skin": clampi(skin, 0, 99)}
+	players[id] = {"name": pname, "team": _smallest_team(), "skin": clampi(skin, 0, 99), "class": clampi(cls, 0, 99)}
 	print("[net] %s a rejoint (id %d)" % [pname, id])
 	_broadcast_lobby()
 	if in_game:
@@ -171,7 +258,7 @@ func _broadcast_lobby() -> void:
 
 func _on_connected_ok() -> void:
 	print("[net] Connecté au serveur")
-	register_player.rpc_id(1, player_name, player_skin)
+	register_player.rpc_id(1, player_name, player_skin, player_class)
 
 
 func _on_peer_disconnected(id: int) -> void:
@@ -200,6 +287,7 @@ func _setup_inputs() -> void:
 	_keys("move_right", [KEY_D, KEY_RIGHT])
 	_keys("jump", [KEY_SPACE])
 	_keys("sprint", [KEY_SHIFT])
+	_keys("slide", [KEY_CTRL, KEY_C])
 	_keys("reload", [KEY_R])
 	_keys("weapon_1", [KEY_1])
 	_keys("weapon_2", [KEY_2])
