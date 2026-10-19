@@ -18,6 +18,9 @@ var _name_edit: LineEdit
 var _skin_opt: OptionButton
 var _class_opt: OptionButton
 var _class_desc: Label
+var _camo_opt: OptionButton
+var _level_label: Label
+var _level_bar: ProgressBar
 var _games_box: VBoxContainer
 var _ip_edit: LineEdit
 var _port_spin: SpinBox
@@ -130,6 +133,14 @@ func _build_ui() -> void:
 	_menu.add_theme_constant_override("separation", 10)
 	stack.add_child(_menu)
 
+	_level_label = _label("", 16)
+	_level_label.add_theme_font_override("font", UiTheme.font_bold())
+	_level_label.add_theme_color_override("font_color", UiTheme.ACCENT)
+	_menu.add_child(_level_label)
+	_level_bar = ProgressBar.new()
+	_level_bar.show_percentage = false
+	_level_bar.custom_minimum_size = Vector2(0, 6)
+	_menu.add_child(_level_bar)
 	_menu.add_child(_section("PSEUDO"))
 	_name_edit = LineEdit.new()
 	_name_edit.max_length = 16
@@ -154,6 +165,16 @@ func _build_ui() -> void:
 	_class_desc = _label(Data.CLASSES[Net.player_class]["desc"], 15)
 	_class_desc.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
 	_menu.add_child(_class_desc)
+
+	_menu.add_child(_section("CAMOUFLAGE D'ARME"))
+	_camo_opt = OptionButton.new()
+	_camo_opt.item_selected.connect(func(i: int) -> void:
+		Net.player_camo = i
+		Net.save_options()
+		if _background != null:
+			_background.show_class(Net.player_class))
+	_menu.add_child(_camo_opt)
+	_refresh_profile()
 
 	var port_row := HBoxContainer.new()
 	port_row.add_theme_constant_override("separation", 10)
@@ -194,7 +215,7 @@ func _build_ui() -> void:
 	_menu.add_child(HSeparator.new())
 	_menu.add_child(_button("Options (graphismes, souris)", func() -> void: _options.open()))
 	_menu.add_child(HSeparator.new())
-	var help := _label("ZQSD : bouger   ·   Souris : viser   ·   Clic gauche : tirer   ·   Clic droit : zoom\nEspace : sauter   ·   Maj : sprint   ·   Ctrl : glisser   ·   R : recharger   ·   1/2/3 ou molette : armes\nG : grenade   ·   H : fumigène   ·   V : couteau   ·   T : chat   ·   X ou clic molette : signaler
+	var help := _label("ZQSD : bouger   ·   Souris : viser   ·   Clic gauche : tirer   ·   Clic droit : zoom\nEspace : sauter   ·   Maj : sprint   ·   Ctrl : glisser   ·   R : recharger   ·   1/2/3 ou molette : armes\nG : grenade   ·   H : fumigène   ·   V : couteau   ·   L : lampe   ·   T : chat   ·   X ou clic molette : signaler
 Tab : scores   ·   Échap : pause   ·   Touches modifiables dans Options", 15)
 	help.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
 	_menu.add_child(help)
@@ -374,6 +395,8 @@ func _show_menu(message: String) -> void:
 	_ui.show()
 	_menu.visible = true
 	Net.start_discovery()
+	if _level_label != null:
+		_refresh_profile()
 	_lobby.visible = false
 	_status.text = message
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -466,6 +489,23 @@ func _on_skin_selected(index: int) -> void:
 	Net.save_options()
 	if _background != null:
 		_background.show_skin(index)
+
+
+## Niveau, barre d'expérience et camouflages débloqués.
+func _refresh_profile() -> void:
+	var info := Data.level_info(Net.xp)
+	_level_label.text = "NIVEAU %d   ·   %d / %d XP" % [info[0], info[1], info[2]]
+	_level_bar.max_value = info[2]
+	_level_bar.value = info[1]
+	_camo_opt.clear()
+	for i in Data.CAMOS.size():
+		var cm: Dictionary = Data.CAMOS[i]
+		var locked: bool = info[0] < int(cm["level"])
+		_camo_opt.add_item(cm["name"] + ("   (niveau %d)" % cm["level"] if locked else ""))
+		_camo_opt.set_item_disabled(i, locked)
+	if Net.player_camo >= Data.CAMOS.size() or info[0] < int(Data.CAMOS[Net.player_camo]["level"]):
+		Net.player_camo = 0
+	_camo_opt.select(Net.player_camo)
 
 
 func _on_class_selected(index: int) -> void:
@@ -582,6 +622,10 @@ func _apply_cmdline() -> void:
 		opts[parts[0]] = parts[1] if parts.size() > 1 else ""
 	if opts.has("name"):
 		_name_edit.text = opts["name"]
+	if opts.has("camo"):
+		Net.player_camo = int(opts["camo"])
+		if _background != null:
+			_background.show_class(Net.player_class)
 	if opts.has("class"):
 		_class_opt.select(int(opts["class"]))
 		_on_class_selected(int(opts["class"]))

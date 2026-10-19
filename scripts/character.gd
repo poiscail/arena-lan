@@ -31,6 +31,7 @@ var owner_peer := 1
 var is_local := false
 var skin := 0
 var class_id := 0
+var camo := 0
 var next_class := -1  # classe demandée pour la prochaine réapparition (serveur)
 var loadout: Array = [0, 1, 2]
 var slot := 0
@@ -49,6 +50,7 @@ var _sprint_blend := 0.0
 var _was_on_floor := true
 var _fall_speed := 0.0
 var _step := 0.0
+var _flashlight: SpotLight3D
 var alive := true
 var bot = null
 
@@ -163,6 +165,20 @@ func _ready() -> void:
 		_build_viewmodel()
 		_update_viewmodel()
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	# Lampe torche la nuit : celle du joueur local suit la caméra, celles des autres sont sur leur tête
+	if game != null and game.map != null and game.map.night:
+		_flashlight = SpotLight3D.new()
+		_flashlight.light_color = Color(1.0, 0.95, 0.85)
+		_flashlight.spot_range = 28.0 if is_local else 18.0
+		_flashlight.spot_angle = 24.0
+		_flashlight.light_energy = 2.4 if is_local else 1.6
+		_flashlight.shadow_enabled = false
+		if is_local:
+			_flashlight.position = Vector3(0.15, -0.1, 0)
+			camera.add_child(_flashlight)
+		else:
+			_flashlight.position = Vector3(0, 0.1, -0.3)
+			head.add_child(_flashlight)
 
 
 func get_color() -> Color:
@@ -352,6 +368,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		throw_grenade(0)
 	elif event.is_action_pressed("smoke"):
 		throw_grenade(1)
+	elif event.is_action_pressed("flashlight") and _flashlight != null:
+		_flashlight.visible = not _flashlight.visible
+		game.sfx.play("metalClick", null, -14.0, 0.0)
 	elif event.is_action_pressed("melee"):
 		melee()
 	elif event is InputEventMouseButton and event.pressed:
@@ -588,6 +607,7 @@ func _build_viewmodel() -> void:
 	_view_guns.clear()
 	for wi in loadout:
 		var g := Models.weapon(Data.WEAPONS[wi].model, Data.WEAPONS[wi].len)
+		Models.apply_camo(g, Data.CAMOS[camo])
 		_viewmodel.add_child(g)
 		_view_guns.append(g)
 
@@ -598,6 +618,7 @@ func show_weapon(wi: int) -> void:
 		return
 	_gun = People.hold_gun(_model, Data.WEAPONS[wi].model, float(Data.WEAPONS[wi].len) * 1.2)
 	_gun.set_meta("weapon", wi)
+	Models.apply_camo(_gun, Data.CAMOS[camo])
 
 
 func _on_graphics_changed() -> void:

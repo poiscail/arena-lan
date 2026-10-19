@@ -46,12 +46,26 @@ Quelqu'un peut rejoindre en cours de partie. Il remplace alors un bot.
 | 1 / 2 / 3 ou molette | Changer d'arme |
 | T | Chat |
 | X ou clic molette | Signaler un endroit à ton équipe |
+| L | Lampe torche (cartes de nuit) |
 | Tab | Tableau des scores |
 | Échap | Pause (classe, options, quitter) |
 
 Toutes les touches se changent dans **Options > Touches**.
 
 **Glissade** : en courant, appuie sur Ctrl. Tu glisses vite et bas pendant presque une seconde, et tu restes précis en tirant. Saute pendant la glissade pour garder l'élan.
+
+## Cartes
+- **Base militaire** et **Ville**, de jour.
+- **Entrepôt** : un grand hangar fermé, éclairé par des lampes au plafond, avec des cloisons, des piliers et des caisses.
+- **Base militaire (nuit)** et **Ville (nuit)** : ciel étoilé, lampadaires et lampe torche (L).
+
+## Progression et personnalisation
+- Chaque match rapporte de l'**expérience** : participation, éliminations, objectifs et victoire. Elle est sauvegardée sur ton PC.
+- Le menu affiche ton **niveau** et ta barre d'expérience.
+- En montant de niveau, tu débloques des **camouflages d'armes** : Désert, Forêt, Urbain, Nuit, Rouge, Or et Néon. Les autres joueurs les voient sur ton arme.
+
+## Bots
+Ils se déplacent avec des chemins calculés, glissent, se mettent à l'abri quand ils sont blessés (parfois avec un fumigène), lancent des grenades, donnent des coups de couteau de près, contournent l'ennemi, ramassent les bonus et jouent les objectifs des modes.
 
 ## Modes de jeu
 L'hôte choisit le jeu dans le salon :

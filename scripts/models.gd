@@ -80,3 +80,15 @@ static func _local_aabb(top: Node3D) -> AABB:
 		else:
 			result = result.merge(a)
 	return result
+
+
+## Applique un camouflage (Data.CAMOS) à toutes les pièces d'une arme, par-dessus ses textures.
+static func apply_camo(node: Node, camo: Dictionary) -> void:
+	var overlay: StandardMaterial3D = null
+	if camo["name"] != "Standard":
+		overlay = StandardMaterial3D.new()
+		overlay.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		overlay.albedo_color = camo["color"]
+		overlay.blend_mode = BaseMaterial3D.BLEND_MODE_ADD if camo["add"] else BaseMaterial3D.BLEND_MODE_MUL
+	for m in node.find_children("*", "MeshInstance3D", true, false):
+		m.material_overlay = overlay

@@ -46,7 +46,7 @@ static func esc(text: String) -> String:
 	return text.replace("[", "[lb]")
 
 # Cartes disponibles (index utilisé dans les paramètres de partie)
-const MAPS := ["Base militaire", "Ville"]
+const MAPS := ["Base militaire", "Ville", "Entrepôt", "Base militaire (nuit)", "Ville (nuit)"]
 
 # Autres causes d'élimination (en plus des armes)
 const KILL_GRENADE := 100
@@ -99,3 +99,26 @@ const RULES := {
 const RULE_ORDER := ["dm", "ctf", "koth", "gungame", "elim"]
 # Course aux armes : ordre des armes (indices dans WEAPONS)
 const GUNGAME_LADDER := [0, 3, 1, 6, 2, 7, 5, 8, 9, 4]
+
+# Camouflages d'armes, débloqués en montant de niveau. "add" : couleur lumineuse ajoutée (néon).
+const CAMOS := [
+	{"name": "Standard", "level": 1, "color": Color(1, 1, 1), "add": false},
+	{"name": "Désert", "level": 2, "color": Color(0.95, 0.8, 0.55), "add": false},
+	{"name": "Forêt", "level": 3, "color": Color(0.55, 0.75, 0.45), "add": false},
+	{"name": "Urbain", "level": 4, "color": Color(0.72, 0.74, 0.8), "add": false},
+	{"name": "Nuit", "level": 6, "color": Color(0.35, 0.38, 0.52), "add": false},
+	{"name": "Rouge", "level": 8, "color": Color(0.95, 0.42, 0.36), "add": false},
+	{"name": "Or", "level": 10, "color": Color(1.0, 0.8, 0.32), "add": false},
+	{"name": "Néon", "level": 15, "color": Color(0.05, 0.45, 0.6), "add": true},
+]
+
+
+## Niveau du joueur à partir de son expérience : [niveau, XP dans le niveau, XP pour le suivant].
+static func level_info(xp: int) -> Array:
+	var lvl := 1
+	var need := 150
+	while xp >= need:
+		xp -= need
+		lvl += 1
+		need = 150 + 50 * (lvl - 1)
+	return [lvl, xp, need]

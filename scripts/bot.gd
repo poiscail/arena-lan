@@ -35,6 +35,10 @@ var _stuck_t := 0.0
 var _last_pos := Vector3.ZERO
 var _alert = null
 var _alert_t := 0.0
+var _cover := PackedVector3Array()  # chemin vers un abri quand le bot est blessé
+var _cover_i := 0
+var _cover_t := 0.0
+var _nade_cd := 4.0
 
 
 func reset() -> void:
@@ -45,6 +49,9 @@ func reset() -> void:
 	_repath_t = 0.0
 	_ammo = MAG
 	_reload = 0.0
+	_cover = PackedVector3Array()
+	_cover_t = 0.0
+	_nade_cd = randf_range(3.0, 8.0)
 
 
 func alert(attacker) -> void:
@@ -129,6 +136,37 @@ func _fight(delta: float) -> void:
 	move_dir.y = 0
 	move_dir = move_dir.normalized()
 
+	# Blessé : courir vers un abri hors de vue de l'ennemi (et lancer un fumigène)
+	_cover_t -= delta
+	_nade_cd -= delta
+	if difficulty > 0 and c.hp < 40 and _cover_t <= -4.0:
+		var spot = _find_cover(_enemy)
+		if spot != null:
+			_cover = map.find_path(c.position, spot)
+			_cover_i = 0
+			_cover_t = 3.5
+			if c.grenades[1] > 0 and randf() < 0.3:
+				game.items.server_throw_at(c, 1, c.position.lerp(_enemy.position, 0.4))
+	if _cover_t > 0.0 and _cover_i < _cover.size():
+		var p := _cover[_cover_i]
+		if Vector2(c.position.x - p.x, c.position.z - p.z).length() < 0.8:
+			_cover_i += 1
+		else:
+			move_dir = Vector3(p.x - c.position.x, 0, p.z - c.position.z).normalized()
+			sprint = true
+
+	# Couteau au contact
+	if dist < 1.9 and c._melee_cd <= 0.0:
+		c._melee_cd = 0.8
+		game._server_melee(c)
+		return
+	# Grenade sur un ennemi à moyenne distance
+	if difficulty > 0 and _nade_cd <= 0.0 and c.grenades[0] > 0 and dist > 8.0 and dist < 26.0:
+		_nade_cd = randf_range(7.0, 14.0) / difficulty
+		if randf() < 0.5:
+			game.items.server_throw_at(c, 0, _enemy.position)
+			return
+
 	_react -= delta
 	if _react > 0.0 or _fire_cd > 0.0 or _reload > 0.0:
 		return
@@ -180,6 +218,11 @@ func _pick_goal() -> Vector3:
 	if mode_goal != null:
 		return mode_goal
 	if _alert != null and _alert.alive and _alert_t > -3.0:
+		if difficulty > 0 and randf() < 0.5:
+			var side: Vector3 = (_alert.position - c.position).cross(Vector3.UP).normalized() * (8.0 if randf() < 0.5 else -8.0)
+			var flank: Vector3 = _alert.position + side
+			if map.is_clear(flank):
+				return flank
 		return _alert.position
 	if randf() < 0.3:
 		return map.random_point()
@@ -223,3 +266,20 @@ func _cone(dir: Vector3, degrees: float) -> Vector3:
 	side = side.normalized()
 	var up := side.cross(dir).normalized()
 	return (dir * cos(a) + (side * cos(t) + up * sin(t)) * sin(a)).normalized()
+
+
+## Point de navigation proche, à l'abri de la vue de l'ennemi.
+func _find_cover(enemy):
+	var eye: Vector3 = enemy.eye_position()
+	var best = null
+	var best_d := 14.0
+	for i in 24:
+		var p: Vector3 = map.random_point()
+		var d: float = p.distance_to(c.position)
+		if d > best_d or d < 2.0:
+			continue
+		if game.line_clear(eye, p + Vector3(0, 1.2, 0)):
+			continue
+		best = p
+		best_d = d
+	return best

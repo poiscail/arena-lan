@@ -4,6 +4,7 @@ extends Node3D
 const MapScript := preload("res://scripts/map.gd")
 const People := preload("res://scripts/people.gd")
 const Data := preload("res://scripts/data.gd")
+const Models := preload("res://scripts/models.gd")
 
 const SHOWCASE_POS := Vector3(0, 0, 16)
 # Figurants : [skin, position, angle (degrés), vitesse des jambes, visée (-1..1), arme]
@@ -53,6 +54,7 @@ func show_class(index: int) -> void:
 	var cls: Dictionary = Data.CLASSES[clampi(index, 0, Data.CLASSES.size() - 1)]
 	var w: Dictionary = Data.WEAPONS[cls["weapons"][0]]
 	_showcase_gun = People.hold_gun(_showcase, w.model, float(w.len) * 1.2)
+	Models.apply_camo(_showcase_gun, Data.CAMOS[clampi(Net.player_camo, 0, Data.CAMOS.size() - 1)])
 
 
 func _process(delta: float) -> void:

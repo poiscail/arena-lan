@@ -519,6 +519,8 @@ func _stats_text() -> String:
 			if int(wk[k]) > fav_n:
 				fav_n = int(wk[k])
 				fav = Data.kill_name(int(k))
+		if game.xp_text != "":
+			t += "\n[center][color=#7fe08a][b]%s[/b][/color][/center]" % game.xp_text
 		t += "\n[center][color=#ffa64d][b]TOI[/b][/color] :  précision %d %%  ·  %d tirs à la tête  ·  %d dégâts  ·  série max %d  ·  arme préférée : %s[/center]" % [
 			acc, int(m.get("heads", 0)), int(m.get("dmg", 0)), int(m.get("best_streak", 0)), fav]
 	return t

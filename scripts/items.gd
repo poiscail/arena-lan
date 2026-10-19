@@ -237,6 +237,7 @@ func _server_throw(c, kind: int, origin: Vector3, vel: Vector3) -> void:
 	vel = vel.limit_length(25.0)
 	_grenade_serial += 1
 	var id := "G%d" % _grenade_serial
+	print("[grenade] %s lance %s" % [c.display_name, "une grenade" if kind == 0 else "un fumigène"])
 	_broadcast("spawn_grenade", [id, kind, c.char_id, origin, vel])
 
 
@@ -409,3 +410,18 @@ func nearest_pickup(pos: Vector3, kinds: Array, max_dist: float):
 				best_d = d
 				best = p["pos"]
 	return best
+
+
+## (Serveur) Un bot lance une grenade en cloche vers « target ».
+func server_throw_at(c, kind: int, target: Vector3) -> void:
+	var origin: Vector3 = c.eye_position()
+	var d := target - origin
+	var horiz := Vector2(d.x, d.z)
+	var dist := maxf(horiz.length(), 1.0)
+	var speed := clampf(dist * 0.9, 7.0, 17.0)
+	var t := dist / speed
+	var g := float(ProjectSettings.get_setting("physics/3d/default_gravity", 9.8))
+	var vy := (d.y + 0.5 * g * t * t) / t
+	var dir := horiz.normalized()
+	origin += Vector3(dir.x, 0, dir.y) * 0.5
+	_server_throw(c, kind, origin, Vector3(dir.x * speed, vy, dir.y * speed))

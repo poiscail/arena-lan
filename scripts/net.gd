@@ -12,6 +12,8 @@ const MAX_HUMANS := 12
 var player_name := "Joueur"
 var player_skin := 0
 var player_class := 0
+var player_camo := 0
+var xp := 0  # expérience totale du joueur (sauvegardée)
 var port := DEFAULT_PORT
 var players := {}  # peer_id -> {"name": String, "team": int}
 var settings := {
@@ -77,6 +79,8 @@ func load_options() -> void:
 		_apply_bindings()
 	player_class = cfg.get_value("player", "class", player_class)
 	player_skin = cfg.get_value("player", "skin", player_skin)
+	player_camo = cfg.get_value("player", "camo", player_camo)
+	xp = cfg.get_value("player", "xp", xp)
 
 
 func save_options() -> void:
@@ -88,6 +92,8 @@ func save_options() -> void:
 		cfg.set_value("keys", a, bindings[a])
 	cfg.set_value("player", "class", player_class)
 	cfg.set_value("player", "skin", player_skin)
+	cfg.set_value("player", "camo", player_camo)
+	cfg.set_value("player", "xp", xp)
 	cfg.save(CONFIG_PATH)
 
 
@@ -197,7 +203,7 @@ func host(p_port: int) -> String:
 		return "Impossible d'héberger sur le port %d (déjà utilisé ?)." % p_port
 	multiplayer.multiplayer_peer = peer
 	port = p_port
-	players = {1: {"name": player_name, "team": 0, "skin": player_skin, "class": player_class}}
+	players = {1: {"name": player_name, "team": 0, "skin": player_skin, "class": player_class, "camo": player_camo}}
 	in_game = false
 	print("[net] Serveur ouvert sur le port %d" % p_port)
 	lobby_changed.emit()
@@ -266,14 +272,14 @@ func end_match_to_lobby() -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func register_player(pname: String, skin: int, cls: int) -> void:
+func register_player(pname: String, skin: int, cls: int, camo: int) -> void:
 	if not multiplayer.is_server():
 		return
 	var id := multiplayer.get_remote_sender_id()
 	pname = pname.strip_edges().substr(0, 16)
 	if pname == "":
 		pname = "Joueur%d" % id
-	players[id] = {"name": pname, "team": _smallest_team(), "skin": clampi(skin, 0, 99), "class": clampi(cls, 0, 99)}
+	players[id] = {"name": pname, "team": _smallest_team(), "skin": clampi(skin, 0, 99), "class": clampi(cls, 0, 99), "camo": clampi(camo, 0, 99)}
 	print("[net] %s a rejoint (id %d)" % [pname, id])
 	_broadcast_lobby()
 	if in_game:
@@ -327,7 +333,7 @@ func _broadcast_lobby() -> void:
 
 func _on_connected_ok() -> void:
 	print("[net] Connecté au serveur")
-	register_player.rpc_id(1, player_name, player_skin, player_class)
+	register_player.rpc_id(1, player_name, player_skin, player_class, player_camo)
 
 
 func _on_peer_disconnected(id: int) -> void:
@@ -354,7 +360,7 @@ const REBINDABLE := [
 	["jump", "Sauter"], ["sprint", "Sprinter"], ["slide", "Glisser"], ["shoot", "Tirer"], ["zoom", "Zoom"],
 	["reload", "Recharger"], ["weapon_1", "Arme 1"], ["weapon_2", "Arme 2"], ["weapon_3", "Arme 3"],
 	["grenade", "Grenade"], ["smoke", "Fumigène"], ["melee", "Couteau"], ["ping", "Signaler"],
-	["chat", "Chat"], ["scoreboard", "Scores"],
+	["chat", "Chat"], ["flashlight", "Lampe torche"], ["scoreboard", "Scores"],
 ]
 
 var bindings := {}  # action -> "k:<touche physique>" ou "m:<bouton souris>"
@@ -427,6 +433,7 @@ func _setup_inputs() -> void:
 	_keys("smoke", [KEY_H])
 	_keys("melee", [KEY_V])
 	_keys("chat", [KEY_T])
+	_keys("flashlight", [KEY_L])
 	_keys("ping", [KEY_X])
 	_mouse("ping", MOUSE_BUTTON_MIDDLE)
 	_keys("reload", [KEY_R])

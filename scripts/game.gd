@@ -516,7 +516,7 @@ func _server_add_human(peer: int) -> void:
 	var id := _pid(peer)
 	if not scores.has(id):
 		scores[id] = _new_score(info["name"], team, false)
-	_broadcast("spawn_char", [id, info["name"], team, false, peer, _pick_spawn(team), true, 100, int(info.get("skin", 0)), int(info.get("class", 0))])
+	_broadcast("spawn_char", [id, info["name"], team, false, peer, _pick_spawn(team), true, 100, int(info.get("skin", 0)), int(info.get("class", 0)), int(info.get("camo", 0))])
 	if chars.has(id):
 		modes.gungame_weapon(chars[id])
 	_broadcast_scores()
@@ -527,7 +527,7 @@ func _server_add_bot(team: int) -> String:
 	var id := "B%d" % _bot_serial
 	var bname := "%s (bot)" % BOT_NAMES[(_bot_serial - 1) % BOT_NAMES.size()]
 	scores[id] = _new_score(bname, team, true)
-	_broadcast("spawn_char", [id, bname, team, true, 1, _pick_spawn(team), true, 100, randi() % Data.SKINS.size(), randi() % Data.CLASSES.size()])
+	_broadcast("spawn_char", [id, bname, team, true, 1, _pick_spawn(team), true, 100, randi() % Data.SKINS.size(), randi() % Data.CLASSES.size(), randi() % 6])
 	modes.gungame_weapon(chars[id])
 	return id
 
@@ -659,7 +659,7 @@ func client_ready() -> void:
 	ready_peers[peer] = true
 	for id in chars:
 		var c = chars[id]
-		spawn_char.rpc_id(peer, id, c.display_name, c.team, c.is_bot, c.owner_peer, c.position, c.alive, c.hp, c.skin, c.class_id)
+		spawn_char.rpc_id(peer, id, c.display_name, c.team, c.is_bot, c.owner_peer, c.position, c.alive, c.hp, c.skin, c.class_id, c.camo)
 	sync_scores.rpc_id(peer, scores, time_left)
 	items.sync_to(peer)
 	modes.sync_to(peer)
@@ -687,7 +687,7 @@ func req_shoot(weapon: int, origin: Vector3, dirs: PackedVector3Array) -> void:
 # --- RPC serveur -> clients -----------------------------------------------------
 
 @rpc("authority", "call_remote", "reliable")
-func spawn_char(id: String, dname: String, team: int, is_bot: bool, owner_peer: int, pos: Vector3, alive: bool, hp: int, skin: int, cls: int) -> void:
+func spawn_char(id: String, dname: String, team: int, is_bot: bool, owner_peer: int, pos: Vector3, alive: bool, hp: int, skin: int, cls: int, camo: int) -> void:
 	if chars.has(id):
 		return
 	var c = CharacterScript.new()
@@ -695,6 +695,7 @@ func spawn_char(id: String, dname: String, team: int, is_bot: bool, owner_peer: 
 	c.char_id = id
 	c.skin = skin
 	c.class_id = cls
+	c.camo = clampi(camo, 0, Data.CAMOS.size() - 1)
 	c.display_name = dname
 	c.team = team
 	c.is_bot = is_bot
@@ -812,9 +813,40 @@ func sync_time(tl: float) -> void:
 
 @rpc("authority", "call_remote", "reliable")
 func on_match_end(text: String) -> void:
+	if not match_over:
+		_award_xp()
 	match_over = true
 	end_text = text
 	hud.refresh_scores()
+
+
+## Expérience gagnée par le joueur local à la fin du match (sauvegardée sur son PC).
+var xp_text := ""
+func _award_xp() -> void:
+	if local_char == null or not scores.has(local_char.char_id):
+		return
+	var m: Dictionary = scores[local_char.char_id]
+	var gain := 25 + int(m["kills"]) * 10
+	var pts := int(m.get("pts", 0))
+	gain += pts * {"ctf": 50, "koth": 1, "gungame": 10, "elim": 0, "dm": 0}.get(rules, 0)
+	var won := false
+	if settings.mode == "team":
+		var t := team_scores()
+		won = t[local_char.team] > t[1 - local_char.team]
+	else:
+		won = _ffa_leader().get("name", "") == m["name"]
+	if won:
+		gain += 50
+	var before: int = Data.level_info(Net.xp)[0]
+	Net.xp += gain
+	Net.save_options()
+	var after: Array = Data.level_info(Net.xp)
+	xp_text = "+%d XP%s   ·   niveau %d  (%d / %d)" % [gain, "  (victoire +50)" if won else "", after[0], after[1], after[2]]
+	if after[0] > before:
+		xp_text += "   ·   NIVEAU SUPÉRIEUR !"
+		for cm in Data.CAMOS:
+			if int(cm["level"]) > before and int(cm["level"]) <= after[0]:
+				xp_text += "  Camouflage « %s » débloqué" % cm["name"]
 
 
 
