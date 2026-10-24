@@ -8,6 +8,7 @@ const MenuBgScript := preload("res://scripts/menu_bg.gd")
 const OptionsScript := preload("res://scripts/options.gd")
 const ArmoryScript := preload("res://scripts/armory.gd")
 const LoadoutScript := preload("res://scripts/loadout.gd")
+const WeatherScript := preload("res://scripts/weather.gd")
 
 var game: Node = null
 var _background: Node3D = null
@@ -37,6 +38,7 @@ var _slots_label: Label
 var _slots: SpinBox
 var _bots: CheckBox
 var _advmove: CheckBox
+var _weather_opt: OptionButton
 var _difficulty: OptionButton
 var _score: SpinBox
 var _time: SpinBox
@@ -260,6 +262,13 @@ Tab : scores   ·   Échap : pause   ·   Touches modifiables dans Options", 15)
 	_map_opt.item_selected.connect(_on_setting_changed)
 	_add_row(grid, "Carte", _map_opt)
 
+	_weather_opt = OptionButton.new()
+	for w in WeatherScript.NAMES:
+		_weather_opt.add_item(w)
+	_weather_opt.add_item("Au hasard")
+	_weather_opt.item_selected.connect(_on_setting_changed)
+	_add_row(grid, "Météo", _weather_opt)
+
 	_slots = _spin(1, 6)
 	_slots_label = _add_row(grid, "Joueurs par équipe", _slots)
 
@@ -441,6 +450,7 @@ func _refresh_lobby() -> void:
 	var team: bool = s.mode == "team"
 	_mode.select(0 if team else 1)
 	_map_opt.select(int(s.get("map", 0)))
+	_weather_opt.select(int(s.get("weather", 0)))
 	var rules: String = s.get("rules", "dm")
 	_rules_opt.select(maxi(0, Data.RULE_ORDER.find(rules)))
 	_rules_desc.text = Data.RULES[rules]["desc"]
@@ -457,6 +467,7 @@ func _refresh_lobby() -> void:
 	_time.set_value_no_signal(s.time_limit)
 	_mode.disabled = not is_host
 	_map_opt.disabled = not is_host
+	_weather_opt.disabled = not is_host
 	_rules_opt.disabled = not is_host
 	_difficulty.disabled = not is_host
 	_bots.disabled = not is_host
@@ -589,6 +600,7 @@ func _on_setting_changed(_value) -> void:
 		s["score_limit"] = int(_score.value)
 	s["time_limit"] = int(_time.value)
 	s["map"] = _map_opt.selected
+	s["weather"] = _weather_opt.selected
 	Net.set_settings(s)
 
 
@@ -671,6 +683,8 @@ func _apply_cmdline() -> void:
 			s["rules"] = opts["rules"]
 		if opts.has("map"):
 			s["map"] = int(opts["map"])
+		if opts.has("weather"):
+			s["weather"] = int(opts["weather"])
 		if opts.has("time"):
 			s["time_limit"] = int(opts["time"])
 		if opts.has("score"):
@@ -877,6 +891,9 @@ func _apply_cmdline() -> void:
 			var c = game.local_char
 			c.ammo[c.weapon] = 0
 			c.start_reload())
+	if opts.has("strike"):
+		# Test : un éclair devant le joueur (orage)
+		get_tree().create_timer(float(opts["strike"])).timeout.connect(func() -> void: game.weather._strike(-PI / 2.0, 80.0))
 	if opts.has("inspect"):
 		get_tree().create_timer(float(opts["inspect"])).timeout.connect(func() -> void: game.local_char.start_inspect())
 	if opts.has("killed-by"):

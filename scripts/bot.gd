@@ -3,6 +3,7 @@ extends RefCounted
 ## Il cherche un ennemi visible, se bat en strafant, sinon traque via le graphe de navigation.
 
 const Data := preload("res://scripts/data.gd")
+const WeatherScript := preload("res://scripts/weather.gd")
 
 const REACTION := [0.9, 0.5, 0.25]   # secondes avant de tirer sur une nouvelle cible
 const AIM_ERROR := [7.0, 3.5, 1.6]   # dispersion du tir en degrés
@@ -102,7 +103,8 @@ func _find_enemy():
 	var eye: Vector3 = c.eye_position()
 	var fwd: Vector3 = -c.global_transform.basis.z
 	var best = null
-	var best_d := VIEW_RANGE
+	# La pluie, la neige et le brouillard réduisent la vue des bots
+	var best_d: float = minf(VIEW_RANGE, WeatherScript.BOT_VIEW[game.weather.kind]) if game.weather != null else VIEW_RANGE
 	for o in game.chars.values():
 		if not o.alive or not game.is_enemy(c, o):
 			continue

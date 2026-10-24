@@ -30,6 +30,7 @@ var settings := {
 	"map": 0,            # 0 base militaire, 1 ville
 	"rules": "dm",       # mode de jeu : voir Data.RULES
 	"advmove": false,    # mouvements avancés : double saut et course sur les murs
+	"weather": 0,        # météo : 0 beau temps, 1 pluie, 2 orage, 3 neige, 4 brouillard, 5 au hasard
 }
 var in_game := false
 var mouse_sensitivity := 0.0025
@@ -164,7 +165,8 @@ func apply_graphics() -> void:
 		sun.light_angular_distance = 0.6 if adv and fx >= 2 else 0.0
 	for we in get_tree().get_nodes_in_group("gfx_env"):
 		var env: Environment = we.environment
-		env.fog_enabled = gfx.fog
+		var fog_on: bool = gfx.fog or we.get_meta("force_fog", false)
+		env.fog_enabled = fog_on
 		env.adjustment_enabled = true  # saturation de la carte + luminosité du joueur
 		env.adjustment_brightness = float(gfx.brightness) / 100.0
 		if we.get_meta("sky_ambient", false):
@@ -188,7 +190,7 @@ func apply_graphics() -> void:
 		env.ssr_max_steps = 48
 		env.sdfgi_enabled = adv and fx >= 3 and not we.get_meta("indoor", false)
 		var vf: float = we.get_meta("volfog", 0.0)
-		env.volumetric_fog_enabled = adv and fx >= 3 and vf > 0.0 and gfx.fog
+		env.volumetric_fog_enabled = adv and fx >= 3 and vf > 0.0 and fog_on
 		env.volumetric_fog_density = vf
 		env.volumetric_fog_albedo = we.get_meta("volfog_color", Color(0.8, 0.8, 0.85))
 	graphics_changed.emit()
@@ -353,6 +355,9 @@ func start_match() -> void:
 	if not multiplayer.is_server() or in_game:
 		return
 	in_game = true
+	# Météo tirée au hasard et graine commune (éclairs, flaques) : identiques chez tous les joueurs
+	settings["weather_now"] = randi_range(0, 4) if int(settings.get("weather", 0)) == 5 else int(settings.get("weather", 0))
+	settings["weather_seed"] = randi()
 	start_game.rpc(settings)
 
 

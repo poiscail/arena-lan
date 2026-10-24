@@ -231,6 +231,7 @@ const CITY_LAMPS := [[6, 5.5, 16.5], [-6, 5.5, -16.5], [16.5, 5.5, 6], [-16.5, 5
 
 var night := false
 var layout := 0
+var weather := 0  # 0 beau temps, 1 pluie, 2 orage, 3 neige, 4 brouillard (voir weather.gd)
 
 var team_spawns := [[], []]
 var ffa_spawns := []
@@ -245,10 +246,11 @@ var _checker: ImageTexture
 
 
 ## map_index : 0 = base militaire, 1 = ville.
-func build(root: Node3D, with_nav: bool, map_index := 0) -> void:
+func build(root: Node3D, with_nav: bool, map_index := 0, weather_kind := 0) -> void:
 	map_index = clampi(map_index, 0, MAP_LAYOUT.size() - 1)
 	layout = MAP_LAYOUT[map_index]
 	night = MAP_NIGHT[map_index]
+	weather = 0 if layout == 2 else weather_kind  # pas de météo dans l'entrepôt fermé
 	var city := layout == 1
 	var wh := layout == 2
 	var forest := layout == 3
@@ -718,6 +720,8 @@ func _build_environment(root: Node3D) -> void:
 		env.ambient_light_energy = 0.35
 		env.fog_light_color = Color(0.25, 0.23, 0.2)
 		env.fog_density = 0.008
+	if weather > 0:
+		_weather_environment(env, sky)
 	var we := WorldEnvironment.new()
 	we.environment = env
 	we.add_to_group("gfx_env")
@@ -733,6 +737,13 @@ func _build_environment(root: Node3D) -> void:
 	elif layout == 3:
 		we.set_meta("volfog", 0.006)
 		we.set_meta("volfog_color", Color(0.85, 0.9, 0.85))
+	if weather == 4:
+		we.set_meta("volfog", 0.05)
+		we.set_meta("volfog_color", Color(0.8, 0.82, 0.85))
+		we.set_meta("force_fog", true)  # le brouillard fait partie du jeu : pas désactivable
+	elif weather > 0:
+		we.set_meta("volfog", 0.015)
+		we.set_meta("volfog_color", Color(0.75, 0.78, 0.82))
 	root.add_child(we)
 
 	if layout == 2:
@@ -747,12 +758,39 @@ func _build_environment(root: Node3D) -> void:
 		sun.rotation_degrees = Vector3(-35, -60, 0)
 		sun.light_energy = 0.2
 		sun.light_color = Color(0.6, 0.7, 1.0)
+	if weather > 0:
+		# Ciel couvert : soleil voilé, caché dans le ciel
+		sun.light_energy *= [1.0, 0.35, 0.25, 0.5, 0.4][weather]
+		sun.light_color = sun.light_color.lerp(Color(0.85, 0.88, 0.95), 0.6)
+		sun.sky_mode = DirectionalLight3D.SKY_MODE_LIGHT_ONLY
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 90.0
 	sun.add_to_group("gfx_sun")
 	root.add_child(sun)
 	# Ombres, brouillard et luminosité selon les options du joueur
 	Net.apply_graphics.call_deferred()
+
+
+## Météo : ciel couvert, brouillard plus épais et couleurs ternes (pluie, orage, neige, brouillard).
+func _weather_environment(env: Environment, sky: Sky) -> void:
+	var k := weather
+	var top: Color = [Color(), Color(0.3, 0.33, 0.38), Color(0.19, 0.21, 0.25), Color(0.6, 0.63, 0.68), Color(0.62, 0.64, 0.66)][k]
+	var horizon: Color = [Color(), Color(0.5, 0.53, 0.57), Color(0.35, 0.37, 0.41), Color(0.8, 0.82, 0.86), Color(0.74, 0.76, 0.78)][k]
+	if night:
+		top = top * 0.08
+		horizon = horizon * 0.1
+	top.a = 1.0
+	horizon.a = 1.0
+	var sm := ProceduralSkyMaterial.new()
+	sm.sky_top_color = top
+	sm.sky_horizon_color = horizon
+	sm.ground_horizon_color = horizon
+	sm.ground_bottom_color = horizon.darkened(0.4)
+	sky.sky_material = sm
+	env.fog_light_color = horizon
+	env.fog_density = [0.003, 0.012, 0.016, 0.013, 0.045][k] * (1.3 if night else 1.0)
+	env.fog_sky_affect = 0.7 if k == 4 else 0.3
+	env.adjustment_saturation = 0.82
 
 
 ## Ciel de nuit généré : dégradé bleu nuit et étoiles (même ciel sur toutes les machines).
@@ -822,6 +860,12 @@ func _set_textured(node: Node, tex: String, tint: Color, uv_scale: float) -> voi
 	mat.uv1_world_triplanar = true
 	mat.uv1_scale = Vector3.ONE * uv_scale
 	mat.roughness = 0.95
+	if weather == 1 or weather == 2:
+		# Sol mouillé : plus sombre et brillant
+		mat.albedo_color = tint.darkened(0.3)
+		mat.roughness = 0.35
+	elif weather == 3:
+		mat.albedo_color = tint.lerp(Color.WHITE, 0.25)
 	mesh.material_override = mat
 
 
