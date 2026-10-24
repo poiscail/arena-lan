@@ -60,6 +60,8 @@ var _hit_color := Color.WHITE
 var _damage_a := 0.0
 var _heal_t := 0.0
 var _heal_label: Label
+var _inspect_box: PanelContainer
+var _inspect_text: RichTextLabel
 var _death_t := 0.0
 var _death_by := ""
 
@@ -130,6 +132,16 @@ func _ready() -> void:
 	_big.add_theme_color_override("font_color", UiTheme.ACCENT)
 	_place(_big, 0, 0.13, 1, 0.13, 0, -40, 0, 30)
 	root.add_child(_big)
+
+	# Fiche de l'arme pendant l'inspection
+	_inspect_box = PanelContainer.new()
+	_inspect_box.add_theme_stylebox_override("panel", UiTheme.panel(Color(0.03, 0.05, 0.09, 0.72), Color(1, 1, 1, 0.08), 8))
+	_place(_inspect_box, 1, 0.5, 1, 0.5, -430, -40, -40, 100)
+	_inspect_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_inspect_box.visible = false
+	root.add_child(_inspect_box)
+	_inspect_text = _rich(18)
+	_inspect_box.add_child(_inspect_text)
 
 	_board = PanelContainer.new()
 	_board.add_theme_stylebox_override("panel", UiTheme.accent_panel(Color(0.03, 0.05, 0.09, 0.9), UiTheme.ACCENT, 22))
@@ -660,6 +672,7 @@ func _process(delta: float) -> void:
 	var c = game.local_char
 	if c != null:
 		_hp_value.text = str(c.hp)
+		_update_inspect(c)
 		_hp_bar.value = c.hp
 		_armor_bar.value = c.armor
 		_armor_bar.visible = c.armor > 0
@@ -817,6 +830,33 @@ func _draw_scope() -> void:
 
 
 # --- Aides de construction ----------------------------------------------------------
+
+## Fiche affichée pendant l'inspection : arme, skin et sa rareté, éliminations et prochain skin.
+func _update_inspect(c) -> void:
+	_inspect_box.visible = c.inspect > 0.0 and c.alive
+	if not _inspect_box.visible:
+		return
+	var wi: int = c.weapon
+	var cm: Dictionary = Data.CAMOS[c.custom(wi)["skin"]]
+	var rar: Dictionary = Data.RARITIES[int(cm.get("r", 0))]
+	var k: int = Net.kills_with(wi)
+	var next := ""
+	var best := -1
+	for i in Data.CAMOS.size():
+		var need := Data.skin_kills(i)
+		if need > k and (best < 0 or need < Data.skin_kills(best)):
+			best = i
+	if best >= 0:
+		next = "
+[color=#9aa4b2]Prochain skin : %s dans %d élim.[/color]" % [Data.esc(Data.CAMOS[best]["name"]), Data.skin_kills(best) - k]
+	var att: Array = c.custom(wi)["att"]
+	var att_txt := ("
+[color=#9aa4b2]Accessoires : %d[/color]" % att.size()) if not att.is_empty() else ""
+	_inspect_text.text = "[b]%s[/b]
+[color=#%s]%s · %s[/color]
+%d éliminations avec cette arme%s%s" % [
+		Data.esc(Data.WEAPONS[wi].name), rar["color"].to_html(false), Data.esc(cm["name"]), rar["name"], k, next, att_txt]
+
 
 func _place(c: Control, al: float, at: float, ar: float, ab: float, ol := 0.0, ot := 0.0, o_r := 0.0, ob := 0.0) -> void:
 	c.anchor_left = al

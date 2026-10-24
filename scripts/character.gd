@@ -23,6 +23,16 @@ const SLIDE_END_SPEED := 4.5
 const SLIDE_TIME := 0.85
 const SLIDE_COOLDOWN := 0.5
 const SLIDE_EYE := 0.85
+const INSPECT_TIME := 3.4
+# Inspection de l'arme : [moment (0-1), décalage de position, rotation]
+const INSPECT_POSES := [
+	[0.0, Vector3.ZERO, Vector3.ZERO],
+	[0.16, Vector3(-0.12, 0.04, 0.12), Vector3(0.15, 1.0, 0.35)],
+	[0.42, Vector3(-0.1, 0.06, 0.1), Vector3(0.05, 1.15, 0.45)],
+	[0.6, Vector3(-0.04, 0.07, 0.04), Vector3(0.42, -0.3, -0.25)],
+	[0.82, Vector3(-0.03, 0.08, 0.03), Vector3(0.47, -0.35, -0.3)],
+	[1.0, Vector3.ZERO, Vector3.ZERO],
+]
 
 var game
 var char_id := ""
@@ -58,6 +68,7 @@ var _was_on_floor := true
 var _fall_speed := 0.0
 var _step := 0.0
 var _ads := 0.0
+var inspect := 0.0  # temps restant de l'inspection de l'arme
 var lean := 0.0  # inclinaison : -1 gauche, +1 droite
 var _tilt := 0.0
 # Mouvements avancés (joueur local) : escalade des rebords, double saut, course sur les murs
@@ -261,6 +272,7 @@ func set_dead(dead: bool) -> void:
 	_shape.set_deferred("disabled", dead)
 	if dead:
 		zoomed = false
+		inspect = 0.0
 		velocity = Vector3.ZERO
 		if is_local:
 			visible = false
@@ -419,6 +431,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		game.sfx.play("metalClick", null, -14.0, 0.0)
 	elif event.is_action_pressed("melee"):
 		melee()
+	elif event.is_action_pressed("inspect"):
+		start_inspect()
 	elif event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			switch_weapon((slot + 2) % 3)
@@ -631,11 +645,31 @@ func switch_weapon(i: int) -> void:
 	slot = i
 	weapon = loadout[i]
 	reloading = 0.0
+	inspect = 0.0
 	zoomed = false
 	_fire_cd = 0.25
 	_draw = 1.0
 	game.sfx.play("cloth1", null, -10.0)
 	_update_viewmodel()
+
+
+## Inspection de l'arme tenue (touche Y par défaut).
+func start_inspect() -> void:
+	if inspect > 0.0 or reloading > 0.0 or zoomed or _draw > 0.3 or zombie or driving != "":
+		return
+	inspect = INSPECT_TIME
+	game.sfx.play("cloth1", null, -12.0)
+
+
+## Position et rotation de l'arme au moment p (0-1) de l'inspection, avec des transitions douces.
+func _inspect_pose(p: float) -> Array:
+	for i in range(1, INSPECT_POSES.size()):
+		var b: Array = INSPECT_POSES[i]
+		if p <= float(b[0]):
+			var a: Array = INSPECT_POSES[i - 1]
+			var k := smoothstep(float(a[0]), float(b[0]), p)
+			return [(a[1] as Vector3).lerp(b[1], k), (a[2] as Vector3).lerp(b[2], k)]
+	return [Vector3.ZERO, Vector3.ZERO]
 
 
 func start_reload() -> void:
@@ -695,9 +729,20 @@ func _weapons(delta: float, captured: bool) -> void:
 	target += Vector3(0, -0.35, 0.1) * _draw
 	target += Vector3(0, -0.05, 0) * _land
 	target += Vector3(-_sway.x, _sway.y, 0) * 0.0006
+	# Inspection : on fait tourner l'arme pour la regarder (annulée en visant, tirant, rechargeant ou sprintant)
+	var insp_rot := Vector3.ZERO
+	if inspect > 0.0:
+		if zoomed or reloading > 0.0 or _sprint_blend > 0.5 or (captured and Input.is_action_pressed("shoot")):
+			inspect = 0.0
+		else:
+			inspect = maxf(0.0, inspect - delta)
+			var pose := _inspect_pose(1.0 - inspect / INSPECT_TIME)
+			target += pose[0]
+			insp_rot = pose[1]
 	_viewmodel.position = _viewmodel.position.lerp(target, minf(1.0, delta * 20.0))
 	var rot := Vector3(_kick * 2.0 - 0.6 * reload_curve - 0.5 * _draw - 0.15 * _land, 0.55 * _sprint_blend - _sway.x * 0.002, 0.5 * reload_curve + 0.25 * _sprint_blend)
 	rot *= 1.0 - _ads * 0.85  # en visée, l'arme reste droite pour garder le point au centre
+	rot += insp_rot
 	_viewmodel.rotation = _viewmodel.rotation.lerp(rot, minf(1.0, delta * 15.0))
 	# Tremblement de caméra (explosions proches)
 	var sh: float = game.sfx.shake if game.sfx != null else 0.0

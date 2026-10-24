@@ -451,7 +451,7 @@ const REBINDABLE := [
 	["jump", "Sauter"], ["sprint", "Sprinter"], ["slide", "Glisser"], ["shoot", "Tirer"], ["zoom", "Zoom"],
 	["reload", "Recharger"], ["weapon_1", "Arme 1"], ["weapon_2", "Arme 2"], ["weapon_3", "Arme 3"],
 	["grenade", "Grenade"], ["smoke", "Fumigène"], ["melee", "Couteau"], ["ping", "Signaler"],
-	["chat", "Chat"], ["flashlight", "Lampe torche"], ["lean_left", "Pencher à gauche"], ["lean_right", "Pencher à droite"], ["interact", "Action (bombe)"], ["scoreboard", "Scores"],
+	["chat", "Chat"], ["flashlight", "Lampe torche"], ["lean_left", "Pencher à gauche"], ["lean_right", "Pencher à droite"], ["interact", "Action (bombe)"], ["inspect", "Inspecter l'arme"], ["scoreboard", "Scores"],
 ]
 
 var bindings := {}  # action -> "k:<touche physique>" ou "m:<bouton souris>"
@@ -529,6 +529,7 @@ func _setup_inputs() -> void:
 	_keys("lean_right", [KEY_E])
 	_keys("ping", [KEY_X])
 	_keys("interact", [KEY_F])
+	_keys("inspect", [KEY_Y])
 	_mouse("ping", MOUSE_BUTTON_MIDDLE)
 	_keys("reload", [KEY_R])
 	_keys("weapon_1", [KEY_1])

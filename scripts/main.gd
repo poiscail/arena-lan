@@ -872,6 +872,8 @@ func _apply_cmdline() -> void:
 				var c = game.chars[id]
 				if not c.is_bot and c.alive:
 					game._deal_damage(c, {c.char_id: 500.0}, 0))
+	if opts.has("inspect"):
+		get_tree().create_timer(float(opts["inspect"])).timeout.connect(func() -> void: game.local_char.start_inspect())
 	if opts.has("killed-by"):
 		# Hôte, test kill-cam : un bot ennemi se place devant le joueur, tire 3 fois et l'élimine
 		get_tree().create_timer(float(opts["killed-by"])).timeout.connect(func() -> void:

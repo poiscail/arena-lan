@@ -84,6 +84,8 @@ Graphismes : éclairage AgX, halos lumineux, et un **rendu avancé** au choix da
 
 **Kill-cam** : quand tu es éliminé, tu revois les dernières secondes par les yeux de ton tueur (son arme, ses tirs, ta position), avec un ralenti sur le coup final. Espace ou clic pour passer ; désactivable dans les options (« Kill-cam »).
 
+**Inspection d'arme** : touche **Y** (modifiable) pour faire tourner l'arme en main et l'admirer, avec une fiche : nom, skin et sa rareté, nombre d'éliminations avec cette arme et prochain skin à débloquer. Viser, tirer, recharger ou sprinter l'interrompt.
+
 ## Armurerie
 Bouton **Armurerie** dans le menu. Pour chaque arme :
 - un **skin** parmi 52 (camouflages, damas, marbre, écailles de dragon, carbone, chrome, galaxie, lave animée, néon, circuit, holographique, diamant, flammes…), classés par rareté (commun à mythique) et débloqués **pour chaque arme en faisant des éliminations avec elle** (de 2 éliminations pour le premier à 850 pour le dernier mythique) ;
