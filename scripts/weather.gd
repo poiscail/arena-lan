@@ -19,7 +19,10 @@ const AMOUNTS := {RAIN: [500, 1000, 1800, 2800], STORM: [700, 1400, 2400, 3600],
 
 var kind := NONE
 var game
-var _night := false
+var _dark := 0.0  # 0 jour, 1 nuit (suit le cycle jour/nuit)
+var _rain_mat: StandardMaterial3D
+var _snow_mat: StandardMaterial3D
+var _cover_mat: ShaderMaterial
 var _fall: CPUParticles3D
 var _splash: CPUParticles3D
 var _flash: DirectionalLight3D
@@ -35,7 +38,7 @@ var _rng := RandomNumberGenerator.new()
 func setup(g, map, seed: int) -> void:
 	game = g
 	kind = map.weather
-	_night = map.night
+	_dark = 1.0 if map.night else 0.0
 	if kind == NONE or DisplayServer.get_name() == "headless":
 		return
 	_rng.seed = seed
@@ -56,6 +59,7 @@ func setup(g, map, seed: int) -> void:
 	amb.volume_db = [0.0, -9.0, -6.0, -16.0, -18.0][kind]
 	amb.autoplay = true
 	add_child(amb)
+	set_dark(_dark)
 	Net.graphics_changed.connect(_update_amount)
 	_update_amount()
 
@@ -70,6 +74,17 @@ func _process(delta: float) -> void:
 			_splash.global_position = Vector3(p.x, 0.06, p.z)
 	if kind == STORM:
 		_update_storm(delta)
+
+
+## Assombrit gouttes, flocons et neige au sol la nuit (appelé aussi par le cycle jour/nuit).
+func set_dark(d: float) -> void:
+	_dark = d
+	if _rain_mat != null:
+		_rain_mat.albedo_color = Color(0.7, 0.76, 0.86, 0.3) * Color.WHITE.lerp(Color(0.35, 0.35, 0.4, 1.0), d)
+	if _snow_mat != null:
+		_snow_mat.albedo_color = Color(0.97, 0.98, 1.0).lerp(Color(0.3, 0.32, 0.38), d)
+	if _cover_mat != null:
+		_cover_mat.set_shader_parameter("brightness", lerpf(1.0, 0.35, d))
 
 
 func _update_amount() -> void:
@@ -89,7 +104,7 @@ func _build_rain() -> void:
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.albedo_color = Color(0.7, 0.76, 0.86, 0.3) * (Color(0.35, 0.35, 0.4, 1.0) if _night else Color.WHITE)
+	_rain_mat = mat
 	mat.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
 	mat.billboard_keep_scale = true
 	var qm := QuadMesh.new()
@@ -164,7 +179,7 @@ func _build_snow() -> void:
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.albedo_texture = tex
-	mat.albedo_color = Color(0.3, 0.32, 0.38) if _night else Color(0.97, 0.98, 1.0)
+	_snow_mat = mat
 	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	mat.billboard_keep_scale = true
 	var qm := QuadMesh.new()
@@ -185,7 +200,7 @@ func _build_snow_cover(map) -> void:
 	var pm := PlaneMesh.new()
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://assets/shaders/snow.gdshader")
-	mat.set_shader_parameter("brightness", 0.35 if _night else 1.0)
+	_cover_mat = mat
 	if map.layout == 4:
 		var east: float = MapScript.HALF + 3.0
 		pm.size = Vector2(east + 70.0, 140.0)
@@ -269,9 +284,9 @@ func _update_storm(delta: float) -> void:
 	else:
 		_flash_t = -1.0
 	_flash.visible = f > 0.0
-	_flash.light_energy = f * (1.6 if _night else 2.4)
+	_flash.light_energy = f * lerpf(2.4, 1.6, _dark)
 	_bolt.visible = t < 0.24 and f > 0.2
-	_sky.set("energy_multiplier", 1.0 + f * (6.0 if _night else 2.5))
+	_sky.set("energy_multiplier", 1.0 + f * lerpf(2.5, 6.0, _dark))
 
 
 func _strike(angle: float, dist: float) -> void:

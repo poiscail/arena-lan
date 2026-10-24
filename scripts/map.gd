@@ -232,6 +232,10 @@ const CITY_LAMPS := [[6, 5.5, 16.5], [-6, 5.5, -16.5], [16.5, 5.5, 6], [-16.5, 5
 var night := false
 var layout := 0
 var weather := 0  # 0 beau temps, 1 pluie, 2 orage, 3 neige, 4 brouillard (voir weather.gd)
+var cycle := false        # cycle jour/nuit pendant la partie (voir daycycle.gd)
+var start_night := false  # la carte commence de nuit
+var lamp_lights := []     # lumières des lampadaires (allumées et éteintes par le cycle)
+var lamp_mat: StandardMaterial3D
 
 var team_spawns := [[], []]
 var ffa_spawns := []
@@ -246,11 +250,15 @@ var _checker: ImageTexture
 
 
 ## map_index : 0 = base militaire, 1 = ville.
-func build(root: Node3D, with_nav: bool, map_index := 0, weather_kind := 0) -> void:
+func build(root: Node3D, with_nav: bool, map_index := 0, weather_kind := 0, day_cycle := false) -> void:
 	map_index = clampi(map_index, 0, MAP_LAYOUT.size() - 1)
 	layout = MAP_LAYOUT[map_index]
-	night = MAP_NIGHT[map_index]
+	start_night = MAP_NIGHT[map_index]
+	night = start_night
 	weather = 0 if layout == 2 else weather_kind  # pas de météo dans l'entrepôt fermé
+	cycle = day_cycle and layout != 2  # pas de ciel dans l'entrepôt
+	if cycle:
+		night = false  # carte construite de jour, le cycle règle ensuite la lumière
 	var city := layout == 1
 	var wh := layout == 2
 	var forest := layout == 3
@@ -325,7 +333,7 @@ func build(root: Node3D, with_nav: bool, map_index := 0, weather_kind := 0) -> v
 		_prop(root, d[0], d[1], d[2], d[3], d[4], false)
 	if forest:
 		_build_forest_extras(root)
-	if night:
+	if (night or cycle) and layout <= 1:
 		_build_night_lights(root, CITY_LAMPS if city else MIL_LAMPS)
 
 	for x in [-15, -9, -3, 3, 9, 15]:
@@ -633,18 +641,18 @@ func _build_warehouse(root: Node3D) -> void:
 		var b := _box(root, Vector3(wl[0], wl[4] / 2.0, wl[1]), Vector3(wl[2], wl[4], wl[3]), Color.WHITE, true, true)
 		_set_textured(b, "concrete_floor_02", Color(0.8, 0.78, 0.74), 0.3)
 	# Lampes du plafond
-	var lamp_mat := StandardMaterial3D.new()
-	lamp_mat.emission_enabled = true
-	lamp_mat.emission = Color(1.0, 0.92, 0.75)
-	lamp_mat.emission_energy_multiplier = 3.0
-	lamp_mat.albedo_color = Color(1, 0.95, 0.85)
+	var ceiling_mat := StandardMaterial3D.new()
+	ceiling_mat.emission_enabled = true
+	ceiling_mat.emission = Color(1.0, 0.92, 0.75)
+	ceiling_mat.emission_energy_multiplier = 3.0
+	ceiling_mat.albedo_color = Color(1, 0.95, 0.85)
 	for x in [-22.5, -7.5, 7.5, 22.5]:
 		for z in [-22.5, -7.5, 7.5, 22.5]:
 			var lamp := MeshInstance3D.new()
 			var bm := BoxMesh.new()
 			bm.size = Vector3(1.6, 0.12, 0.5)
 			lamp.mesh = bm
-			lamp.material_override = lamp_mat
+			lamp.material_override = ceiling_mat
 			lamp.position = Vector3(x, h - 0.1, z)
 			lamp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			root.add_child(lamp)
@@ -663,6 +671,7 @@ func _build_night_lights(root: Node3D, lamps: Array) -> void:
 	bulb_mat.emission_enabled = true
 	bulb_mat.emission = Color(1.0, 0.8, 0.5)
 	bulb_mat.emission_energy_multiplier = 4.0
+	lamp_mat = bulb_mat
 	for p in lamps:
 		var bulb := MeshInstance3D.new()
 		var sm := SphereMesh.new()
@@ -680,6 +689,7 @@ func _build_night_lights(root: Node3D, lamps: Array) -> void:
 		l.omni_attenuation = 1.3
 		l.position = Vector3(p[0], p[1] - 0.3, p[2])
 		root.add_child(l)
+		lamp_lights.append(l)
 
 
 func _build_environment(root: Node3D) -> void:

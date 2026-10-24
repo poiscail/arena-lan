@@ -39,6 +39,7 @@ var _slots: SpinBox
 var _bots: CheckBox
 var _advmove: CheckBox
 var _weather_opt: OptionButton
+var _cycle_opt: OptionButton
 var _difficulty: OptionButton
 var _score: SpinBox
 var _time: SpinBox
@@ -269,6 +270,12 @@ Tab : scores   ·   Échap : pause   ·   Touches modifiables dans Options", 15)
 	_weather_opt.item_selected.connect(_on_setting_changed)
 	_add_row(grid, "Météo", _weather_opt)
 
+	_cycle_opt = OptionButton.new()
+	_cycle_opt.add_item("Selon la carte")
+	_cycle_opt.add_item("Cycle jour/nuit")
+	_cycle_opt.item_selected.connect(_on_setting_changed)
+	_add_row(grid, "Heure", _cycle_opt)
+
 	_slots = _spin(1, 6)
 	_slots_label = _add_row(grid, "Joueurs par équipe", _slots)
 
@@ -451,6 +458,7 @@ func _refresh_lobby() -> void:
 	_mode.select(0 if team else 1)
 	_map_opt.select(int(s.get("map", 0)))
 	_weather_opt.select(int(s.get("weather", 0)))
+	_cycle_opt.select(1 if bool(s.get("daycycle", false)) else 0)
 	var rules: String = s.get("rules", "dm")
 	_rules_opt.select(maxi(0, Data.RULE_ORDER.find(rules)))
 	_rules_desc.text = Data.RULES[rules]["desc"]
@@ -468,6 +476,7 @@ func _refresh_lobby() -> void:
 	_mode.disabled = not is_host
 	_map_opt.disabled = not is_host
 	_weather_opt.disabled = not is_host
+	_cycle_opt.disabled = not is_host
 	_rules_opt.disabled = not is_host
 	_difficulty.disabled = not is_host
 	_bots.disabled = not is_host
@@ -601,6 +610,7 @@ func _on_setting_changed(_value) -> void:
 	s["time_limit"] = int(_time.value)
 	s["map"] = _map_opt.selected
 	s["weather"] = _weather_opt.selected
+	s["daycycle"] = _cycle_opt.selected == 1
 	Net.set_settings(s)
 
 
@@ -685,6 +695,10 @@ func _apply_cmdline() -> void:
 			s["map"] = int(opts["map"])
 		if opts.has("weather"):
 			s["weather"] = int(opts["weather"])
+		if opts.has("cycle"):
+			s["daycycle"] = true
+		if opts.has("hour"):
+			s["start_hour"] = float(opts["hour"])
 		if opts.has("time"):
 			s["time_limit"] = int(opts["time"])
 		if opts.has("score"):

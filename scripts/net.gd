@@ -31,6 +31,7 @@ var settings := {
 	"rules": "dm",       # mode de jeu : voir Data.RULES
 	"advmove": false,    # mouvements avancés : double saut et course sur les murs
 	"weather": 0,        # météo : 0 beau temps, 1 pluie, 2 orage, 3 neige, 4 brouillard, 5 au hasard
+	"daycycle": false,   # cycle jour/nuit : une journée complète défile pendant la partie
 }
 var in_game := false
 var mouse_sensitivity := 0.0025

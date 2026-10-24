@@ -199,8 +199,10 @@ func _ready() -> void:
 		_update_viewmodel()
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	# Lampe torche la nuit : celle du joueur local suit la caméra, celles des autres sont sur leur tête
-	if game != null and game.map != null and game.map.night:
+	if game != null and game.map != null and (game.map.night or game.map.cycle):
 		_flashlight = SpotLight3D.new()
+		_flashlight.add_to_group("flashlights")  # allumées et éteintes par le cycle jour/nuit
+		_flashlight.visible = game.map.night or (game.daycycle != null and game.daycycle.dark > 0.6)
 		_flashlight.light_color = Color(1.0, 0.95, 0.85)
 		_flashlight.spot_range = 28.0 if is_local else 18.0
 		_flashlight.spot_angle = 24.0

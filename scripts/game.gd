@@ -16,6 +16,7 @@ const SpectatorScript := preload("res://scripts/spectator.gd")
 const KillcamScript := preload("res://scripts/killcam.gd")
 const VehiclesScript := preload("res://scripts/vehicles.gd")
 const WeatherScript := preload("res://scripts/weather.gd")
+const DayCycleScript := preload("res://scripts/daycycle.gd")
 
 const NET_RATE := 1.0 / 30.0
 const BOT_NAMES := ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel",
@@ -46,6 +47,7 @@ var modes
 var spectator
 var killcam
 var weather
+var daycycle
 var vehicles
 var rules := "dm"
 var streaks := {}  # (serveur) id -> éliminations sans mourir
@@ -56,11 +58,15 @@ func _ready() -> void:
 	settings = Net.settings.duplicate()
 	time_left = float(settings.time_limit) * 60.0
 	map = MapScript.new()
-	map.build(self, multiplayer.is_server(), int(settings.get("map", 0)), int(settings.get("weather_now", 0)))
+	map.build(self, multiplayer.is_server(), int(settings.get("map", 0)), int(settings.get("weather_now", 0)), bool(settings.get("daycycle", false)))
 	weather = WeatherScript.new()
 	weather.name = "Weather"
 	add_child(weather)
 	weather.setup(self, map, int(settings.get("weather_seed", 0)))
+	daycycle = DayCycleScript.new()
+	daycycle.name = "DayCycle"
+	add_child(daycycle)
+	daycycle.setup(self, map, float(settings.get("start_hour", -1.0)))
 	_chars_root = Node3D.new()
 	_chars_root.name = "Characters"
 	add_child(_chars_root)

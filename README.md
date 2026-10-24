@@ -90,6 +90,8 @@ Graphismes : éclairage AgX, halos lumineux, et un **rendu avancé** au choix da
 
 **Météo** : option « Météo » du salon (beau temps, pluie, orage, neige, brouillard ou au hasard). Pluie avec flaques et sol mouillé, orage avec éclairs et tonnerre, neige qui tombe et recouvre le sol, brouillard épais. Pas de météo dans l'entrepôt (intérieur). Les bots voient moins loin par mauvais temps.
 
+**Heure** : option « Heure » du salon. « Cycle jour/nuit » fait défiler une journée complète pendant la partie : coucher de soleil, nuit étoilée puis lever du jour. Les lampadaires s'allument au crépuscule et les lampes torches la nuit. Pas de cycle dans l'entrepôt (intérieur).
+
 ## Armurerie
 Bouton **Armurerie** dans le menu. Pour chaque arme :
 - un **skin** parmi 52 (camouflages, damas, marbre, écailles de dragon, carbone, chrome, galaxie, lave animée, néon, circuit, holographique, diamant, flammes…), classés par rareté (commun à mythique) et débloqués **pour chaque arme en faisant des éliminations avec elle** (de 2 éliminations pour le premier à 850 pour le dernier mythique) ;
