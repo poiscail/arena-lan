@@ -322,28 +322,53 @@ func _server_shoot(shooter_id: String, weapon: int, origin: Vector3, dirs: Packe
 	var ends := PackedVector3Array()
 	var damage := {}
 	var head_hit := false
+	var holes := PackedVector3Array()  # entrées / sorties des balles qui traversent (impacts affichés)
 	for i in mini(dirs.size(), int(w.pellets)):
 		var d := dirs[i].normalized()
-		var to := origin + d * float(w.range)
-		var hit := _ray(origin, to, ex, 3)
-		if hit.is_empty():
-			ends.append(to)
-			continue
-		ends.append(hit.position)
-		var t = hit.collider
-		if splash > 0.0:
-			_explosion_damage(s, hit.position + hit.normal * 0.3, w, damage)
-			items.server_explosion_barrels(hit.position, splash, s)
-			continue
-		items.server_hit_barrel(t, float(w.damage), s)
-		items.server_hit_breakable(hit, float(w.damage))
-		if t is CharacterScript and t.alive and is_enemy(s, t):
-			var head: bool = hit.position.y > t.position.y + (0.8 if t.sliding else 1.45)
-			var dmg := float(w.damage) * (float(w.head) if head else 1.0)
-			if s.damage_t > 0.0:
-				dmg *= 2.0
-			damage[t.char_id] = damage.get(t.char_id, 0.0) + dmg
-			head_hit = head_hit or head
+		var from := origin
+		var remaining := float(w.range)
+		var mult := 1.0
+		var pens := 0
+		while true:
+			var to := from + d * remaining
+			var hit := _ray(from, to, ex, 3)
+			if hit.is_empty():
+				ends.append(to)
+				break
+			var t = hit.collider
+			if splash > 0.0:
+				ends.append(hit.position)
+				_explosion_damage(s, hit.position + hit.normal * 0.3, w, damage)
+				items.server_explosion_barrels(hit.position, splash, s)
+				break
+			items.server_hit_barrel(t, float(w.damage) * mult, s)
+			items.server_hit_breakable(hit, float(w.damage) * mult)
+			if t is CharacterScript:
+				if t.alive and is_enemy(s, t):
+					var head: bool = hit.position.y > t.position.y + (0.8 if t.sliding else 1.45)
+					var dmg := float(w.damage) * (float(w.head) if head else 1.0) * mult
+					if s.damage_t > 0.0:
+						dmg *= 2.0
+					damage[t.char_id] = damage.get(t.char_id, 0.0) + dmg
+					head_hit = head_hit or head
+				ends.append(hit.position)
+				break
+			# Pénétration : bois, toile, tôle fine ou vitre pas trop épais
+			var exit := _penetrate(hit, d, int(w.pellets) > 1, pens)
+			if exit.is_empty():
+				ends.append(hit.position)
+				break
+			holes.append(hit.position)
+			holes.append(exit["pos"])
+			mult *= float(exit["mult"])
+			pens += 1
+			remaining -= from.distance_to(exit["pos"])
+			from = exit["pos"] + d * 0.03
+			if remaining <= 0.5:
+				ends.append(from)
+				break
+	if not holes.is_empty():
+		_broadcast("pen_fx", [holes])
 	_broadcast("shot_fx", [shooter_id, weapon, ends])
 	if scores.has(shooter_id):
 		var st: Dictionary = scores[shooter_id]
@@ -355,6 +380,40 @@ func _server_shoot(shooter_id: String, weapon: int, origin: Vector3, dirs: Packe
 	if damage.is_empty():
 		return
 	_deal_damage(s, damage, weapon, head_hit)
+
+
+# Pénétration : [épaisseur maximale traversée (m), part des dégâts conservée]
+const PENETRATION := {"glass": [0.25, 0.95], "fabric": [1.5, 0.9], "wood": [0.7, 0.65], "metal": [0.35, 0.45]}
+const MAX_PENETRATIONS := 2
+
+## (Serveur) La balle traverse-t-elle l'objet touché ? Renvoie {pos: point de sortie, mult} ou {}.
+## L'épaisseur est mesurée par un rayon tiré en sens inverse depuis le point le plus loin possible.
+func _penetrate(hit: Dictionary, d: Vector3, pellets: bool, pens: int) -> Dictionary:
+	var t = hit.collider
+	if pens >= MAX_PENETRATIONS or t == null or not (t is Node) or not t.has_meta("pen"):
+		return {}
+	var kind: String = t.get_meta("pen")
+	if pellets and kind == "metal":
+		return {}  # les plombs du fusil à pompe ne traversent pas la tôle
+	var p: Array = PENETRATION[kind]
+	var far: Vector3 = hit.position + d * float(p[0])
+	var back := _ray(far, hit.position + d * 0.01, _no_exclude, 1)
+	if back.is_empty() or back.collider != t:
+		return {}  # trop épais
+	var thick: float = hit.position.distance_to(back.position)
+	var mult: float = float(p[1]) * (1.0 - 0.3 * thick / float(p[0]))
+	if pellets:
+		mult *= 0.6
+	return {"pos": back.position, "mult": mult}
+
+
+@rpc("authority", "call_remote", "reliable")
+func pen_fx(holes: PackedVector3Array) -> void:
+	# Trous d'entrée et de sortie (par paires), avec des éclats dans le sens de la balle
+	for k in range(0, holes.size() - 1, 2):
+		var d: Vector3 = (holes[k + 1] - holes[k]).normalized()
+		sfx.bullet_impact(holes[k], -d, false)
+		sfx.bullet_impact(holes[k + 1], d, false)
 
 
 ## (Serveur) Applique des dégâts { id: points } et prévient le tireur (marqueur de touche).

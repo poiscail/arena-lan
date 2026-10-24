@@ -80,6 +80,8 @@ Graphismes : éclairage AgX, halos lumineux, et un **rendu avancé** au choix da
 
 **Mouvements** : en avançant contre un rebord de 0,5 à 1,9 m (caisse, muret, conteneur bas), Espace fait grimper dessus. Option du salon « Mouvements » : double saut, et course sur les murs (en sprintant en l'air le long d'un mur, on glisse dessus environ 1 s ; Espace pour s'en repousser).
 
+**Pénétration des balles** : les balles traversent ce qui est fin, en perdant des dégâts : vitres (−5 %), toiles et cartons (−10 %), bois fin comme les barricades et palissades (−35 %), tôle fine comme les conteneurs et carrosseries (−55 %). Deux obstacles au maximum ; ce qui est épais (caisse pleine, béton, pierre) arrête la balle. Les plombs du fusil à pompe ne traversent pas la tôle.
+
 ## Armurerie
 Bouton **Armurerie** dans le menu. Pour chaque arme :
 - un **skin** parmi 52 (camouflages, damas, marbre, écailles de dragon, carbone, chrome, galaxie, lave animée, néon, circuit, holographique, diamant, flammes…), classés par rareté (commun à mythique) et débloqués **pour chaque arme en faisant des éliminations avec elle** (de 2 éliminations pour le premier à 850 pour le dernier mythique) ;

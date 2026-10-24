@@ -349,6 +349,24 @@ func build(root: Node3D, with_nav: bool, map_index := 0) -> void:
 		_build_nav()
 
 
+# --- Pénétration des balles ------------------------------------------------------------
+
+## Matière d'un objet pour la pénétration des balles (d'après le nom du modèle) :
+## "wood" bois, "fabric" toile, "metal" tôle fine, "" rien ne traverse (béton, pierre...).
+static func penetration_material(model: String) -> String:
+	var n := model.to_lower()
+	for k in ["tent", "canvas", "awning", "umbrella", "parasol", "cardboard"]:
+		if k in n:
+			return "fabric"
+	for k in ["crate", "wood", "fence", "pallet", "plank", "bench", "table", "log", "cabin", "hut"]:
+		if k in n:
+			return "wood"
+	for k in ["container", "car", "taxi", "police", "van", "suv", "truck", "ambulance", "dumpster", "garbage", "sedan", "firetruck", "tank"]:
+		if k in n:
+			return "metal"
+	return ""
+
+
 # --- Objets destructibles ------------------------------------------------------------
 
 # Taille (largeur, hauteur, épaisseur) de chaque type d'objet destructible
@@ -489,6 +507,9 @@ func _prop(root: Node3D, model: String, x: float, z: float, rot_deg: float, scal
 		shape.shape = m.mesh.create_trimesh_shape()
 		shape.transform = Transform3D(Basis().scaled(Vector3.ONE * scale), Vector3.ZERO) * xf
 		body.add_child(shape)
+	var pen := penetration_material(model)
+	if pen != "":
+		body.set_meta("pen", pen)
 	root.add_child(body)
 	var c2 := Vector2(center.x, center.z).rotated(-inst.rotation.y)
 	var half := Vector2(size.x, size.z) / 2.0

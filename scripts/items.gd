@@ -128,6 +128,7 @@ func _add_breakable(kind: String, pos: Vector3, yaw: float, size: Vector3) -> vo
 	body.position = pos
 	body.rotation_degrees.y = yaw
 	body.set_meta("breakable", _breakables.size())
+	body.set_meta("pen", "glass" if kind == "glass" else "wood")
 	var hp := []
 	match kind:
 		"planks":

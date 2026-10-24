@@ -774,6 +774,34 @@ func _apply_cmdline() -> void:
 				await get_tree().physics_frame
 				top = maxf(top, c.position.y)
 			print("[test] hauteur max du saut : %.2f m" % (top - y0)))
+	if opts.has("pen"):
+		# Test pénétration : un bot derrière une barricade (planches entières) ou une vitre, on tire à travers
+		get_tree().create_timer(2.5).timeout.connect(func() -> void:
+			var kind: String = opts["pen"] if opts["pen"] != "" else "planks"
+			var b: Dictionary = {}
+			for x in game.items._breakables:
+				if x["kind"] == kind:
+					b = x
+					break
+			var node: Node3D = b["node"]
+			var n: Vector3 = node.global_transform.basis.z
+			var me = game.local_char
+			var target = null
+			for id in game.chars:
+				if game.chars[id].is_bot and game.is_enemy(me, game.chars[id]):
+					target = game.chars[id]
+					break
+			me.position = b["pos"] + n * 3.0
+			target.position = b["pos"] - n * 1.5
+			target.bot = null  # le bot ne bouge plus
+			target._net_pos = target.position
+			await get_tree().physics_frame
+			await get_tree().physics_frame
+			var dir: Vector3 = (target.position + Vector3(0, 0.6, 0) - me.eye_position()).normalized()
+			var hp_before: int = target.hp
+			game._server_shoot(me.char_id, me.weapon, me.eye_position(), PackedVector3Array([dir]))
+			var w: Dictionary = me.wstats(me.weapon)
+			print("[test] %s à travers %s : %d dégâts (normal %d)" % [Data.WEAPONS[me.weapon].name, kind, hp_before - target.hp, int(w.damage)]))
 	if opts.has("wallrun"):
 		# Test course sur un mur : on court le long du bord de la carte et on saute
 		get_tree().create_timer(2.5).timeout.connect(func() -> void:
