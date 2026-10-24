@@ -701,6 +701,31 @@ func _apply_cmdline() -> void:
 			c.rotation.x = 0
 			c.rotation.z = 0
 			game.modes._buy(c, s["item"]))
+	if opts.has("drive"):
+		# Test véhicules : le joueur monte dans le premier véhicule et accélère ; un bot ennemi est placé devant
+		get_tree().create_timer(float(opts["drive"])).timeout.connect(func() -> void:
+			var c = game.local_char
+			var ids: Array = game.vehicles.vehicles.keys()
+			if ids.is_empty():
+				print("[test] aucun véhicule")
+				return
+			var body: Node3D = game.vehicles.vehicles[ids[0]]["body"]
+			c.position = body.position + body.global_transform.basis.x * 2.0
+			await get_tree().create_timer(0.5).timeout  # le temps que l'hôte reçoive la nouvelle position
+			game.vehicles._request(ids[0], true)
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			Input.action_press("move_forward")
+			if opts.has("ram"):
+				for id in game.chars:
+					var b = game.chars[id]
+					if b.is_bot and b.alive and game.is_enemy(c, b):
+						b.position = body.position - body.global_transform.basis.z * 9.0
+						break)
+	if opts.has("print-veh"):
+		get_tree().create_timer(float(opts["print-veh"])).timeout.connect(func() -> void:
+			for id in game.vehicles.vehicles:
+				var v: Dictionary = game.vehicles.vehicles[id]
+				print("[test] %s conducteur=%s pos=%s" % [id, v["driver"], (v["body"] as Node3D).position.snapped(Vector3.ONE * 0.1)]))
 	if opts.has("slot"):
 		get_tree().create_timer(2.0).timeout.connect(func() -> void: game.local_char.switch_weapon(int(opts["slot"])))
 	if opts.has("loadout"):

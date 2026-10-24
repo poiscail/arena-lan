@@ -13,6 +13,7 @@ const ItemsScript := preload("res://scripts/items.gd")
 const SfxScript := preload("res://scripts/sfx.gd")
 const ModesScript := preload("res://scripts/modes.gd")
 const SpectatorScript := preload("res://scripts/spectator.gd")
+const VehiclesScript := preload("res://scripts/vehicles.gd")
 
 const NET_RATE := 1.0 / 30.0
 const BOT_NAMES := ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel",
@@ -41,6 +42,7 @@ var items
 var sfx
 var modes
 var spectator
+var vehicles
 var rules := "dm"
 var streaks := {}  # (serveur) id -> éliminations sans mourir
 
@@ -71,6 +73,10 @@ func _ready() -> void:
 	modes.game = self
 	add_child(modes)
 	modes.setup(rules)
+	vehicles = VehiclesScript.new()
+	vehicles.name = "Vehicles"
+	vehicles.game = self
+	add_child(vehicles)
 	spectator = SpectatorScript.new()
 	spectator.name = "Spectator"
 	spectator.game = self
@@ -81,6 +87,7 @@ func _ready() -> void:
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 	if multiplayer.is_server():
 		_server_add_human(1)
+		vehicles.setup_server()
 		_rebalance_bots()
 	else:
 		client_ready.rpc_id(1)
@@ -170,9 +177,9 @@ func team_scores() -> Array:
 
 
 func goal_text() -> String:
-	if rules == "dm":
-		return "PREMIER À %d ÉLIMINATIONS" % int(settings.score_limit)
-	return modes.objective_text()
+	var t: String = "PREMIER À %d ÉLIMINATIONS" % int(settings.score_limit) if rules == "dm" else modes.objective_text()
+	var h: String = vehicles.hint() if vehicles != null else ""
+	return t if h == "" else "%s  ·  %s" % [t, h]
 
 
 func _new_score(pname: String, team: int, is_bot: bool) -> Dictionary:
@@ -484,6 +491,7 @@ func _apply_damage(t, s, dmg: int, weapon: int) -> bool:
 	if scores.has(s.char_id):
 		scores[s.char_id]["best_streak"] = maxi(int(scores[s.char_id].get("best_streak", 0)), n)
 	print("[kill] %s -> %s (%s)" % [s.display_name, t.display_name, Data.kill_name(weapon)])
+	vehicles.on_char_gone(t.char_id)
 	_broadcast("on_died", [t.char_id, s.char_id, weapon])
 	modes.on_kill(s, t, weapon)
 	_broadcast_scores()
@@ -717,6 +725,7 @@ func _on_peer_disconnected(peer: int) -> void:
 		return
 	ready_peers.erase(peer)
 	var id := _pid(peer)
+	vehicles.on_char_gone(id)
 	if chars.has(id):
 		_broadcast("despawn_char", [id])
 	scores.erase(id)
@@ -737,6 +746,7 @@ func client_ready() -> void:
 	sync_scores.rpc_id(peer, scores, time_left)
 	items.sync_to(peer)
 	modes.sync_to(peer)
+	vehicles.sync_to(peer)
 	if match_over:
 		on_match_end.rpc_id(peer, end_text)
 	if not chars.has(_pid(peer)):

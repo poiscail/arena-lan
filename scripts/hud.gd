@@ -783,7 +783,7 @@ func _update_scores_top() -> void:
 func _draw_crosshair() -> void:
 	var c = game.local_char
 	# En visée avec le point rouge, le viseur 3D affiche lui-même son point (pas de réticule ici)
-	if c != null and c.alive and not c.zoomed and not game.match_over:
+	if c != null and c.alive and not c.zoomed and not game.match_over and c.driving == "":
 		var gap := 7.0
 		if int(Data.WEAPONS[c.weapon].pellets) > 1:
 			gap = 16.0

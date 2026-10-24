@@ -39,6 +39,7 @@ var next_armory := {}  # armes / accessoires modifiés en jeu, appliqués à la 
 var interacting := false  # (serveur) touche d'action maintenue (poser / désamorcer la bombe)
 var zombie := false  # mode Zombies : pas d'arme, attaque au corps à corps
 var zombie_fast := false
+var driving := ""  # véhicule conduit (id) ou ""
 var loadout: Array = [0, 1, 2]
 var slot := 0
 var hp := 100
@@ -228,7 +229,24 @@ func net_target(pos: Vector3, yaw: float, pitch: float) -> void:
 		position = pos
 
 
+## Monte dans un véhicule (id) ou en descend (""). Le personnage est caché et ne bloque plus rien.
+func set_driving(id: String) -> void:
+	driving = id
+	var inside := id != ""
+	_shape.set_deferred("disabled", inside)
+	if _model != null:
+		_model.visible = not inside
+	if _label != null and not is_local:
+		_label.visible = not inside and alive
+	if _viewmodel != null:
+		_viewmodel.visible = not inside
+	velocity = Vector3.ZERO
+	zoomed = false
+
+
 func set_dead(dead: bool) -> void:
+	if dead and driving != "":
+		set_driving("")
 	alive = not dead
 	set_sliding(false)
 	_shape.set_deferred("disabled", dead)
@@ -252,6 +270,10 @@ func set_dead(dead: bool) -> void:
 
 
 func respawn(pos: Vector3, cls := -1, arm := {}) -> void:
+	if driving != "":
+		set_driving("")  # nouvelle manche : on sort du véhicule
+		if is_local:
+			camera.make_current()
 	var changed := false
 	if not arm.is_empty():
 		armory = arm  # armes / accessoires modifiés pendant la partie
@@ -291,7 +313,8 @@ func _physics_process(delta: float) -> void:
 	_melee_cd -= delta
 	if is_local:
 		if alive:
-			_local_control(delta)
+			if driving == "":
+				_local_control(delta)
 	elif bot != null:
 		if alive:
 			bot.think(delta)

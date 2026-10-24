@@ -47,7 +47,7 @@ Quelqu'un peut rejoindre en cours de partie. Il remplace alors un bot.
 | A / E | Se pencher à gauche / à droite |
 | T | Chat |
 | X ou clic molette | Signaler un endroit à ton équipe |
-| F | Action : poser / désamorcer la bombe |
+| F | Action : conduire un véhicule, poser / désamorcer la bombe, acheter, ramasser |
 | L | Lampe torche (cartes de nuit) |
 | Tab | Tableau des scores |
 | Échap | Pause (classe, armes, armurerie, options, quitter) |
@@ -73,6 +73,8 @@ Très pratique en mode Élimination, où l'on attend la manche suivante.
 Shaders maison : eau animée (vagues, reflets, écume), vent dans les arbres, skins d'armes, et post-traitement de l'écran (couleurs, vignette, grain, aberration rouge quand on est touché), désactivable dans les options.
 
 Graphismes : éclairage AgX, halos lumineux, et un **rendu avancé** au choix dans Options (Forward+ : occlusion ambiante, éclairage indirect, reflets, ombres douces, illumination globale et brouillard volumétrique en Ultra). Il s'applique au prochain lancement ; si le PC ne le gère pas, le jeu repasse en rendu standard. Les mains et avant-bras gantés sont visibles à la première personne.
+
+**Véhicules** : deux voitures (SUV, police, van, taxi) sont garées près des bases sur toutes les cartes sauf l'entrepôt. Touche F pour monter ou descendre, ZQSD pour conduire, Espace pour le frein à main, la souris pour tourner la caméra. On renverse les ennemis (dégâts selon la vitesse) ; le conducteur ne peut pas tirer et reste vulnérable aux explosions.
 
 ## Armurerie
 Bouton **Armurerie** dans le menu. Pour chaque arme :

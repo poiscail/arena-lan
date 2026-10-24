@@ -88,6 +88,7 @@ const KILL_AIRSTRIKE := 103
 const KILL_BOMB := 104
 const KILL_ZOMBIE := 105
 const KILL_ZONE := 106
+const KILL_VEHICLE := 107
 # Postes d'achat du mode Zombies
 const ZOMBIE_SHOP := [
 	{"name": "Munitions", "kind": "ammo", "price": 400},
@@ -98,7 +99,7 @@ const ZOMBIE_SHOP := [
 	{"name": "Fusil de précision", "kind": "weapon", "wi": 6, "price": 1800},
 	{"name": "Lance-roquettes", "kind": "weapon", "wi": 9, "price": 4000},
 ]
-const KILL_NAMES := {100: "Grenade", 101: "Couteau", 102: "Baril", 103: "Frappe aérienne", 104: "Bombe", 105: "Zombie", 106: "Zone"}
+const KILL_NAMES := {100: "Grenade", 101: "Couteau", 102: "Baril", 103: "Frappe aérienne", 104: "Bombe", 105: "Zombie", 106: "Zone", 107: "Véhicule"}
 
 # Grenades : [explosives, fumigènes] au début de chaque vie
 const GRENADES_START := [2, 1]
