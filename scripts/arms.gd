@@ -4,6 +4,7 @@ extends RefCounted
 ## Ils sont enfants de l'arme de la vue FPS, donc suivent le recul, le rechargement, la visée...
 
 const Models := preload("res://scripts/models.gd")
+const Data := preload("res://scripts/data.gd")
 
 const GLOVE := Color(0.07, 0.07, 0.08)
 const GLOVE_PAD := Color(0.16, 0.16, 0.17)
@@ -50,25 +51,140 @@ static func add_to(g: Node3D, model: String) -> void:
 	var wrist_r := rh.transform * Vector3(half_w * 0.6 + 0.012, -0.035, 0.05)
 	_forearm(arms, wrist_r, ELBOW_R)
 
+	# Le bras gauche est un groupe à part : il bouge pendant le rechargement
+	var left := Node3D.new()
+	left.name = "LeftArm"
+	arms.add_child(left)
+	var lh: Node3D
 	if handgun:
 		# Main gauche en soutien sous la main droite (prise à deux mains)
-		var lh := _support_hand(half_w)
+		lh = _support_hand(half_w)
 		lh.position = grip + Vector3(-0.004, -0.012, -0.004)
 		lh.rotation.x = -0.28
-		arms.add_child(lh)
-		_forearm(arms, lh.transform * Vector3(-half_w - 0.015, -0.04, 0.045), ELBOW_L_PISTOL)
+		left.add_child(lh)
+		_forearm(left, lh.transform * Vector3(-half_w - 0.015, -0.04, 0.045), ELBOW_L_PISTOL)
 	else:
 		# Main gauche sous le garde-main
 		var front: Vector3 = xf * (p["front_bottom"] as Vector3)
 		var fw := clampf(box.size.z * s * 0.42, 0.014, 0.03)
-		var lh := _front_hand(fw)
+		lh = _front_hand(fw)
 		lh.position = front
-		arms.add_child(lh)
-		_forearm(arms, lh.transform * Vector3(-0.01, -0.035, 0.045), ELBOW_L)
+		left.add_child(lh)
+		_forearm(left, lh.transform * Vector3(-0.01, -0.035, 0.045), ELBOW_L)
 
 	for m in arms.find_children("*", "MeshInstance3D", true, false):
 		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		m.set_meta("attachment", true)
+	g.set_meta("lh_rest", lh.position)
+	_prepare_reload(g, inst, model, p, xf, handgun)
+
+
+## Prépare le rechargement à la première personne : un nœud « Mag » (le chargeur, que la main
+## gauche retire puis remet) et les points où va la main, rangés en métadonnées de l'arme.
+static func _prepare_reload(g: Node3D, inst: Node3D, model: String, p: Dictionary, xf: Transform3D, handgun: bool) -> void:
+	var mag := Node3D.new()
+	mag.name = "Mag"
+	g.add_child(mag)
+	var geo := Models.mag_geometry(inst, model, p["box"])
+	if geo.is_empty():
+		# Pas de chargeur amovible (pompe, revolver, lance-roquettes…) : la main gauche va chercher
+		# des munitions et les glisse sous la carcasse
+		var under: Vector3 = (p["grip"] as Vector3).lerp(p["front_bottom"], 0.5)
+		g.set_meta("mag_grab", xf * under)
+		g.set_meta("mag_out", Vector3.DOWN)
+		g.set_meta("mag_len", 0.035)
+		return
+	var bottom: Vector3 = geo["bottom"]
+	var h: float = geo["h"]
+	var up := Basis(Vector3.BACK, float(geo["angle"])) * Vector3.UP
+	if handgun:
+		# Le chargeur d'un pistolet est dans la poignée : on en fabrique un, caché dedans,
+		# qui sort par le bas
+		var holder := Node3D.new()
+		holder.transform = xf * Transform3D(Basis(Vector3.BACK, float(geo["angle"])), bottom)
+		var size := Vector3(float(geo["width"]) * 0.8, h * 0.9, float(geo["thick"]) * 0.7)
+		var box := _box(holder, size, Vector3(0, h * 0.45, 0), Color(0.09, 0.09, 0.1))
+		box.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mag.add_child(holder)
+	else:
+		_split_mag(inst, xf, geo, mag)
+	var ext := inst.get_node_or_null("ExtMag") as Node3D
+	if ext != null:
+		var t := xf * ext.transform
+		ext.get_parent().remove_child(ext)
+		ext.transform = t
+		mag.add_child(ext)
+	var len := h * (1.45 if ext != null else 1.1)
+	g.set_meta("mag_grab", xf * (bottom + up * h * 0.12))
+	g.set_meta("mag_out", (xf.basis * -up).normalized())
+	g.set_meta("mag_len", len * xf.basis.get_scale().x)
+
+
+## Sépare le chargeur du reste du modèle : les triangles qui sont dans le volume du chargeur
+## passent dans de nouveaux maillages, enfants de « mag » (dans le repère de la vue FPS).
+static func _split_mag(inst: Node3D, xf: Transform3D, geo: Dictionary, mag: Node3D) -> void:
+	var bottom: Vector3 = geo["bottom"]
+	var h: float = geo["h"]
+	var width: float = geo["width"]
+	var thick: float = geo["thick"]
+	var to_mag := Basis(Vector3.BACK, -float(geo["angle"]))  # Y le long du chargeur
+	var inside := func(v: Vector3, wf: float, top: float) -> bool:
+		var l := to_mag * (v - bottom)
+		return absf(l.x) <= width * wf and absf(l.z) <= thick * wf and l.y >= -h * 0.15 and l.y <= h * top
+	for m in inst.find_children("*", "MeshInstance3D", true, false):
+		if not m.visible or m.has_meta("attachment") or m.mesh == null:
+			continue
+		var xf_m := Transform3D.IDENTITY
+		var n: Node = m
+		while n != inst and n is Node3D:
+			xf_m = (n as Node3D).transform * xf_m
+			n = n.get_parent()
+		var keep := ArrayMesh.new()
+		var out := ArrayMesh.new()
+		for s in m.mesh.get_surface_count():
+			var arrays: Array = m.mesh.surface_get_arrays(s)
+			var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			var idx := PackedInt32Array()
+			if arrays[Mesh.ARRAY_INDEX] != null:
+				idx = arrays[Mesh.ARRAY_INDEX]
+			if idx.is_empty():
+				idx.resize(verts.size())
+				for i in verts.size():
+					idx[i] = i
+			var ki := PackedInt32Array()
+			var mi := PackedInt32Array()
+			for t in range(0, idx.size() - 2, 3):
+				var a := xf_m * verts[idx[t]]
+				var b := xf_m * verts[idx[t + 1]]
+				var c := xf_m * verts[idx[t + 2]]
+				if inside.call((a + b + c) / 3.0, 0.75, 1.0) and inside.call(a, 1.0, 2.0) and inside.call(b, 1.0, 2.0) and inside.call(c, 1.0, 2.0):
+					mi.append_array([idx[t], idx[t + 1], idx[t + 2]])
+				else:
+					ki.append_array([idx[t], idx[t + 1], idx[t + 2]])
+			var mat: Material = m.get_surface_override_material(s)
+			if mat == null:
+				mat = m.mesh.surface_get_material(s)
+			for part in [[keep, ki], [out, mi]]:
+				if (part[1] as PackedInt32Array).is_empty():
+					continue
+				var arr := arrays.duplicate()
+				arr[Mesh.ARRAY_INDEX] = part[1]
+				var am: ArrayMesh = part[0]
+				am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+				am.surface_set_material(am.get_surface_count() - 1, mat)
+		if out.get_surface_count() == 0:
+			continue
+		m.mesh = keep
+		for s in m.get_surface_override_material_count():
+			m.set_surface_override_material(s, null)
+		if keep.get_surface_count() == 0:
+			m.visible = false
+		var piece := MeshInstance3D.new()
+		piece.mesh = out
+		piece.transform = xf * xf_m
+		piece.material_override = m.material_override
+		piece.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mag.add_child(piece)
 
 
 ## Main droite : dos de la main à droite de la poignée, 4 doigts devant, pouce à gauche.

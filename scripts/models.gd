@@ -251,11 +251,7 @@ static func add_attachments(gun: Node3D, atts: Array) -> void:
 ## Chargeur étendu : prolonge le vrai chargeur du modèle (repéré grâce à Data.MAG_HINTS)
 ## dans son axe, avec une semelle au bout.
 static func _extended_mag(gun: Node3D, model: String, p: Dictionary) -> void:
-	if not Data.MAG_HINTS.has(model):
-		return
-	if not _mag_cache.has(model):
-		_mag_cache[model] = _measure_mag(gun, Data.MAG_HINTS[model], p["box"])
-	var g: Dictionary = _mag_cache[model]
+	var g := mag_geometry(gun, model, p["box"])
 	if g.is_empty():
 		return
 	var angle: float = g["angle"]
@@ -268,6 +264,7 @@ static func _extended_mag(gun: Node3D, model: String, p: Dictionary) -> void:
 	mat.albedo_color = Color(0.11, 0.11, 0.12)
 	mat.roughness = 0.65
 	var holder := Node3D.new()
+	holder.name = "ExtMag"
 	holder.position = bottom
 	holder.rotation.z = angle
 	gun.add_child(holder)
@@ -279,6 +276,16 @@ static func _extended_mag(gun: Node3D, model: String, p: Dictionary) -> void:
 
 
 static var _mag_cache := {}
+
+
+## Géométrie du chargeur d'un modèle (vide si l'arme n'a pas de chargeur amovible), mise en cache.
+static func mag_geometry(gun: Node3D, model: String, box: AABB) -> Dictionary:
+	if not Data.MAG_HINTS.has(model):
+		return {}
+	if not _mag_cache.has(model):
+		_mag_cache[model] = _measure_mag(gun, Data.MAG_HINTS[model], box)
+	return _mag_cache[model]
+
 
 ## Mesure le chargeur d'un modèle : on échantillonne ses faces (les modèles low poly ont trop peu
 ## de sommets), puis on garde la zone indiquée par l'indice. Renvoie le bas du chargeur, son

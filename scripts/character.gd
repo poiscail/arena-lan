@@ -24,6 +24,7 @@ const SLIDE_TIME := 0.85
 const SLIDE_COOLDOWN := 0.5
 const SLIDE_EYE := 0.85
 const INSPECT_TIME := 3.4
+const RELOAD_SOUNDS := [[0.24, "metalClick", -8.0], [0.42, "cloth1", -12.0], [0.76, "metalClick", -5.0]]
 # Inspection de l'arme : [moment (0-1), décalage de position, rotation]
 const INSPECT_POSES := [
 	[0.0, Vector3.ZERO, Vector3.ZERO],
@@ -101,6 +102,8 @@ var _label: Label3D
 var _shape: CollisionShape3D
 var _viewmodel: Node3D
 var _view_guns := []
+var _reload_g: Node3D = null  # arme dont la main gauche et le chargeur sont animés
+var _reload_step := 0  # sons du rechargement déjà joués
 var _fire_cd := 0.0
 var _trigger_released := true
 var _kick := 0.0
@@ -677,8 +680,64 @@ func start_reload() -> void:
 	if reloading > 0.0 or ammo[weapon] >= w.mag:
 		return
 	reloading = w.reload
-	game.sfx.play("metalClick", null, -6.0)
+	_reload_step = 0
+	game.sfx.play("cloth1", null, -12.0)
 	zoomed = false
+
+
+## Rechargement à la première personne (r : progression 0 -> 1) : la main gauche va au chargeur,
+## le retire (il tombe), en prend un neuf plus bas, l'enfonce puis revient sur l'arme.
+func _reload_anim(r: float) -> void:
+	var g: Node3D = _view_guns[slot] if slot < _view_guns.size() else null
+	if _reload_g != g and is_instance_valid(_reload_g):
+		_pose_reload(_reload_g, 0.0)
+	_reload_g = g
+	if g == null:
+		return
+	_pose_reload(g, r)
+	if r <= 0.0:
+		return
+	# Chargeur retiré, main dans la poche, chargeur enfoncé
+	if _reload_step < RELOAD_SOUNDS.size() and r >= float(RELOAD_SOUNDS[_reload_step][0]):
+		game.sfx.play(RELOAD_SOUNDS[_reload_step][1], null, RELOAD_SOUNDS[_reload_step][2])
+		_reload_step += 1
+
+
+func _pose_reload(g: Node3D, r: float) -> void:
+	var left := g.get_node_or_null("Arms/LeftArm") as Node3D
+	var mag := g.get_node_or_null("Mag") as Node3D
+	if left == null:
+		return
+	var grab: Vector3 = g.get_meta("mag_grab", Vector3.ZERO) - g.get_meta("lh_rest", Vector3.ZERO)
+	var pulled: Vector3 = (g.get_meta("mag_out", Vector3.DOWN) as Vector3) * float(g.get_meta("mag_len", 0.05))
+	var pouch := grab + Vector3(-0.1, -0.4, 0.12)  # sous l'écran : la poche à chargeurs
+	var hand := Vector3.ZERO
+	var m := Vector3.ZERO
+	var shown := true
+	if r <= 0.0:
+		pass
+	elif r < 0.18:  # la main va au chargeur
+		hand = grab * smoothstep(0.0, 0.18, r)
+	elif r < 0.32:  # elle le retire
+		m = pulled * smoothstep(0.18, 0.32, r)
+		hand = grab + m
+	elif r < 0.5:  # l'ancien chargeur tombe, la main descend en chercher un neuf
+		var k := (r - 0.32) / 0.18
+		hand = (grab + pulled).lerp(pouch, smoothstep(0.0, 1.0, k))
+		m = pulled + Vector3(-0.03 * k, -1.2 * k * k, 0.0)
+		shown = k < 0.85
+	elif r < 0.68:  # elle remonte avec le neuf
+		hand = pouch.lerp(grab + pulled, smoothstep(0.5, 0.68, r))
+		m = hand - grab
+	elif r < 0.8:  # elle l'enfonce
+		m = pulled * (1.0 - smoothstep(0.68, 0.8, r))
+		hand = grab + m
+	else:  # puis revient sous l'arme
+		hand = grab * (1.0 - smoothstep(0.8, 1.0, r))
+	left.position = hand
+	if mag != null:
+		mag.position = m
+		mag.visible = shown
 
 
 func _weapons(delta: float, captured: bool) -> void:
@@ -719,13 +778,14 @@ func _weapons(delta: float, captured: bool) -> void:
 	if reloading > 0.0:
 		r = 1.0 - reloading / float(w.reload)
 	var reload_curve := sin(r * PI)
+	_reload_anim(r)
 	# En visée, le point rouge du viseur est placé exactement dans l'axe de la caméra
 	var ads_pos := Vector3(0, -0.105, -0.36)
 	if slot < _view_guns.size() and _view_guns[slot].has_meta("sight"):
 		ads_pos = Vector3(0, 0, -ADS_EYE) - (_view_guns[slot].get_meta("sight") as Vector3)
 	var target := VIEWMODEL_POS.lerp(ads_pos, _ads) + bob * (1.0 - _ads * 0.9) + Vector3(0, 0, _kick)
 	target += Vector3(-0.08, -0.08, 0.04) * _sprint_blend
-	target += Vector3(0.02, -0.14, 0.06) * reload_curve
+	target += Vector3(0.03, -0.07, 0.03) * reload_curve
 	target += Vector3(0, -0.35, 0.1) * _draw
 	target += Vector3(0, -0.05, 0) * _land
 	target += Vector3(-_sway.x, _sway.y, 0) * 0.0006
@@ -740,7 +800,7 @@ func _weapons(delta: float, captured: bool) -> void:
 			target += pose[0]
 			insp_rot = pose[1]
 	_viewmodel.position = _viewmodel.position.lerp(target, minf(1.0, delta * 20.0))
-	var rot := Vector3(_kick * 2.0 - 0.6 * reload_curve - 0.5 * _draw - 0.15 * _land, 0.55 * _sprint_blend - _sway.x * 0.002, 0.5 * reload_curve + 0.25 * _sprint_blend)
+	var rot := Vector3(_kick * 2.0 - 0.25 * reload_curve - 0.5 * _draw - 0.15 * _land, 0.55 * _sprint_blend - _sway.x * 0.002, 0.45 * reload_curve + 0.25 * _sprint_blend)
 	rot *= 1.0 - _ads * 0.85  # en visée, l'arme reste droite pour garder le point au centre
 	rot += insp_rot
 	_viewmodel.rotation = _viewmodel.rotation.lerp(rot, minf(1.0, delta * 15.0))

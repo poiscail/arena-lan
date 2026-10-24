@@ -86,6 +86,8 @@ Graphismes : éclairage AgX, halos lumineux, et un **rendu avancé** au choix da
 
 **Inspection d'arme** : touche **Y** (modifiable) pour faire tourner l'arme en main et l'admirer, avec une fiche : nom, skin et sa rareté, nombre d'éliminations avec cette arme et prochain skin à débloquer. Viser, tirer, recharger ou sprinter l'interrompt.
 
+**Rechargement** : la main gauche retire le chargeur, qui tombe, va en chercher un neuf et l'enclenche (le chargeur des pistolets sort de la poignée ; pompe, revolver et lance-roquettes se chargent à la main), avec les bruitages de chaque étape.
+
 ## Armurerie
 Bouton **Armurerie** dans le menu. Pour chaque arme :
 - un **skin** parmi 52 (camouflages, damas, marbre, écailles de dragon, carbone, chrome, galaxie, lave animée, néon, circuit, holographique, diamant, flammes…), classés par rareté (commun à mythique) et débloqués **pour chaque arme en faisant des éliminations avec elle** (de 2 éliminations pour le premier à 850 pour le dernier mythique) ;

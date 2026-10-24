@@ -872,6 +872,11 @@ func _apply_cmdline() -> void:
 				var c = game.chars[id]
 				if not c.is_bot and c.alive:
 					game._deal_damage(c, {c.char_id: 500.0}, 0))
+	if opts.has("reload"):
+		get_tree().create_timer(float(opts["reload"])).timeout.connect(func() -> void:
+			var c = game.local_char
+			c.ammo[c.weapon] = 0
+			c.start_reload())
 	if opts.has("inspect"):
 		get_tree().create_timer(float(opts["inspect"])).timeout.connect(func() -> void: game.local_char.start_inspect())
 	if opts.has("killed-by"):
