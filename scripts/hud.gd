@@ -711,7 +711,9 @@ func _process(delta: float) -> void:
 			_center.text = ""
 	_center_box.visible = _center.text != ""
 	# En spectateur, le message descend en bas de l'écran pour ne pas cacher la vue
-	if game.spectator != null and game.spectator.active:
+	if game.killcam != null and game.killcam.active:
+		_place(_center_box, 0.5, 1, 0.5, 1, -260, -240, 260, -150)
+	elif game.spectator != null and game.spectator.active:
 		_place(_center_box, 0.5, 1, 0.5, 1, -260, -160, 260, -76)
 	else:
 		_place(_center_box, 0.5, 0.5, 0.5, 0.5, -260, 70, 260, 120)

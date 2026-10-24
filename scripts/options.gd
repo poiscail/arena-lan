@@ -88,6 +88,7 @@ func _ready() -> void:
 	_option(grid, "fps_limit", "Limite d'images", fps_names)
 	_check(grid, "show_fps", "Afficher les IPS")
 	_check(grid, "post", "Effets d'écran (couleurs, vignette)")
+	_check(grid, "killcam", "Kill-cam (revoir sa mort)")
 	_option(grid, "fx", "Qualité des effets", ["Basse", "Moyenne (halos)", "Élevée", "Ultra"])
 	_renderer_row(grid)
 

@@ -59,6 +59,7 @@ var gfx := {
 	"post": true,       # effets d'écran (couleurs, vignette, grain)
 	"fx": 2,             # qualité des effets : 0 bas, 1 moyen, 2 élevé, 3 ultra
 	"renderer": 0,       # 0 standard (compatibilité), 1 avancé (Forward+, au prochain lancement)
+	"killcam": true,     # rejoue sa mort vue par le tueur
 }
 
 

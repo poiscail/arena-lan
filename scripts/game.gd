@@ -13,6 +13,7 @@ const ItemsScript := preload("res://scripts/items.gd")
 const SfxScript := preload("res://scripts/sfx.gd")
 const ModesScript := preload("res://scripts/modes.gd")
 const SpectatorScript := preload("res://scripts/spectator.gd")
+const KillcamScript := preload("res://scripts/killcam.gd")
 const VehiclesScript := preload("res://scripts/vehicles.gd")
 
 const NET_RATE := 1.0 / 30.0
@@ -42,6 +43,7 @@ var items
 var sfx
 var modes
 var spectator
+var killcam
 var vehicles
 var rules := "dm"
 var streaks := {}  # (serveur) id -> éliminations sans mourir
@@ -81,6 +83,10 @@ func _ready() -> void:
 	spectator.name = "Spectator"
 	spectator.game = self
 	add_child(spectator)
+	killcam = KillcamScript.new()
+	killcam.name = "Killcam"
+	killcam.game = self
+	add_child(killcam)
 	hud = HudScript.new()
 	hud.game = self
 	add_child(hud)
@@ -917,9 +923,13 @@ func on_died(victim_id: String, killer_id: String, weapon: int) -> void:
 			sfx.play("select_001", null, -2.0, 0.0)
 	if v == local_char:
 		hud.show_death(kname)
-		get_tree().create_timer(1.3).timeout.connect(func() -> void:
+		var to_spec := func() -> void:
 			if local_char != null and not local_char.alive and not match_over:
-				spectator.start())
+				spectator.start()
+		# Kill-cam : courte quand on réapparaît vite, plus longue sinon
+		var respawns: bool = modes.allows_respawn()
+		if not killcam.start(k, v, weapon, 2.6 if respawns else 4.5, 1.3 if respawns else 1.0, to_spec):
+			get_tree().create_timer(1.3).timeout.connect(to_spec)
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -928,6 +938,7 @@ func on_respawn(id: String, pos: Vector3, cls: int, arm: Dictionary = {}) -> voi
 	if c != null:
 		c.respawn(pos, cls, arm)
 		if c == local_char:
+			killcam.stop()
 			spectator.stop()
 
 
@@ -936,6 +947,7 @@ func shot_fx(shooter_id: String, weapon: int, ends: PackedVector3Array) -> void:
 	var s = chars.get(shooter_id)
 	if s == null or s.is_local:
 		return
+	killcam.record_shot(shooter_id, weapon, ends)
 	s.show_weapon(weapon)
 	s.play_shoot()
 	var from: Vector3 = s.muzzle_position()
@@ -978,6 +990,7 @@ func on_match_end(text: String) -> void:
 		_award_xp()
 	match_over = true
 	end_text = text
+	killcam.stop()
 	hud.refresh_scores()
 
 

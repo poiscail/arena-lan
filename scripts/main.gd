@@ -872,6 +872,33 @@ func _apply_cmdline() -> void:
 				var c = game.chars[id]
 				if not c.is_bot and c.alive:
 					game._deal_damage(c, {c.char_id: 500.0}, 0))
+	if opts.has("killed-by"):
+		# Hôte, test kill-cam : un bot ennemi se place devant le joueur, tire 3 fois et l'élimine
+		get_tree().create_timer(float(opts["killed-by"])).timeout.connect(func() -> void:
+			var me = game.local_char
+			for id in game.chars:
+				var b = game.chars[id]
+				if b.is_bot and b.alive and game.is_enemy(me, b):
+					b.bot = null
+					var fwd: Vector3 = -me.global_transform.basis.z
+					b.position = me.position + fwd * 9.0 + Vector3(2, 0, 0)
+					b._net_pos = b.position
+					b.look_at(me.global_position, Vector3.UP)
+					b.rotation.x = 0.0
+					b.rotation.z = 0.0
+					for i in 3:
+						get_tree().create_timer(0.5 + i * 0.35).timeout.connect(func() -> void:
+							b.position += Vector3(-0.5, 0, 0)
+							b._net_pos = b.position
+							b.look_at(me.global_position, Vector3.UP)
+							b.rotation.x = 0.0
+							b.rotation.z = 0.0
+							game._broadcast("shot_fx", [b.char_id, b.weapon, PackedVector3Array([me.eye_position()])])
+							if i == 2:
+								game._deal_damage(b, {me.char_id: 500.0}, b.weapon))
+					get_tree().create_timer(2.6).timeout.connect(func() -> void:
+						print("[test] killcam actif=", game.killcam.active, " tueur=", b.display_name, " cam=", game.killcam.cam.current))
+					break)
 	if opts.has("print-loadout"):
 		get_tree().create_timer(float(opts["print-loadout"])).timeout.connect(func() -> void:
 			for id in game.chars:
