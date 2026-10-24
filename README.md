@@ -78,6 +78,8 @@ Graphismes : éclairage AgX, halos lumineux, et un **rendu avancé** au choix da
 
 **Destruction** : chaque carte a des barricades en planches, des caisses en bois et des vitres. Les balles cassent les planches une par une (on peut percer un trou pour tirer à travers), les caisses éclatent en morceaux, les vitres volent en éclats au premier tir, et les explosions brisent tout autour. Les débris tombent et rebondissent ; tout se répare 45 s après.
 
+**Mouvements** : en avançant contre un rebord de 0,5 à 1,9 m (caisse, muret, conteneur bas), Espace fait grimper dessus. Option du salon « Mouvements » : double saut, et course sur les murs (en sprintant en l'air le long d'un mur, on glisse dessus environ 1 s ; Espace pour s'en repousser).
+
 ## Armurerie
 Bouton **Armurerie** dans le menu. Pour chaque arme :
 - un **skin** parmi 52 (camouflages, damas, marbre, écailles de dragon, carbone, chrome, galaxie, lave animée, néon, circuit, holographique, diamant, flammes…), classés par rareté (commun à mythique) et débloqués **pour chaque arme en faisant des éliminations avec elle** (de 2 éliminations pour le premier à 850 pour le dernier mythique) ;

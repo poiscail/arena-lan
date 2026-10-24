@@ -36,6 +36,7 @@ var _rules_desc: Label
 var _slots_label: Label
 var _slots: SpinBox
 var _bots: CheckBox
+var _advmove: CheckBox
 var _difficulty: OptionButton
 var _score: SpinBox
 var _time: SpinBox
@@ -267,6 +268,11 @@ Tab : scores   ·   Échap : pause   ·   Touches modifiables dans Options", 15)
 	_bots.toggled.connect(func(_on: bool) -> void: _on_setting_changed(0))
 	_add_row(grid, "Bots", _bots)
 
+	_advmove = CheckBox.new()
+	_advmove.text = "Double saut et course sur les murs"
+	_advmove.toggled.connect(func(_on: bool) -> void: _on_setting_changed(0))
+	_add_row(grid, "Mouvements", _advmove)
+
 	_difficulty = OptionButton.new()
 	_difficulty.add_item("Facile")
 	_difficulty.add_item("Normal")
@@ -444,6 +450,8 @@ func _refresh_lobby() -> void:
 	_slots.max_value = 6 if team else 12
 	_slots.set_value_no_signal(s.slots)
 	_bots.set_pressed_no_signal(s.bots)
+	_advmove.set_pressed_no_signal(bool(s.get("advmove", false)))
+	_advmove.disabled = not multiplayer.is_server()
 	_difficulty.select(s.difficulty)
 	_score.set_value_no_signal(fixed_limit if fixed_limit > 0 else s.score_limit)
 	_time.set_value_no_signal(s.time_limit)
@@ -575,6 +583,7 @@ func _on_setting_changed(_value) -> void:
 	var s := Net.settings.duplicate()
 	s["slots"] = int(_slots.value)
 	s["bots"] = _bots.button_pressed
+	s["advmove"] = _advmove.button_pressed
 	s["difficulty"] = _difficulty.selected
 	if int(Data.RULES[s.get("rules", "dm")]["limit"]) == 0:
 		s["score_limit"] = int(_score.value)
@@ -656,6 +665,8 @@ func _apply_cmdline() -> void:
 			s["slots"] = int(opts["slots"])
 		if opts.has("difficulty"):
 			s["difficulty"] = int(opts["difficulty"])
+		if opts.has("advmove"):
+			s["advmove"] = true
 		if opts.has("rules"):
 			s["rules"] = opts["rules"]
 		if opts.has("map"):
@@ -742,6 +753,74 @@ func _apply_cmdline() -> void:
 			for k in mini(2, b["hp"].size()):
 				game.items._damage_piece(bi, k, 999.0, b["pos"] + Vector3(0, 0.8, 0))
 			print("[test] morceaux restants : ", b["hp"]))
+	if opts.has("djump"):
+		# Test double saut : deux appuis sur saut, on mesure la hauteur maximale
+		get_tree().create_timer(2.5).timeout.connect(func() -> void:
+			var c = game.local_char
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			var y0: float = c.position.y
+			var top := y0
+			Input.action_press("jump")
+			await get_tree().create_timer(0.1).timeout
+			Input.action_release("jump")
+			await get_tree().create_timer(0.3).timeout
+			Input.action_press("jump")
+			await get_tree().create_timer(0.1).timeout
+			Input.action_release("jump")
+			for i in 30:
+				await get_tree().physics_frame
+				top = maxf(top, c.position.y)
+			for i in 30:
+				await get_tree().physics_frame
+				top = maxf(top, c.position.y)
+			print("[test] hauteur max du saut : %.2f m" % (top - y0)))
+	if opts.has("wallrun"):
+		# Test course sur un mur : on court le long du bord de la carte et on saute
+		get_tree().create_timer(2.5).timeout.connect(func() -> void:
+			var c = game.local_char
+			c.position = Vector3(29.4, 0.1, 10.0)
+			c.rotation.y = 0.0  # regarde vers -Z, le mur du bord est à droite
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			Input.action_press("move_forward")
+			Input.action_press("sprint")
+			await get_tree().create_timer(0.6).timeout
+			Input.action_press("jump")
+			await get_tree().create_timer(0.1).timeout
+			Input.action_release("jump")
+			var best := 0.0
+			var air := 0
+			for i in 120:
+				await get_tree().physics_frame
+				best = maxf(best, c._wallrun_t)
+				if not c.is_on_floor():
+					air += 1
+			Input.action_release("move_forward")
+			Input.action_release("sprint")
+			print("[test] course sur le mur : %.2f s, %.2f s en l'air" % [best, air / 60.0]))
+	if opts.has("mantle"):
+		# Test escalade : face à la caisse destructible n° « mantle », on avance et on saute
+		get_tree().create_timer(2.5).timeout.connect(func() -> void:
+			var c = game.local_char
+			var target := Vector3.ZERO
+			var n := 0
+			for b in game.items._breakables:
+				if b["kind"] == "crate":
+					if n == int(opts["mantle"]):
+						target = b["pos"]
+					n += 1
+			var away := Vector3(0, 0, 1.6)
+			c.position = target + away
+			c.look_at(Vector3(target.x, c.position.y, target.z), Vector3.UP)
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			Input.action_press("move_forward")
+			await get_tree().create_timer(0.3).timeout
+			Input.action_press("jump")
+			await get_tree().create_timer(0.15).timeout
+			Input.action_release("jump")
+			await get_tree().create_timer(0.35).timeout
+			Input.action_release("move_forward")
+			await get_tree().create_timer(0.3).timeout
+			print("[test] hauteur après escalade : %.2f (caisse 1,1 m)" % c.position.y))
 	if opts.has("slot"):
 		get_tree().create_timer(2.0).timeout.connect(func() -> void: game.local_char.switch_weapon(int(opts["slot"])))
 	if opts.has("loadout"):

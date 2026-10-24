@@ -60,6 +60,15 @@ var _step := 0.0
 var _ads := 0.0
 var lean := 0.0  # inclinaison : -1 gauche, +1 droite
 var _tilt := 0.0
+# Mouvements avancés (joueur local) : escalade des rebords, double saut, course sur les murs
+var _grav_scale := 1.0
+var _mantle_t := 0.0
+var _mantle_from := Vector3.ZERO
+var _mantle_to := Vector3.ZERO
+var _air_jumps := 0
+var _wallrun_t := 0.0
+var _wall_side := 0.0
+var _wall_normal := Vector3.ZERO
 var _flashlight: SpotLight3D
 var alive := true
 var bot = null
@@ -417,6 +426,101 @@ func _unhandled_input(event: InputEvent) -> void:
 			switch_weapon((slot + 1) % 3)
 
 
+const MANTLE_TIME := 0.38
+
+## Escalade : en avançant contre un rebord entre 0,5 et 1,9 m (au saut ou en l'air), on monte dessus.
+func _try_mantle(input: Vector2, jump_now: bool) -> bool:
+	if sliding or input.y > -0.3 or (is_on_floor() and not jump_now):
+		return false
+	if not is_on_floor() and velocity.y > 3.0:
+		return false  # encore en pleine montée de saut
+	var fwd := -global_transform.basis.z
+	fwd.y = 0
+	fwd = fwd.normalized()
+	var ex: Array[RID] = [get_rid()]
+	var chest := global_position + Vector3(0, 0.9, 0)
+	var wall: Dictionary = game._ray(chest, chest + fwd * 0.75, ex, 1)
+	if wall.is_empty():
+		return false
+	# Dessus du rebord : on cherche le sol un peu derrière le mur
+	var probe: Vector3 = wall.position + fwd * 0.4
+	var top: Dictionary = game._ray(Vector3(probe.x, global_position.y + 2.3, probe.z), Vector3(probe.x, global_position.y + 0.3, probe.z), ex, 1)
+	if top.is_empty():
+		return false
+	var h: float = top.position.y - global_position.y
+	if h < 0.5 or h > 1.9 or top.normal.y < 0.7:
+		return false
+	# Assez de place au-dessus pour se tenir debout
+	var head_room: Dictionary = game._ray(top.position + Vector3(0, 0.05, 0), top.position + Vector3(0, 1.75, 0), ex, 1)
+	if not head_room.is_empty():
+		return false
+	_mantle_from = global_position
+	_mantle_to = top.position + fwd * 0.15 + Vector3(0, 0.05, 0)
+	_mantle_t = MANTLE_TIME
+	velocity = Vector3.ZERO
+	game.sfx.play("cloth1", null, -6.0, 0.1)
+	return true
+
+
+func _mantle(delta: float) -> void:
+	_mantle_t = maxf(0.0, _mantle_t - delta)
+	var k := 1.0 - _mantle_t / MANTLE_TIME
+	# D'abord monter, puis avancer sur le rebord
+	var up := smoothstep(0.0, 0.65, k)
+	var fwd := smoothstep(0.45, 1.0, k)
+	global_position = Vector3(lerpf(_mantle_from.x, _mantle_to.x, fwd), lerpf(_mantle_from.y, _mantle_to.y, up), lerpf(_mantle_from.z, _mantle_to.z, fwd))
+	if _mantle_t <= 0.0:
+		velocity = Vector3.ZERO
+
+
+## Double saut et course sur les murs (si l'hôte a activé les mouvements avancés).
+func _advanced_air(delta: float, input: Vector2, jump_now: bool, sprint: bool) -> void:
+	_grav_scale = 1.0
+	if is_on_floor():
+		_air_jumps = 0
+		_wallrun_t = 0.0
+		_wall_side = 0.0
+		return
+	if game == null or not bool(game.settings.get("advmove", false)):
+		return
+	var ex: Array[RID] = [get_rid()]
+	var right := global_transform.basis.x
+	var hspeed := Vector2(velocity.x, velocity.z).length()
+	# Course sur les murs : en l'air, en avançant vite, un mur juste à gauche ou à droite
+	var side := 0.0
+	var normal := Vector3.ZERO
+	if input.y < -0.3 and hspeed > WALK_SPEED * 0.9 and _wallrun_t < 1.4:
+		var from := global_position + Vector3(0, 1.0, 0)
+		for s in [1.0, -1.0]:
+			var hit: Dictionary = game._ray(from, from + right * s * 0.8, ex, 1)
+			if not hit.is_empty() and absf(hit.normal.y) < 0.3:
+				side = s
+				normal = hit.normal
+				break
+	if side != 0.0:
+		if _wall_side == 0.0:
+			velocity.y = maxf(velocity.y, 1.5)  # petit élan en accrochant le mur
+		_wall_side = side
+		_wall_normal = normal
+		_wallrun_t += delta
+		_grav_scale = 0.18
+		velocity.y = maxf(velocity.y, -1.2)
+		_air_jumps = 0  # le mur redonne le double saut
+		if jump_now:
+			# Saut depuis le mur : on est repoussé de l'autre côté
+			velocity += _wall_normal * 6.5
+			velocity.y = JUMP_VELOCITY
+			_wallrun_t = 1.4
+			_wall_side = 0.0
+			game.sfx.play("cloth1", null, -6.0, 0.1)
+		return
+	_wall_side = 0.0
+	if jump_now and _air_jumps == 0:
+		_air_jumps = 1
+		velocity.y = JUMP_VELOCITY * 0.92
+		game.sfx.play("cloth1", null, -8.0, 0.1)
+
+
 func _local_control(delta: float) -> void:
 	var captured := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	var input := Vector2.ZERO
@@ -427,7 +531,12 @@ func _local_control(delta: float) -> void:
 	var sprint := captured and Input.is_action_pressed("sprint") and input.y < -0.1
 	if captured and Input.is_action_just_pressed("slide"):
 		start_slide()
-	_move(delta, dir, captured and Input.is_action_pressed("jump"), sprint)
+	var jump_now := captured and Input.is_action_just_pressed("jump")
+	if _mantle_t > 0.0:
+		_mantle(delta)
+	elif not _try_mantle(input, jump_now):
+		_advanced_air(delta, input, jump_now, sprint)
+		_move(delta, dir, captured and Input.is_action_pressed("jump"), sprint)
 	_weapons(delta, captured)
 	# Caméra plus basse et légèrement penchée pendant la glissade
 	var k := minf(1.0, delta * 12.0)
@@ -444,7 +553,7 @@ func _local_control(delta: float) -> void:
 			want *= clampf((from.distance_to(hit.position) - 0.25) / 0.45, 0.0, 1.0)
 	lean = move_toward(lean, want, delta * 5.0)
 	_apply_lean()
-	_tilt = lerpf(_tilt, 0.06 if sliding else 0.0, k)
+	_tilt = lerpf(_tilt, (0.06 if sliding else 0.0) + _wall_side * 0.12, k)  # penché pendant la course sur un mur
 	head.rotation.z = _tilt - lean * 0.2
 
 
@@ -479,7 +588,7 @@ func _move(delta: float, dir: Vector3, want_jump: bool, want_sprint: bool) -> vo
 		if want_jump:
 			velocity.y = JUMP_VELOCITY
 	else:
-		velocity.y -= GRAVITY * delta
+		velocity.y -= GRAVITY * _grav_scale * delta
 	var speed := (SPRINT_SPEED if want_sprint else WALK_SPEED) * float(Data.CLASSES[class_id].speed)
 	if zombie:
 		speed = SPRINT_SPEED * 0.95 if zombie_fast else WALK_SPEED * 0.75

@@ -29,6 +29,7 @@ var settings := {
 	"time_limit": 10,    # minutes
 	"map": 0,            # 0 base militaire, 1 ville
 	"rules": "dm",       # mode de jeu : voir Data.RULES
+	"advmove": false,    # mouvements avancés : double saut et course sur les murs
 }
 var in_game := false
 var mouse_sensitivity := 0.0025
