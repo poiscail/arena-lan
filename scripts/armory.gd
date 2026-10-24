@@ -11,6 +11,8 @@ const UiTheme := preload("res://scripts/ui_theme.gd")
 var _list: ItemList
 var _equip: Button
 var _skin_opt: OptionButton
+var _charm_opt: OptionButton
+var _sticker_opt: OptionButton
 var _progress: Label
 var _progress_bar: ProgressBar
 var _att_box: VBoxContainer
@@ -128,6 +130,11 @@ func _ready() -> void:
 			Net.armory[key]["skin"] = sk
 		_save())
 	side.add_child(all)
+	side.add_child(_section("BRELOQUE ET AUTOCOLLANT"))
+	_charm_opt = _trinket_option("charm")
+	side.add_child(_charm_opt)
+	_sticker_opt = _trinket_option("sticker")
+	side.add_child(_sticker_opt)
 	side.add_child(_section("ACCESSOIRES"))
 	_att_box = VBoxContainer.new()
 	_att_box.add_theme_constant_override("separation", 6)
@@ -207,6 +214,8 @@ func _select(i: int) -> void:
 		_progress_bar.max_value = Data.skin_kills(next)
 		_progress_bar.min_value = prev
 		_progress_bar.value = kills
+	_fill_trinkets(_charm_opt, Data.CHARMS, int(c.get("charm", 0)))
+	_fill_trinkets(_sticker_opt, Data.STICKERS, int(c.get("sticker", 0)))
 	for ch in _att_box.get_children():
 		ch.queue_free()
 	var allowed := Data.attachments_for(_wi)
@@ -265,6 +274,7 @@ func _refresh() -> void:
 	var w: Dictionary = Data.WEAPONS[_wi]
 	_gun = Models.weapon(w.model, float(w.len) * 1.05)
 	Models.add_attachments(_gun.get_child(0).get_child(0), c.get("att", []))
+	Models.add_trinkets(_gun.get_child(0).get_child(0), c)
 	Models.apply_camo(_gun, Data.CAMOS[clampi(int(c.get("skin", 0)), 0, Data.CAMOS.size() - 1)])
 	# Vu de profil : canon vers la droite
 	_gun.rotation.y = PI / 2.0
@@ -366,3 +376,27 @@ func _refresh_equip() -> void:
 	else:
 		_equip.text = "Utiliser cette arme (%s)" % String(Data.CATS[cat]).to_lower()
 		_equip.disabled = false
+
+
+## Liste déroulante d'une breloque ou d'un autocollant (même choix pour cette arme seulement).
+func _trinket_option(key: String) -> OptionButton:
+	var opt := OptionButton.new()
+	opt.item_selected.connect(func(i: int) -> void:
+		if not _updating:
+			_custom()[key] = i
+			_save())
+	return opt
+
+
+## Remplit la liste : débloqués par le niveau du joueur, le choix actuel reste disponible.
+func _fill_trinkets(opt: OptionButton, items: Array, current: int) -> void:
+	var lvl: int = Data.level_info(Net.xp)[0]
+	opt.clear()
+	for k in items.size():
+		var it: Dictionary = items[k]
+		var need := int(it.get("lvl", 1))
+		var rar: String = Data.RARITIES[int(it.get("r", 0))]["name"]
+		var label: String = it["name"] if k == 0 else "%s  ·  %s%s" % [it["name"], rar, ("   (niveau %d)" % need if lvl < need else "")]
+		opt.add_item(label)
+		opt.set_item_disabled(k, lvl < need and k != current)
+	opt.select(clampi(current, 0, items.size() - 1))

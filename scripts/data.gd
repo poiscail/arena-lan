@@ -383,3 +383,40 @@ static func resolve_weapon(wi: int, armory: Dictionary) -> int:
 	if p >= 0 and p < WEAPONS.size() and WEAPONS[p].cat == cat:
 		return p
 	return wi
+
+
+# Breloques accrochées à l'arme (armurerie). « shape » : forme construite par Models.charm ;
+# c1/c2 : couleurs ; lvl : niveau du joueur qui la débloque ; r : rareté.
+const CHARMS := [
+	{"name": "Aucune", "shape": "", "lvl": 1, "r": 0},
+	{"name": "Dé", "shape": "die", "c1": Color("f2f2ee"), "c2": Color("141414"), "lvl": 1, "r": 0},
+	{"name": "Douille", "shape": "bullet", "c1": Color("d9a640"), "c2": Color("b0743a"), "lvl": 2, "r": 0},
+	{"name": "Plaque militaire", "shape": "tag", "c1": Color("b8bec6"), "c2": Color("50565e"), "lvl": 3, "r": 0},
+	{"name": "Mini grenade", "shape": "grenade", "c1": Color("4f5f34"), "c2": Color("2a2a26"), "lvl": 4, "r": 1},
+	{"name": "Canard", "shape": "duck", "c1": Color("ffd42a"), "c2": Color("ff7a1a"), "lvl": 5, "r": 1},
+	{"name": "Cœur", "shape": "heart", "c1": Color("e8243c"), "c2": Color("ff9aa8"), "lvl": 6, "r": 1},
+	{"name": "Étoile", "shape": "star", "c1": Color("ffcf3a"), "c2": Color("fff3b0"), "lvl": 8, "r": 2},
+	{"name": "Crâne", "shape": "skull", "c1": Color("ecebe2"), "c2": Color("1a1a1a"), "lvl": 10, "r": 2},
+	{"name": "Pièce d'or", "shape": "coin", "c1": Color("f0c04a"), "c2": Color("a07420"), "lvl": 12, "r": 2},
+	{"name": "Cristal", "shape": "gem", "c1": Color("6ad8ff"), "c2": Color("e8fbff"), "lvl": 15, "r": 3},
+	{"name": "Cristal rubis", "shape": "gem", "c1": Color("ff2a4a"), "c2": Color("ffd0d8"), "lvl": 18, "r": 3},
+	{"name": "Crâne doré", "shape": "skull", "c1": Color("f2c75c"), "c2": Color("3a2408"), "lvl": 22, "r": 4},
+	{"name": "Étoile néon", "shape": "star", "c1": Color("1ee8ff"), "c2": Color("bffcff"), "lvl": 26, "r": 4, "e": 2.0},
+]
+
+# Autocollants collés sur les flancs de l'arme. « pic » : dessin fait par Models.sticker_texture.
+const STICKERS := [
+	{"name": "Aucun", "pic": "", "lvl": 1, "r": 0},
+	{"name": "Cible", "pic": "target", "c1": Color("e8243c"), "c2": Color("f5f5f5"), "lvl": 1, "r": 0},
+	{"name": "Drapeau", "pic": "flag", "c1": Color("1e4fc4"), "c2": Color("f5f5f5"), "c3": Color("e0242c"), "lvl": 2, "r": 0},
+	{"name": "Éclair", "pic": "bolt", "c1": Color("ffd42a"), "c2": Color("141414"), "lvl": 3, "r": 0},
+	{"name": "Cœur", "pic": "heart", "c1": Color("e8243c"), "c2": Color("ffffff"), "lvl": 4, "r": 1},
+	{"name": "Étoile", "pic": "star", "c1": Color("ffcf3a"), "c2": Color("2a2a2a"), "lvl": 5, "r": 1},
+	{"name": "Danger", "pic": "hazard", "c1": Color("ffcc00"), "c2": Color("141414"), "lvl": 7, "r": 1},
+	{"name": "Crâne", "pic": "skull", "c1": Color("f2f2ee"), "c2": Color("141414"), "lvl": 9, "r": 2},
+	{"name": "Flamme", "pic": "flame", "c1": Color("ff6a10"), "c2": Color("ffd23a"), "lvl": 11, "r": 2},
+	{"name": "Viseur", "pic": "cross", "c1": Color("3dff7a"), "c2": Color("0b1a10"), "lvl": 14, "r": 2},
+	{"name": "Radioactif", "pic": "nuke", "c1": Color("7aff2a"), "c2": Color("141a10"), "lvl": 17, "r": 3},
+	{"name": "Couronne", "pic": "crown", "c1": Color("f2c75c"), "c2": Color("3a1a5a"), "lvl": 20, "r": 3},
+	{"name": "Œil", "pic": "eye", "c1": Color("c056ff"), "c2": Color("07040d"), "lvl": 25, "r": 4},
+]

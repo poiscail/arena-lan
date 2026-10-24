@@ -852,6 +852,15 @@ func _update_inspect(c) -> void:
 	var att: Array = c.custom(wi)["att"]
 	var att_txt := ("
 [color=#9aa4b2]Accessoires : %d[/color]" % att.size()) if not att.is_empty() else ""
+	var cu: Dictionary = c.custom(wi)
+	var extra := PackedStringArray()
+	if int(cu["charm"]) > 0:
+		extra.append("breloque " + String(Data.CHARMS[int(cu["charm"])]["name"]))
+	if int(cu["sticker"]) > 0:
+		extra.append("autocollant " + String(Data.STICKERS[int(cu["sticker"])]["name"]))
+	if not extra.is_empty():
+		att_txt += "
+[color=#9aa4b2]%s[/color]" % Data.esc(", ".join(extra))
 	_inspect_text.text = "[b]%s[/b]
 [color=#%s]%s · %s[/color]
 %d éliminations avec cette arme%s%s" % [

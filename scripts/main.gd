@@ -647,7 +647,7 @@ func _apply_cmdline() -> void:
 	if opts.has("camo"):
 		var atts: Array = Array(String(opts.get("att", "")).split(",", false))
 		for wi in Data.WEAPONS.size():
-			Net.armory[str(wi)] = {"skin": int(opts["camo"]), "att": atts}
+			Net.armory[str(wi)] = {"skin": int(opts["camo"]), "att": atts, "charm": int(opts.get("charm", 0)), "sticker": int(opts.get("sticker", 0))}
 		if _background != null:
 			_background.show_class(Net.player_class)
 	if opts.has("class"):

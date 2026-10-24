@@ -203,6 +203,7 @@ func _build_ghost(victim) -> void:
 		_ghost_gun = People.hold_gun(_ghost, Data.WEAPONS[wi].model, float(Data.WEAPONS[wi].len) * 1.2)
 		if _ghost_gun != null:
 			Models.add_attachments(_ghost_gun, victim.custom(wi)["att"])
+			Models.add_trinkets(_ghost_gun, victim.custom(wi))
 			Models.apply_camo(_ghost_gun, Data.CAMOS[victim.custom(wi)["skin"]])
 	var f: Array = _sample(_rec_v, _from)
 	_ghost.global_position = f[1]
@@ -225,6 +226,7 @@ func _build_view(killer, weapon: int) -> void:
 	cam.add_child(_view)
 	var g := Models.weapon(Data.WEAPONS[wi].model, Data.WEAPONS[wi].len)
 	Models.add_attachments(g.get_child(0).get_child(0), killer.custom(wi)["att"])
+	Models.add_trinkets(g.get_child(0).get_child(0), killer.custom(wi))
 	Models.apply_camo(g, Data.CAMOS[killer.custom(wi)["skin"]])
 	Arms.add_to(g, Data.WEAPONS[wi].model)
 	_view.add_child(g)

@@ -56,6 +56,7 @@ func show_class(index: int) -> void:
 	_showcase_gun = People.hold_gun(_showcase, w.model, float(w.len) * 1.2)
 	var custom: Dictionary = Net.armory.get(str(wi0), {})
 	Models.add_attachments(_showcase_gun, custom.get("att", []))
+	Models.add_trinkets(_showcase_gun, custom)
 	Models.apply_camo(_showcase_gun, Data.CAMOS[clampi(int(custom.get("skin", 0)), 0, Data.CAMOS.size() - 1)])
 
 

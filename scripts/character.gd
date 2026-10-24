@@ -822,6 +822,7 @@ func _build_viewmodel() -> void:
 	for wi in loadout:
 		var g := Models.weapon(Data.WEAPONS[wi].model, Data.WEAPONS[wi].len)
 		Models.add_attachments(g.get_child(0).get_child(0), custom(wi)["att"])
+		Models.add_trinkets(g.get_child(0).get_child(0), custom(wi))
 		Models.apply_camo(g, Data.CAMOS[custom(wi)["skin"]])
 		Arms.add_to(g, Data.WEAPONS[wi].model)
 		_viewmodel.add_child(g)
@@ -866,6 +867,7 @@ func show_weapon(wi: int) -> void:
 	_gun = People.hold_gun(_model, Data.WEAPONS[wi].model, float(Data.WEAPONS[wi].len) * 1.2)
 	_gun.set_meta("weapon", wi)
 	Models.add_attachments(_gun, custom(wi)["att"])
+	Models.add_trinkets(_gun, custom(wi))
 	Models.apply_camo(_gun, Data.CAMOS[custom(wi)["skin"]])
 
 
@@ -968,7 +970,8 @@ func custom(wi: int) -> Dictionary:
 				taken = true
 		if allowed.has(a) and not att.has(a) and not taken:
 			att.append(a)
-	return {"skin": clampi(int(c.get("skin", 0)), 0, Data.CAMOS.size() - 1), "att": att}
+	return {"skin": clampi(int(c.get("skin", 0)), 0, Data.CAMOS.size() - 1), "att": att,
+		"charm": clampi(int(c.get("charm", 0)), 0, Data.CHARMS.size() - 1), "sticker": clampi(int(c.get("sticker", 0)), 0, Data.STICKERS.size() - 1)}
 
 
 ## Caractéristiques de l'arme avec ses accessoires.

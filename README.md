@@ -90,6 +90,7 @@ Graphismes : éclairage AgX, halos lumineux, et un **rendu avancé** au choix da
 Bouton **Armurerie** dans le menu. Pour chaque arme :
 - un **skin** parmi 52 (camouflages, damas, marbre, écailles de dragon, carbone, chrome, galaxie, lave animée, néon, circuit, holographique, diamant, flammes…), classés par rareté (commun à mythique) et débloqués **pour chaque arme en faisant des éliminations avec elle** (de 2 éliminations pour le premier à 850 pour le dernier mythique) ;
 - des **accessoires visibles sur l'arme**, un par emplacement : silencieux, baïonnette (couteau plus fort), chargeur étendu, poignée, bipied (immobile : recul et dispersion divisés par 2), lampe tactique, crosse, viseur point rouge (on vise vraiment à travers), lunette x4. Le chargeur étendu prolonge le vrai chargeur de chaque arme.
+- une **breloque** (13 : dé, douille, plaque militaire, canard, crâne, pièce d'or, cristal, étoile néon…) qui pend à l'arme et se balance quand tu bouges ou tires, et un **autocollant** (12 : cible, éclair, flamme, radioactif, couronne…) collé sur les deux flancs. Ils se débloquent avec ton **niveau de joueur** (du niveau 1 au niveau 26).
 
 Un aperçu 3D montre l'arme, et les caractéristiques changent en vert ou en rouge. Les autres joueurs voient ta personnalisation.
 
