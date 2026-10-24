@@ -76,6 +76,8 @@ Graphismes : éclairage AgX, halos lumineux, et un **rendu avancé** au choix da
 
 **Véhicules** : deux voitures (SUV, police, van, taxi) sont garées près des bases sur toutes les cartes sauf l'entrepôt. Touche F pour monter ou descendre, ZQSD pour conduire, Espace pour le frein à main, la souris pour tourner la caméra. On renverse les ennemis (dégâts selon la vitesse) ; le conducteur ne peut pas tirer et reste vulnérable aux explosions.
 
+**Destruction** : chaque carte a des barricades en planches, des caisses en bois et des vitres. Les balles cassent les planches une par une (on peut percer un trou pour tirer à travers), les caisses éclatent en morceaux, les vitres volent en éclats au premier tir, et les explosions brisent tout autour. Les débris tombent et rebondissent ; tout se répare 45 s après.
+
 ## Armurerie
 Bouton **Armurerie** dans le menu. Pour chaque arme :
 - un **skin** parmi 52 (camouflages, damas, marbre, écailles de dragon, carbone, chrome, galaxie, lave animée, néon, circuit, holographique, diamant, flammes…), classés par rareté (commun à mythique) et débloqués **pour chaque arme en faisant des éliminations avec elle** (de 2 éliminations pour le premier à 850 pour le dernier mythique) ;

@@ -29,6 +29,8 @@ func setup(map) -> void:
 		_add_pickup(b[0], b[1])
 	for p in map.barrel_points:
 		_add_barrel(p)
+	for b in map.breakable_points:
+		_add_breakable(b[0], b[1], b[2], map.BREAKABLE_SIZES[b[0]])
 
 
 # --- Construction -------------------------------------------------------------------
@@ -91,6 +93,238 @@ func _add_barrel(pos: Vector3) -> void:
 	_barrels.append({"pos": pos, "node": body, "hp": BARREL_HP, "active": true, "timer": 0.0})
 
 
+# --- Objets destructibles -------------------------------------------------------------
+
+const BREAK_RESPAWN := 45.0
+const PIECE_HP := {"planks": 30.0, "crate": 70.0, "glass": 1.0}
+var _breakables := []  # {"kind", "pos", "node", "hp": [par morceau], "timer"}
+var _wood_mat: StandardMaterial3D
+var _wood_dark: StandardMaterial3D
+var _glass_mat: StandardMaterial3D
+
+
+func _mats() -> void:
+	if _wood_mat != null:
+		return
+	_wood_mat = StandardMaterial3D.new()
+	_wood_mat.albedo_color = Color(0.58, 0.4, 0.24)
+	_wood_mat.roughness = 0.85
+	_wood_dark = StandardMaterial3D.new()
+	_wood_dark.albedo_color = Color(0.36, 0.24, 0.14)
+	_wood_dark.roughness = 0.9
+	_glass_mat = StandardMaterial3D.new()
+	_glass_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_glass_mat.albedo_color = Color(0.7, 0.88, 1.0, 0.28)
+	_glass_mat.roughness = 0.05
+	_glass_mat.metallic = 0.3
+	_glass_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+
+
+## Un objet destructible : chaque morceau (planche, caisse, vitre) a sa propre forme de collision,
+## donc on peut percer une barricade planche par planche.
+func _add_breakable(kind: String, pos: Vector3, yaw: float, size: Vector3) -> void:
+	_mats()
+	var body := StaticBody3D.new()
+	body.position = pos
+	body.rotation_degrees.y = yaw
+	body.set_meta("breakable", _breakables.size())
+	var hp := []
+	match kind:
+		"planks":
+			# Deux poteaux et quatre planches horizontales
+			for sx in [-1.0, 1.0]:
+				_vis_box(body, Vector3(0.14, size.y + 0.15, 0.14), Vector3(sx * (size.x / 2.0 - 0.1), (size.y + 0.15) / 2.0, 0), _wood_dark)
+			for k in 4:
+				var y := 0.22 + k * 0.33
+				var piece := _piece(body, Vector3(size.x, 0.27, 0.07), Vector3(0, y, 0.05), _wood_mat, k)
+				piece.rotation.z = (k % 2 - 0.5) * 0.04
+				hp.append(PIECE_HP["planks"])
+		"crate":
+			var piece := _piece(body, size, Vector3(0, size.y / 2.0, 0), _wood_mat, 0)
+			# Renforts sur les arêtes
+			for e in [Vector3(1, 0, 1), Vector3(-1, 0, 1), Vector3(1, 0, -1), Vector3(-1, 0, -1)]:
+				var m := _vis_box(piece, Vector3(0.1, size.y + 0.02, 0.1), Vector3(e.x * size.x / 2.0, 0, e.z * size.z / 2.0), _wood_dark)
+				m.set_meta("trim", true)
+			hp.append(PIECE_HP["crate"])
+		"glass":
+			for sx in [-1.0, 1.0]:
+				_vis_box(body, Vector3(0.12, size.y, 0.16), Vector3(sx * (size.x / 2.0 - 0.06), size.y / 2.0, 0), _wood_dark)
+			_vis_box(body, Vector3(size.x, 0.12, 0.16), Vector3(0, size.y - 0.06, 0), _wood_dark)
+			_vis_box(body, Vector3(size.x, 0.25, 0.16), Vector3(0, 0.125, 0), _wood_dark)
+			_piece(body, Vector3(size.x - 0.24, size.y - 0.37, 0.03), Vector3(0, 0.25 + (size.y - 0.37) / 2.0, 0), _glass_mat, 0)
+			hp.append(PIECE_HP["glass"])
+	add_child(body)
+	_breakables.append({"kind": kind, "pos": pos, "node": body, "hp": hp, "timer": 0.0})
+
+
+func _vis_box(parent: Node3D, size: Vector3, pos: Vector3, mat: Material) -> MeshInstance3D:
+	var m := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = size
+	m.mesh = bm
+	m.material_override = mat
+	m.position = pos
+	parent.add_child(m)
+	return m
+
+
+## Morceau cassable : un visuel et une forme de collision (méta « piece » = son numéro).
+func _piece(body: StaticBody3D, size: Vector3, pos: Vector3, mat: Material, index: int) -> MeshInstance3D:
+	var m := _vis_box(body, size, pos, mat)
+	m.name = "Piece%d" % index
+	if mat == _glass_mat:
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var shape := CollisionShape3D.new()
+	shape.name = "Shape%d" % index
+	var box := BoxShape3D.new()
+	box.size = size
+	shape.shape = box
+	shape.position = pos
+	shape.set_meta("piece", index)
+	body.add_child(shape)
+	return m
+
+
+## (Serveur) Un tir touche peut-être un objet destructible (hit = résultat du rayon).
+func server_hit_breakable(hit: Dictionary, dmg: float) -> void:
+	var body = hit.get("collider")
+	if body == null or not (body is StaticBody3D) or not body.has_meta("breakable"):
+		return
+	var owner_id: int = body.shape_find_owner(int(hit.get("shape", 0)))
+	var shape_node = body.shape_owner_get_owner(owner_id)
+	if shape_node == null or not shape_node.has_meta("piece"):
+		return
+	_damage_piece(int(body.get_meta("breakable")), int(shape_node.get_meta("piece")), dmg, hit.position)
+
+
+func _damage_piece(i: int, piece: int, dmg: float, at: Vector3) -> void:
+	var b: Dictionary = _breakables[i]
+	if piece >= b["hp"].size() or b["hp"][piece] <= 0.0:
+		return
+	b["hp"][piece] -= dmg
+	if b["hp"][piece] <= 0.0:
+		_broadcast("break_piece", [i, piece, at, true])
+		var all_broken := true
+		for h in b["hp"]:
+			if h > 0.0:
+				all_broken = false
+		if all_broken:
+			b["timer"] = BREAK_RESPAWN
+
+
+## (Serveur) Les explosions brisent tout ce qui est proche.
+func server_explosion_breakables(at: Vector3, radius: float) -> void:
+	for i in _breakables.size():
+		var b: Dictionary = _breakables[i]
+		if (b["pos"] as Vector3).distance_to(at) < radius + 1.0:
+			for piece in b["hp"].size():
+				_damage_piece(i, piece, 999.0, at)
+
+
+func _update_breakables(delta: float) -> void:
+	for i in _breakables.size():
+		var b: Dictionary = _breakables[i]
+		if b["timer"] <= 0.0:
+			continue
+		b["timer"] -= delta
+		if b["timer"] <= 0.0:
+			# Réapparition seulement si personne n'est dessus
+			for id in game.chars:
+				if game.chars[id].alive and game.chars[id].position.distance_to(b["pos"]) < 2.0:
+					b["timer"] = 3.0
+					break
+			if b["timer"] <= 0.0:
+				_broadcast("breakable_reset", [i])
+
+
+@rpc("authority", "call_remote", "reliable")
+func break_piece(i: int, piece: int, at: Vector3, fx: bool) -> void:
+	if i < 0 or i >= _breakables.size():
+		return
+	var b: Dictionary = _breakables[i]
+	var body: StaticBody3D = b["node"]
+	if piece < b["hp"].size():
+		b["hp"][piece] = 0.0
+	var vis := body.get_node_or_null("Piece%d" % piece) as MeshInstance3D
+	var shape := body.get_node_or_null("Shape%d" % piece) as CollisionShape3D
+	if shape != null:
+		shape.set_deferred("disabled", true)
+	if vis == null or not vis.visible:
+		return
+	vis.visible = false
+	if not fx:
+		return
+	_debris(b["kind"], vis, at)
+	if b["kind"] == "glass":
+		game.sfx.play("impactMetal_light_001", vis.global_position, 2.0, 0.1, 50.0, 2.2)
+		game.sfx.play("impactGeneric_light_002", vis.global_position, 0.0, 0.1, 50.0, 2.6)
+	else:
+		game.sfx.play("impactPunch_medium_000", vis.global_position, 2.0, 0.1, 50.0, 0.6)
+		game.sfx.play("impactGeneric_light_000", vis.global_position, 0.0, 0.1, 50.0, 0.7)
+
+
+## Débris qui tombent et rebondissent, puis disparaissent.
+func _debris(kind: String, vis: MeshInstance3D, at: Vector3) -> void:
+	var size: Vector3 = (vis.mesh as BoxMesh).size
+	var center := vis.global_position
+	var basis := vis.global_transform.basis
+	var count := 3 if kind == "planks" else (6 if kind == "crate" else 14)
+	for k in count:
+		var piece_size: Vector3
+		var offset: Vector3
+		match kind:
+			"planks":
+				piece_size = Vector3(size.x / count, size.y, size.z)
+				offset = Vector3((k - (count - 1) / 2.0) * size.x / count, 0, 0)
+			"crate":
+				piece_size = Vector3(size.x * randf_range(0.4, 0.9), 0.06, size.z * randf_range(0.2, 0.4))
+				offset = Vector3(randf_range(-0.4, 0.4), randf_range(-0.4, 0.4), randf_range(-0.4, 0.4)) * size
+			_:
+				piece_size = Vector3(randf_range(0.15, 0.4), randf_range(0.15, 0.4), 0.02)
+				offset = Vector3(randf_range(-0.5, 0.5) * size.x, randf_range(-0.5, 0.5) * size.y, 0)
+		var rb := RigidBody3D.new()
+		rb.collision_layer = 0
+		rb.collision_mask = 1
+		rb.mass = 0.5
+		var m := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = piece_size
+		m.mesh = bm
+		m.material_override = _glass_mat if kind == "glass" else (_wood_mat if randf() < 0.7 else _wood_dark)
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		rb.add_child(m)
+		var cs := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = piece_size.max(Vector3.ONE * 0.04)
+		cs.shape = box
+		rb.add_child(cs)
+		add_child(rb)
+		rb.global_position = center + basis * offset
+		rb.global_basis = basis
+		var away: Vector3 = (rb.global_position - at)
+		away.y = 0
+		away = away.normalized() if away.length() > 0.01 else Vector3.UP
+		rb.linear_velocity = away * randf_range(1.5, 4.0) + Vector3(0, randf_range(1.0, 3.0), 0)
+		rb.angular_velocity = Vector3(randf_range(-8, 8), randf_range(-8, 8), randf_range(-8, 8))
+		get_tree().create_timer(randf_range(4.0, 6.0)).timeout.connect(rb.queue_free)
+
+
+@rpc("authority", "call_remote", "reliable")
+func breakable_reset(i: int) -> void:
+	if i < 0 or i >= _breakables.size():
+		return
+	var b: Dictionary = _breakables[i]
+	var body: StaticBody3D = b["node"]
+	for k in b["hp"].size():
+		b["hp"][k] = PIECE_HP[b["kind"]]
+		var vis := body.get_node_or_null("Piece%d" % k) as MeshInstance3D
+		var shape := body.get_node_or_null("Shape%d" % k) as CollisionShape3D
+		if vis != null:
+			vis.visible = true
+		if shape != null:
+			shape.set_deferred("disabled", false)
+
+
 # --- Boucle -------------------------------------------------------------------------
 
 func _process(delta: float) -> void:
@@ -115,6 +349,7 @@ func _physics_process(delta: float) -> void:
 	if not multiplayer.is_server() or game.match_over:
 		return
 	_update_pickups(delta)
+	_update_breakables(delta)
 	for i in _barrels.size():
 		var b: Dictionary = _barrels[i]
 		if not b["active"]:
@@ -201,6 +436,7 @@ func _explode_barrel(i: int, shooter) -> void:
 
 ## (Serveur) Les explosions font aussi sauter les barils autour.
 func server_explosion_barrels(at: Vector3, radius: float, shooter) -> void:
+	server_explosion_breakables(at, radius)
 	for j in _barrels.size():
 		if _barrels[j]["active"] and _barrels[j]["pos"].distance_to(at) < radius:
 			_explode_barrel.call_deferred(j, shooter)
@@ -360,6 +596,10 @@ func sync_to(peer: int) -> void:
 		pickup_state.rpc_id(peer, i, _pickups[i]["active"])
 	for i in _barrels.size():
 		barrel_state.rpc_id(peer, i, _barrels[i]["active"])
+	for i in _breakables.size():
+		for k in _breakables[i]["hp"].size():
+			if _breakables[i]["hp"][k] <= 0.0:
+				break_piece.rpc_id(peer, i, k, Vector3.ZERO, false)
 
 
 @rpc("authority", "call_remote", "reliable")

@@ -726,6 +726,22 @@ func _apply_cmdline() -> void:
 			for id in game.vehicles.vehicles:
 				var v: Dictionary = game.vehicles.vehicles[id]
 				print("[test] %s conducteur=%s pos=%s" % [id, v["driver"], (v["body"] as Node3D).position.snapped(Vector3.ONE * 0.1)]))
+	if opts.has("break"):
+		# Test destruction : face à l'objet n° « break », on casse deux morceaux puis (option) tout
+		var bi := int(opts["break"])
+		get_tree().create_timer(2.5).timeout.connect(func() -> void:
+			var b: Dictionary = game.items._breakables[bi]
+			var c = game.local_char
+			var node: Node3D = b["node"]
+			c.position = b["pos"] + node.global_transform.basis.z * 5.0
+			c.look_at(Vector3(b["pos"].x, c.position.y, b["pos"].z), Vector3.UP)
+			c.head.rotation.x = -0.15
+			print("[test] objet %s" % b["kind"]))
+		get_tree().create_timer(3.4).timeout.connect(func() -> void:
+			var b: Dictionary = game.items._breakables[bi]
+			for k in mini(2, b["hp"].size()):
+				game.items._damage_piece(bi, k, 999.0, b["pos"] + Vector3(0, 0.8, 0))
+			print("[test] morceaux restants : ", b["hp"]))
 	if opts.has("slot"):
 		get_tree().create_timer(2.0).timeout.connect(func() -> void: game.local_char.switch_weapon(int(opts["slot"])))
 	if opts.has("loadout"):

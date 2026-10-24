@@ -343,9 +343,59 @@ func build(root: Node3D, with_nav: bool, map_index := 0) -> void:
 	# Les barils gênent le passage des bots
 	for p in barrel_points:
 		_obstacles.append([Vector2(p.x, p.z), Vector2(0.45, 0.45)])
+	_place_breakables()
 
 	if with_nav:
 		_build_nav()
+
+
+# --- Objets destructibles ------------------------------------------------------------
+
+# Taille (largeur, hauteur, épaisseur) de chaque type d'objet destructible
+const BREAKABLE_SIZES := {"planks": Vector3(2.6, 1.4, 0.22), "crate": Vector3(1.1, 1.1, 1.1), "glass": Vector3(2.2, 2.0, 0.14)}
+const BREAKABLE_COUNT := {"planks": 8, "crate": 8, "glass": 5}
+var breakable_points := []  # [type, position, angle en degrés]
+
+
+## Barricades en planches, caisses en bois et vitres placées sur des endroits libres
+## (tirage avec une graine fixe : mêmes positions sur toutes les machines).
+func _place_breakables() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 9100 + layout * 17
+	var avoid: Array[Vector3] = []
+	for t in team_spawns:
+		for p in t:
+			avoid.append(p)
+	for p in ffa_spawns:
+		avoid.append(p)
+	for p in health_points:
+		avoid.append(p)
+	for b in bonus_points:
+		avoid.append(b[1])
+	var placed: Array[Vector3] = []
+	for kind in BREAKABLE_COUNT:
+		var size: Vector3 = BREAKABLE_SIZES[kind]
+		var n := 0
+		for tries in 300:
+			if n >= int(BREAKABLE_COUNT[kind]):
+				break
+			var p := Vector3(rng.randf_range(-HALF + 3, HALF - 3), 0, rng.randf_range(-HALF + 3, HALF - 3))
+			var yaw := 0.0 if rng.randf() < 0.5 else 90.0
+			var along := Vector3(1, 0, 0) if yaw == 0.0 else Vector3(0, 0, 1)
+			var ok := is_clear(p) and is_clear(p + along * size.x * 0.5) and is_clear(p - along * size.x * 0.5)
+			for q in avoid:
+				if q.distance_to(p) < 5.0:
+					ok = false
+			for q in placed:
+				if q.distance_to(p) < 5.0:
+					ok = false
+			if not ok:
+				continue
+			placed.append(p)
+			breakable_points.append([kind, p, yaw])
+			var half := Vector2(size.x, size.z) / 2.0 if yaw == 0.0 else Vector2(size.z, size.x) / 2.0
+			_obstacles.append([Vector2(p.x, p.z), half])
+			n += 1
 
 
 # --- Navigation des bots --------------------------------------------------------

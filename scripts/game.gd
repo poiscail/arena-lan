@@ -336,6 +336,7 @@ func _server_shoot(shooter_id: String, weapon: int, origin: Vector3, dirs: Packe
 			items.server_explosion_barrels(hit.position, splash, s)
 			continue
 		items.server_hit_barrel(t, float(w.damage), s)
+		items.server_hit_breakable(hit, float(w.damage))
 		if t is CharacterScript and t.alive and is_enemy(s, t):
 			var head: bool = hit.position.y > t.position.y + (0.8 if t.sliding else 1.45)
 			var dmg := float(w.damage) * (float(w.head) if head else 1.0)
