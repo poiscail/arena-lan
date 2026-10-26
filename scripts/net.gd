@@ -63,6 +63,15 @@ var gfx := {
 	"renderer": 0,       # 0 standard (compatibilité), 1 avancé (Forward+, au prochain lancement)
 	"killcam": true,     # rejoue sa mort vue par le tueur
 	"minimap": true,     # mini-carte en haut à gauche
+	# Réticule (voir crosshair.gd)
+	"xh_style": 1,       # index dans Crosshair.STYLES
+	"xh_color": 0,       # index dans Crosshair.COLORS
+	"xh_size": 10,       # longueur des branches (px)
+	"xh_gap": 7,         # écart au centre (px)
+	"xh_thick": 2,       # épaisseur (px)
+	"xh_alpha": 95,      # opacité (%)
+	"xh_outline": true,  # contour noir
+	"xh_dynamic": true,  # s'écarte quand on bouge
 }
 
 

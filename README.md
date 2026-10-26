@@ -176,6 +176,8 @@ Bouton **Options** dans le menu ou dans la pause. Tous les réglages sont appliq
 - ombres (désactivées à hautes), anticrénelage, résolution 3D, distance de vue, brouillard, luminosité ;
 - champ de vision, plein écran, synchro verticale, limite d'images, compteur d'IPS ;
 - sensibilité de la souris.
+- **réticule** (onglet Réticule, avec aperçu) : forme (croix, croix + point, point, cercle, cercle + point, croix en T), couleur, longueur, écart, épaisseur, opacité, contour noir, et s'il s'écarte quand on bouge ;
+- mini-carte, kill-cam et effets d'écran activables.
 
 Si le jeu rame, choisis **Basse**.
 
@@ -190,6 +192,7 @@ Si le jeu rame, choisis **Basse**.
 | `bot.gd` | Intelligence des bots (vision, combat, déplacement sur la carte) |
 | `map.gd` | Construction de l'arène, points d'apparition, chemins des bots |
 | `hud.gd` | Interface en jeu |
+| `crosshair.gd` | Réticule personnalisable |
 | `minimap.gd` | Mini-carte du HUD |
 | `sfx.gd` | Sons, flash du canon, douilles, impacts, tremblement de caméra |
 | `spectator.gd` | Caméra spectateur après la mort (coéquipier ou caméra libre) |

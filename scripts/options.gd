@@ -5,6 +5,7 @@ extends Control
 signal closed
 
 const UiTheme := preload("res://scripts/ui_theme.gd")
+const Crosshair := preload("res://scripts/crosshair.gd")
 
 const PRESETS := {
 	"Basse": {"shadows": 0, "msaa": 0, "scale": 70, "fog": false, "view": 0, "post": false, "fx": 0},
@@ -17,6 +18,7 @@ var _controls := {}
 var _refreshing := false
 var _key_buttons := {}
 var _waiting := ""  # action dont on attend la nouvelle touche
+var _xh_preview: Control
 
 
 func _ready() -> void:
@@ -52,6 +54,7 @@ func _ready() -> void:
 	gv.name = "Graphismes"
 	gv.add_theme_constant_override("separation", 12)
 	tabs.add_child(gv)
+	_build_crosshair(tabs)
 	_build_keys(tabs)
 
 	var presets := HBoxContainer.new()
@@ -147,6 +150,8 @@ func _refresh() -> void:
 func _changed(value, key: String) -> void:
 	if not _refreshing:
 		Net.set_gfx(key, value)
+	if _xh_preview != null:
+		_xh_preview.queue_redraw()
 
 
 func _option(grid: GridContainer, key: String, text: String, items: Array) -> void:
@@ -230,6 +235,55 @@ func _dim_label(text: String) -> Label:
 	l.add_theme_font_size_override("font_size", 17)
 	l.add_theme_color_override("font_color", UiTheme.TEXT_DIM)
 	return l
+
+
+# --- Réticule --------------------------------------------------------------------------
+
+func _build_crosshair(tabs: TabContainer) -> void:
+	var xv := VBoxContainer.new()
+	xv.name = "Réticule"
+	xv.add_theme_constant_override("separation", 12)
+	tabs.add_child(xv)
+	# Aperçu sur un fond de décor (ciel, mur, sol) pour juger la lisibilité
+	var frame := PanelContainer.new()
+	frame.add_theme_stylebox_override("panel", UiTheme.panel(Color(0.02, 0.03, 0.05, 1.0), Color(1, 1, 1, 0.12), 0))
+	frame.custom_minimum_size = Vector2(0, 170)
+	xv.add_child(frame)
+	_xh_preview = Control.new()
+	_xh_preview.draw.connect(func() -> void:
+		var s := _xh_preview.size
+		var bands := [Color(0.55, 0.7, 0.85), Color(0.42, 0.4, 0.36), Color(0.75, 0.72, 0.62)]
+		for i in bands.size():
+			_xh_preview.draw_rect(Rect2(s.x * i / 3.0, 0, s.x / 3.0, s.y), bands[i])
+		for i in 3:
+			_xh_preview.draw_set_transform(Vector2(s.x * (i + 0.5) / 3.0, s.y / 2.0))
+			Crosshair.draw(_xh_preview, Crosshair.base_gap())
+		_xh_preview.draw_set_transform(Vector2.ZERO))
+	frame.add_child(_xh_preview)
+
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 20)
+	grid.add_theme_constant_override("v_separation", 8)
+	xv.add_child(grid)
+	_option(grid, "xh_style", "Forme", Crosshair.STYLES)
+	_option(grid, "xh_color", "Couleur", Crosshair.COLOR_NAMES)
+	_slider(grid, "xh_size", "Longueur", 2, 24, 1, "%d px")
+	_slider(grid, "xh_gap", "Écart", 0, 24, 1, "%d px")
+	_slider(grid, "xh_thick", "Épaisseur", 1, 6, 1, "%d px")
+	_slider(grid, "xh_alpha", "Opacité", 30, 100, 5, "%d %%")
+	_check(grid, "xh_outline", "Contour noir")
+	_check(grid, "xh_dynamic", "S'écarte en bougeant")
+	var reset := Button.new()
+	reset.text = "Réticule par défaut"
+	reset.pressed.connect(func() -> void:
+		var d := {"xh_style": 1, "xh_color": 0, "xh_size": 10, "xh_gap": 7, "xh_thick": 2, "xh_alpha": 95, "xh_outline": true, "xh_dynamic": true}
+		for k in d:
+			Net.gfx[k] = d[k]
+		Net.save_options()
+		_refresh()
+		_xh_preview.queue_redraw())
+	xv.add_child(reset)
 
 
 # --- Touches ---------------------------------------------------------------------------

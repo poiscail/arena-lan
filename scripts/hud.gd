@@ -7,6 +7,7 @@ const OptionsScript := preload("res://scripts/options.gd")
 const LoadoutScript := preload("res://scripts/loadout.gd")
 const ArmoryScript := preload("res://scripts/armory.gd")
 const MinimapScript := preload("res://scripts/minimap.gd")
+const Crosshair := preload("res://scripts/crosshair.gd")
 
 var game
 var paused := false
@@ -890,16 +891,13 @@ func _draw_crosshair() -> void:
 	var c = game.local_char
 	# En visée avec le point rouge, le viseur 3D affiche lui-même son point (pas de réticule ici)
 	if c != null and c.alive and not c.zoomed and not game.match_over and c.driving == "":
-		var gap := 7.0
+		var gap := Crosshair.base_gap()
 		if int(Data.WEAPONS[c.weapon].pellets) > 1:
-			gap = 16.0
-		var spd: float = Vector2(c.velocity.x, c.velocity.z).length()
-		gap += minf(spd, 9.0) * 0.8
-		var col := Color(1, 1, 1, 0.95)
-		for d in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN]:
-			_crosshair.draw_line(d * gap, d * (gap + 10.0), Color(0, 0, 0, 0.6), 4.0)
-			_crosshair.draw_line(d * gap, d * (gap + 10.0), col, 2.0)
-		_crosshair.draw_circle(Vector2.ZERO, 1.6, UiTheme.ACCENT)
+			gap += 9.0
+		if Crosshair.dynamic():
+			var spd: float = Vector2(c.velocity.x, c.velocity.z).length()
+			gap += minf(spd, 9.0) * 0.8
+		Crosshair.draw(_crosshair, gap)
 	if _hit_t > 0.0:
 		var hc := _hit_color
 		hc.a = _hit_t / 0.25
