@@ -3,6 +3,7 @@ extends Node
 
 const GameScript := preload("res://scripts/game.gd")
 const Data := preload("res://scripts/data.gd")
+const Challenges := preload("res://scripts/challenges.gd")
 const UiTheme := preload("res://scripts/ui_theme.gd")
 const MenuBgScript := preload("res://scripts/menu_bg.gd")
 const OptionsScript := preload("res://scripts/options.gd")
@@ -25,6 +26,7 @@ var _armory: Control
 var _loadout: Control
 var _level_label: Label
 var _level_bar: ProgressBar
+var _daily_text: RichTextLabel
 var _games_box: VBoxContainer
 var _ip_edit: LineEdit
 var _port_spin: SpinBox
@@ -148,6 +150,13 @@ func _build_ui() -> void:
 	_level_bar.show_percentage = false
 	_level_bar.custom_minimum_size = Vector2(0, 6)
 	_menu.add_child(_level_bar)
+	_menu.add_child(_section("DÉFIS DU JOUR"))
+	_daily_text = RichTextLabel.new()
+	_daily_text.bbcode_enabled = true
+	_daily_text.fit_content = true
+	_daily_text.scroll_active = false
+	_daily_text.add_theme_font_size_override("normal_font_size", 15)
+	_menu.add_child(_daily_text)
 	_menu.add_child(_section("PSEUDO"))
 	_name_edit = LineEdit.new()
 	_name_edit.max_length = 16
@@ -540,6 +549,7 @@ func _refresh_profile() -> void:
 	_level_label.text = "NIVEAU %d   ·   %d / %d XP" % [info[0], info[1], info[2]]
 	_level_bar.max_value = info[2]
 	_level_bar.value = info[1]
+	_daily_text.text = Challenges.bbcode()
 
 
 func _on_class_selected(index: int) -> void:

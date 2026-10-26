@@ -8,6 +8,7 @@ const LoadoutScript := preload("res://scripts/loadout.gd")
 const ArmoryScript := preload("res://scripts/armory.gd")
 const MinimapScript := preload("res://scripts/minimap.gd")
 const Crosshair := preload("res://scripts/crosshair.gd")
+const Challenges := preload("res://scripts/challenges.gd")
 
 var game
 var paused := false
@@ -704,6 +705,7 @@ func _stats_text() -> String:
 				if md.has(id):
 					parts.append("%s ×%d" % [Data.MEDALS[id]["name"], int(md[id])])
 			t += "\n[center][color=#ffcc55]MÉDAILLES[/color] :  %s[/center]" % "  ·  ".join(parts)
+		t += "\n[center][color=#ffcc55]DÉFIS DU JOUR[/color]\n%s[/center]" % Challenges.bbcode()
 	return t
 
 

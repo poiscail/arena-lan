@@ -17,6 +17,7 @@ var player_class := 0
 var player_camo := 0
 var armory := {}  # str(n° arme) -> {"skin": int, "att": [ids]} (personnalisation des armes)
 var xp := 0  # expérience totale du joueur (sauvegardée)
+var daily := {}  # défis du jour : {"date", "list"} (voir challenges.gd)
 var weapon_kills := {}  # str(n° arme) -> éliminations avec cette arme (débloquent ses skins)
 var port := DEFAULT_PORT
 var players := {}  # peer_id -> {"name": String, "team": int}
@@ -104,6 +105,7 @@ func load_options() -> void:
 	xp = cfg.get_value("player", "xp", xp)
 	armory = cfg.get_value("player", "armory", {})
 	weapon_kills = cfg.get_value("player", "weapon_kills", {})
+	daily = cfg.get_value("player", "daily", {})
 	# Ancien camouflage unique (v2.0) : appliqué à toutes les armes
 	if armory.is_empty() and player_camo > 0:
 		for wi in 10:
@@ -125,6 +127,7 @@ func save_options() -> void:
 	cfg.set_value("player", "xp", xp)
 	cfg.set_value("player", "armory", armory)
 	cfg.set_value("player", "weapon_kills", weapon_kills)
+	cfg.set_value("player", "daily", daily)
 	cfg.save(CONFIG_PATH)
 
 

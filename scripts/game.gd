@@ -14,6 +14,7 @@ const SfxScript := preload("res://scripts/sfx.gd")
 const ModesScript := preload("res://scripts/modes.gd")
 const SpectatorScript := preload("res://scripts/spectator.gd")
 const KillcamScript := preload("res://scripts/killcam.gd")
+const Challenges := preload("res://scripts/challenges.gd")
 const VehiclesScript := preload("res://scripts/vehicles.gd")
 const WeatherScript := preload("res://scripts/weather.gd")
 const DayCycleScript := preload("res://scripts/daycycle.gd")
@@ -644,8 +645,23 @@ func on_medals(id: String, got: Array) -> void:
 	if c.is_local:
 		hud.show_medals(got)
 		sfx.play("confirmation_002", null, -3.0, 0.0, 120.0, 1.15)
+		var done := Challenges.add("medals", got.size())
+		for m in got:
+			if m in ["head", "long", "revenge"]:
+				done += Challenges.add(m)
+			elif m in ["double", "triple", "multi"]:
+				done += Challenges.add("multi")
+		challenges_done(done)
 	elif got.has("first"):
 		hud.add_kill("[color=#ffcc55]%s : premier sang[/color]" % Data.esc(c.display_name))
+
+
+## Défis du jour accomplis à l'instant (leur XP est déjà comptée) : annonce et son.
+func challenges_done(done: Array) -> void:
+	for ch in done:
+		hud.announce("DÉFI DU JOUR ACCOMPLI : %s  (+%d XP)" % [String(ch["text"]).to_upper(), int(ch["xp"])])
+		hud.add_kill("[color=#7fe08a]Défi du jour accompli : %s (+%d XP)[/color]" % [Data.esc(ch["text"]), int(ch["xp"])])
+		sfx.play("maximize_006", null, -2.0, 0.0)
 
 
 ## (Serveur) Frappe aérienne : une explosion sur chaque ennemi vivant, 2 secondes après l'alerte.
@@ -990,6 +1006,15 @@ func on_died(victim_id: String, killer_id: String, weapon: int) -> void:
 	hud.add_kill("[color=%s]%s[/color][color=#bbbbbb]   > %s >   [/color][color=%s]%s[/color]" % [
 		khex, Data.esc(kname), Data.esc(Data.kill_name(weapon)), vhex, Data.esc(v.display_name)])
 	# Défis d'armes : chaque élimination avec une arme rapproche du skin suivant de cette arme
+	if k != null and k == local_char and v != local_char:
+		var done := Challenges.add("kills")
+		if weapon >= 0 and weapon < Data.WEAPONS.size():
+			done += Challenges.add("cat:" + String(Data.WEAPONS[weapon].cat))
+		elif weapon == Data.KILL_KNIFE:
+			done += Challenges.add("knife")
+		elif weapon == Data.KILL_GRENADE:
+			done += Challenges.add("grenade")
+		challenges_done(done)
 	if k != null and k == local_char and v != local_char and weapon >= 0 and weapon < Data.WEAPONS.size():
 		var unlocked: int = Net.add_weapon_kill(weapon)
 		if unlocked >= 0:
@@ -1093,6 +1118,10 @@ func _award_xp() -> void:
 		medal_xp += int(Data.MEDALS.get(id, {}).get("xp", 0)) * int(md[id])
 	gain += medal_xp
 	var before: int = Data.level_info(Net.xp)[0]
+	var done := Challenges.add("matches")
+	if won:
+		done += Challenges.add("wins")
+	challenges_done(done)
 	Net.xp += gain
 	Net.save_options()
 	var after: Array = Data.level_info(Net.xp)

@@ -162,6 +162,9 @@ Armes de base des classes :
 - **5** : Radar, les ennemis sont marqués à travers les murs pendant 12 s.
 - **7** : Frappe aérienne, une explosion tombe sur chaque ennemi 2 secondes après une alerte au sol.
 
+## Défis du jour
+Chaque jour, trois défis sont tirés au sort (les mêmes pour tout le monde ce jour-là) : éliminations avec une famille d'armes, tirs à la tête, couteau, grenades, doubles éliminations, longue distance, revanches, médailles, matchs joués ou gagnés… Le menu principal et le tableau de fin de match montrent ta progression. Chaque défi accompli rapporte tout de suite de 150 à 250 XP.
+
 ## Médailles
 Chaque élimination peut rapporter des médailles, affichées sous le viseur avec l'expérience gagnée :
 - **Premier sang** (première élimination du match), **Double**, **Triple** et **Multi-élimination** (moins de 4 s entre chaque) ;
@@ -175,7 +178,7 @@ Bouton **Options** dans le menu ou dans la pause. Tous les réglages sont appliq
 - préréglages Basse / Moyenne / Haute / Ultra ;
 - ombres (désactivées à hautes), anticrénelage, résolution 3D, distance de vue, brouillard, luminosité ;
 - champ de vision, plein écran, synchro verticale, limite d'images, compteur d'IPS ;
-- sensibilité de la souris.
+- sensibilité de la souris ;
 - **réticule** (onglet Réticule, avec aperçu) : forme (croix, croix + point, point, cercle, cercle + point, croix en T), couleur, longueur, écart, épaisseur, opacité, contour noir, et s'il s'écarte quand on bouge ;
 - mini-carte, kill-cam et effets d'écran activables.
 
@@ -193,6 +196,7 @@ Si le jeu rame, choisis **Basse**.
 | `map.gd` | Construction de l'arène, points d'apparition, chemins des bots |
 | `hud.gd` | Interface en jeu |
 | `crosshair.gd` | Réticule personnalisable |
+| `challenges.gd` | Défis du jour |
 | `minimap.gd` | Mini-carte du HUD |
 | `sfx.gd` | Sons, flash du canon, douilles, impacts, tremblement de caméra |
 | `spectator.gd` | Caméra spectateur après la mort (coéquipier ou caméra libre) |
