@@ -6,6 +6,7 @@ const UiTheme := preload("res://scripts/ui_theme.gd")
 const OptionsScript := preload("res://scripts/options.gd")
 const LoadoutScript := preload("res://scripts/loadout.gd")
 const ArmoryScript := preload("res://scripts/armory.gd")
+const MinimapScript := preload("res://scripts/minimap.gd")
 
 var game
 var paused := false
@@ -45,6 +46,7 @@ var _buffs: Label
 var _announce: Label
 var _announce_t := 0.0
 var _radar: Control
+var minimap: Control
 var radar_t := 0.0
 var chat_open := false
 var _chat_box: VBoxContainer
@@ -162,6 +164,13 @@ func _ready() -> void:
 	_fps = _label(15, UiTheme.font_bold())
 	_place(_fps, 0, 0, 0, 0, 12, 8, 140, 30)
 	root.add_child(_fps)
+
+	# Mini-carte (haut gauche)
+	minimap = MinimapScript.new()
+	minimap.game = game
+	minimap.hud = self
+	_place(minimap, 0, 0, 0, 0, 16, 34, 16 + MinimapScript.SIZE, 34 + MinimapScript.SIZE)
+	root.add_child(minimap)
 
 	# Bonus actifs (au-dessus de la santé)
 	_buffs = _label(17, UiTheme.font_bold())
@@ -703,6 +712,7 @@ func _process(delta: float) -> void:
 			_slots[i].add_theme_color_override("font_color", UiTheme.ACCENT if i == c.slot else Color(1, 1, 1, 0.35))
 		_scope.visible = c.zoomed and c.alive and not c.wstats(c.weapon).get("optic", false)
 		_bottom.visible = c.alive and not c.zoomed and not game.match_over
+	minimap.visible = c != null and c.alive and not c.zoomed and not game.match_over and bool(Net.gfx.get("minimap", true))
 	var t := int(ceil(game.time_left))
 	_timer.text = "%d:%02d" % [t / 60, t % 60]
 	_timer.add_theme_color_override("font_color", Color(1, 0.4, 0.3) if t <= 30 else Color.WHITE)

@@ -428,6 +428,11 @@ func _place_breakables() -> void:
 
 # --- Navigation des bots --------------------------------------------------------
 
+## Obstacles au sol [centre Vector2(x, z), demi-taille Vector2] (dessinés sur la mini-carte).
+func obstacles() -> Array:
+	return _obstacles
+
+
 func find_path(from: Vector3, to: Vector3) -> PackedVector3Array:
 	if astar.get_point_count() == 0:
 		return PackedVector3Array([to])

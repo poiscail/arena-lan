@@ -90,6 +90,8 @@ Graphismes : éclairage AgX, halos lumineux, et un **rendu avancé** au choix da
 
 **Météo** : option « Météo » du salon (beau temps, pluie, orage, neige, brouillard ou au hasard). Pluie avec flaques et sol mouillé, orage avec éclairs et tonnerre, neige qui tombe et recouvre le sol, brouillard épais. Pas de météo dans l'entrepôt (intérieur). Les bots voient moins loin par mauvais temps.
 
+**Mini-carte** : en haut à gauche, centrée sur toi et tournée dans le sens de ton regard. Elle montre le décor, tes coéquipiers (flèches), les véhicules, les signalements et les objectifs du mode (drapeaux, colline, sites A/B et bombe, postes d'achat, zone du Battle Royale et la suivante). Un ennemi apparaît en rouge quelques secondes quand il tire sans silencieux, et tous les ennemis pendant le Radar. Désactivable dans les options (« Mini-carte »).
+
 **Heure** : option « Heure » du salon. « Cycle jour/nuit » fait défiler une journée complète pendant la partie : coucher de soleil, nuit étoilée puis lever du jour. Les lampadaires s'allument au crépuscule et les lampes torches la nuit. Pas de cycle dans l'entrepôt (intérieur).
 
 ## Armurerie
@@ -179,6 +181,7 @@ Si le jeu rame, choisis **Basse**.
 | `bot.gd` | Intelligence des bots (vision, combat, déplacement sur la carte) |
 | `map.gd` | Construction de l'arène, points d'apparition, chemins des bots |
 | `hud.gd` | Interface en jeu |
+| `minimap.gd` | Mini-carte du HUD |
 | `sfx.gd` | Sons, flash du canon, douilles, impacts, tremblement de caméra |
 | `spectator.gd` | Caméra spectateur après la mort (coéquipier ou caméra libre) |
 | `modes.gd` | Modes de jeu : drapeau, colline, course aux armes, élimination |

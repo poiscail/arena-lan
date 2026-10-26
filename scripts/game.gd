@@ -975,6 +975,7 @@ func shot_fx(shooter_id: String, weapon: int, ends: PackedVector3Array) -> void:
 	play_shot_sound(weapon, from, false, silenced)
 	if not silenced:
 		sfx.muzzle_flash(from, int(Data.WEAPONS[weapon].pellets) > 1 or splash > 0.0)
+		hud.minimap.mark_shot(shooter_id)
 
 
 @rpc("authority", "call_remote", "reliable")
