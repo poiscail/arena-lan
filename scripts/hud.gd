@@ -47,6 +47,8 @@ var _announce: Label
 var _announce_t := 0.0
 var _radar: Control
 var minimap: Control
+var _medal_view: Control
+var _medals := []  # {"id", "t"} : médailles affichées sous le viseur
 var radar_t := 0.0
 var chat_open := false
 var _chat_box: VBoxContainer
@@ -194,6 +196,13 @@ func _ready() -> void:
 	_radar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_radar.draw.connect(_draw_radar)
 	root.add_child(_radar)
+
+	# Médailles (sous le viseur)
+	_medal_view = Control.new()
+	_place(_medal_view, 0.5, 0.68, 0.5, 0.68, -300, -50, 300, 70)
+	_medal_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_medal_view.draw.connect(_draw_medals)
+	root.add_child(_medal_view)
 
 	# Mode spectateur (après la mort)
 	_spec_label = _label(17, UiTheme.font_bold())
@@ -508,6 +517,66 @@ func add_ping(pos: Vector3, pname: String, enemy: bool) -> void:
 	_pings.append({"pos": pos, "name": pname, "enemy": enemy, "t": 6.0})
 
 
+const MEDAL_TIME := 2.8
+const MEDAL_MAX := 4
+
+
+func show_medals(ids: Array) -> void:
+	for id in ids:
+		if Data.MEDALS.has(id):
+			_medals.append({"id": id, "t": MEDAL_TIME})
+	while _medals.size() > MEDAL_MAX:
+		_medals.pop_front()
+
+
+func _draw_medals() -> void:
+	var n := _medals.size()
+	if n == 0:
+		return
+	var gap := 130.0
+	var x0 := _medal_view.size.x / 2.0 - gap * (n - 1) / 2.0
+	for i in n:
+		var md: Dictionary = _medals[i]
+		var info: Dictionary = Data.MEDALS[md["id"]]
+		var t: float = md["t"]
+		var age := MEDAL_TIME - t
+		var a := clampf(minf(age * 6.0, t * 2.0), 0.0, 1.0)
+		var pop := 1.0 + 0.35 * maxf(0.0, 1.0 - age * 5.0)  # grossit en apparaissant
+		var c := Vector2(x0 + gap * i, 36.0)
+		var col: Color = info["color"]
+		var r := 26.0 * pop
+		# Insigne hexagonal
+		var hexa := PackedVector2Array()
+		for k in 6:
+			hexa.append(c + Vector2.from_angle(TAU * k / 6.0 - PI / 2.0) * r)
+		_medal_view.draw_colored_polygon(hexa, Color(col.darkened(0.6), 0.85 * a))
+		hexa.append(hexa[0])
+		_medal_view.draw_polyline(hexa, Color(col, a), 3.0)
+		_medal_view.draw_arc(c, r * 0.62, 0.0, TAU, 24, Color(col, 0.5 * a), 1.5)
+		var glyph: String = info["glyph"]
+		if md["id"] == "head":
+			_medal_view.draw_arc(c, r * 0.38, 0.0, TAU, 20, Color(1, 1, 1, a), 2.0)
+			for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+				_medal_view.draw_line(c + d * r * 0.2, c + d * r * 0.55, Color(1, 1, 1, a), 2.0)
+		elif md["id"] == "knife":
+			var blade := PackedVector2Array([c + Vector2(-r * 0.4, r * 0.4), c + Vector2(r * 0.45, -r * 0.45), c + Vector2(r * 0.1, -r * 0.05)])
+			_medal_view.draw_colored_polygon(blade, Color(1, 1, 1, a))
+			_medal_view.draw_line(c + Vector2(-r * 0.4, r * 0.4), c + Vector2(-r * 0.55, r * 0.55), Color(col, a), 4.0)
+		else:
+			var fs := int(22 * pop) if glyph.length() <= 2 else int(15 * pop)
+			var gw := UiTheme.font_title().get_string_size(glyph, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			_medal_view.draw_string(UiTheme.font_title(), c + Vector2(-gw / 2.0, fs * 0.36), glyph, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, a))
+		var label := String(info["name"]).to_upper()
+		var font := UiTheme.font_bold()
+		var lw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+		var lp := c + Vector2(-lw / 2.0, r + 20.0)
+		_medal_view.draw_string_outline(font, lp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, 5, Color(0, 0, 0, 0.8 * a))
+		_medal_view.draw_string(font, lp, label, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(col.lightened(0.3), a))
+		var xp := "+%d XP" % int(info["xp"])
+		var xw := font.get_string_size(xp, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+		_medal_view.draw_string(font, lp + Vector2((lw - xw) / 2.0, 17.0), xp, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.6, 1.0, 0.65, a))
+
+
 func announce(text: String) -> void:
 	_announce.text = text
 	_announce_t = 3.0
@@ -627,6 +696,13 @@ func _stats_text() -> String:
 			t += "\n[center][color=#7fe08a][b]%s[/b][/color][/center]" % game.xp_text
 		t += "\n[center][color=#ffa64d][b]TOI[/b][/color] :  précision %d %%  ·  %d tirs à la tête  ·  %d dégâts  ·  série max %d  ·  arme préférée : %s[/center]" % [
 			acc, int(m.get("heads", 0)), int(m.get("dmg", 0)), int(m.get("best_streak", 0)), fav]
+		var md: Dictionary = m.get("medals", {})
+		if not md.is_empty():
+			var parts := []
+			for id in Data.MEDALS:
+				if md.has(id):
+					parts.append("%s ×%d" % [Data.MEDALS[id]["name"], int(md[id])])
+			t += "\n[center][color=#ffcc55]MÉDAILLES[/color] :  %s[/center]" % "  ·  ".join(parts)
 	return t
 
 
@@ -763,6 +839,11 @@ func _process(delta: float) -> void:
 		_dmg_numbers[i]["t"] -= delta
 		if _dmg_numbers[i]["t"] <= 0.0:
 			_dmg_numbers.remove_at(i)
+	for i in range(_medals.size() - 1, -1, -1):
+		_medals[i]["t"] -= delta
+		if _medals[i]["t"] <= 0.0:
+			_medals.remove_at(i)
+	_medal_view.queue_redraw()
 	for i in range(_pings.size() - 1, -1, -1):
 		_pings[i]["t"] -= delta
 		if _pings[i]["t"] <= 0.0:

@@ -51,6 +51,11 @@ var daycycle
 var vehicles
 var rules := "dm"
 var streaks := {}  # (serveur) id -> éliminations sans mourir
+# (Serveur) Suivi des médailles
+var _first_blood := false
+var _multi := {}        # id -> [nombre d'éliminations rapprochées, temps de la dernière]
+var _last_killer := {}  # id -> id de celui qui l'a éliminé en dernier
+var _last_dmg := {}     # id -> [id de sa dernière cible touchée, temps]
 
 
 
@@ -446,7 +451,7 @@ func _deal_damage(s, damage: Dictionary, weapon: int, head_hit := false) -> void
 		var t = chars[tid]
 		var dmg := int(round(damage[tid]))
 		var was_alive: bool = t.alive
-		var k := _apply_damage(t, s, dmg, weapon)
+		var k := _apply_damage(t, s, dmg, weapon, head_hit)
 		if was_alive:
 			hits.append([t.global_position + Vector3(0, 2.0, 0), dmg, k])
 		killed = killed or k
@@ -536,7 +541,7 @@ func melee_fx(id: String) -> void:
 		c.play_shoot()
 
 
-func _apply_damage(t, s, dmg: int, weapon: int) -> bool:
+func _apply_damage(t, s, dmg: int, weapon: int, head := false) -> bool:
 	if not t.alive:
 		return false
 	# L'armure absorbe la moitié des dégâts tant qu'il en reste
@@ -549,6 +554,8 @@ func _apply_damage(t, s, dmg: int, weapon: int) -> bool:
 		scores[s.char_id]["dmg"] = int(scores[s.char_id].get("dmg", 0)) + dealt + absorbed
 	_broadcast("on_health", [t.char_id, t.hp, t.armor, true])
 	modes.on_hit(s, t)
+	if s != t:
+		_last_dmg[s.char_id] = [t.char_id, Time.get_ticks_msec() / 1000.0]
 	if t.bot != null:
 		t.bot.alert(s)
 	if t.hp > 0:
@@ -563,6 +570,7 @@ func _apply_damage(t, s, dmg: int, weapon: int) -> bool:
 		wk[str(weapon)] = int(wk.get(str(weapon), 0)) + 1
 		sc["wkills"] = wk
 	# Séries d'éliminations sans mourir
+	var victim_streak := int(streaks.get(t.char_id, 0))
 	streaks[t.char_id] = 0
 	streaks[s.char_id] = int(streaks.get(s.char_id, 0)) + (1 if s != t else 0)
 	var n: int = streaks[s.char_id]
@@ -571,6 +579,8 @@ func _apply_damage(t, s, dmg: int, weapon: int) -> bool:
 	print("[kill] %s -> %s (%s)" % [s.display_name, t.display_name, Data.kill_name(weapon)])
 	vehicles.on_char_gone(t.char_id)
 	_broadcast("on_died", [t.char_id, s.char_id, weapon])
+	if s != t and scores.has(s.char_id):
+		_award_medals(s, t, weapon, head, victim_streak)
 	modes.on_kill(s, t, weapon)
 	_broadcast_scores()
 	check_win()
@@ -583,6 +593,59 @@ func _apply_damage(t, s, dmg: int, weapon: int) -> bool:
 			if n == 7:
 				_airstrike(s)
 	return true
+
+
+## (Serveur) Médailles de l'élimination de t par s, comptées dans les scores et annoncées au tireur.
+func _award_medals(s, t, weapon: int, head: bool, victim_streak: int) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	var got := []
+	if not _first_blood:
+		_first_blood = true
+		got.append("first")
+	var m: Array = _multi.get(s.char_id, [0, -99.0])
+	var n: int = int(m[0]) + 1 if now - float(m[1]) <= Data.MEDAL_MULTI_TIME else 1
+	_multi[s.char_id] = [n, now]
+	if n >= 2:
+		got.append(["double", "triple", "multi"][mini(n, 4) - 2])
+	var bullet := weapon < Data.KILL_GRENADE
+	if head and bullet:
+		got.append("head")
+	if weapon == Data.KILL_KNIFE:
+		got.append("knife")
+	elif bullet and s.position.distance_to(t.position) >= Data.MEDAL_LONG_DIST:
+		got.append("long")
+	if _last_killer.get(s.char_id, "") == t.char_id:
+		got.append("revenge")
+		_last_killer.erase(s.char_id)
+	_last_killer[t.char_id] = s.char_id
+	if victim_streak >= 3:
+		got.append("stop")
+	# Sauvetage : la victime venait de toucher un coéquipier encore en vie
+	var ld = _last_dmg.get(t.char_id)
+	if ld != null and now - float(ld[1]) <= 3.0 and ld[0] != s.char_id and chars.has(ld[0]):
+		var mate = chars[ld[0]]
+		if mate.alive and not is_enemy(s, mate):
+			got.append("save")
+	_last_dmg.erase(t.char_id)
+	if got.is_empty():
+		return
+	var md: Dictionary = scores[s.char_id].get("medals", {})
+	for id in got:
+		md[id] = int(md.get(id, 0)) + 1
+	scores[s.char_id]["medals"] = md
+	_broadcast("on_medals", [s.char_id, got])
+
+
+@rpc("authority", "call_remote", "reliable")
+func on_medals(id: String, got: Array) -> void:
+	var c = chars.get(id)
+	if c == null:
+		return
+	if c.is_local:
+		hud.show_medals(got)
+		sfx.play("confirmation_002", null, -3.0, 0.0, 120.0, 1.15)
+	elif got.has("first"):
+		hud.add_kill("[color=#ffcc55]%s : premier sang[/color]" % Data.esc(c.display_name))
 
 
 ## (Serveur) Frappe aérienne : une explosion sur chaque ennemi vivant, 2 secondes après l'alerte.
@@ -1024,11 +1087,17 @@ func _award_xp() -> void:
 		won = _ffa_leader().get("name", "") == m["name"]
 	if won:
 		gain += 50
+	var medal_xp := 0
+	var md: Dictionary = m.get("medals", {})
+	for id in md:
+		medal_xp += int(Data.MEDALS.get(id, {}).get("xp", 0)) * int(md[id])
+	gain += medal_xp
 	var before: int = Data.level_info(Net.xp)[0]
 	Net.xp += gain
 	Net.save_options()
 	var after: Array = Data.level_info(Net.xp)
-	xp_text = "+%d XP%s   ·   niveau %d  (%d / %d)" % [gain, "  (victoire +50)" if won else "", after[0], after[1], after[2]]
+	xp_text = "+%d XP%s%s   ·   niveau %d  (%d / %d)" % [gain, "  (victoire +50)" if won else "",
+		"  (médailles +%d)" % medal_xp if medal_xp > 0 else "", after[0], after[1], after[2]]
 	if after[0] > before:
 		xp_text += "   ·   NIVEAU SUPÉRIEUR !"
 

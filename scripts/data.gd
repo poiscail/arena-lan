@@ -120,6 +120,22 @@ const DAMAGE_BOOST_TIME := 15.0
 
 # Séries d'éliminations sans mourir
 const STREAKS := {3: "ADRÉNALINE", 5: "RADAR", 7: "FRAPPE AÉRIENNE"}
+
+# Médailles gagnées en partie (décidées par l'hôte), avec l'expérience qu'elles rapportent
+const MEDALS := {
+	"first": {"name": "Premier sang", "xp": 20, "color": Color(1.0, 0.32, 0.26), "glyph": "1"},
+	"double": {"name": "Double élimination", "xp": 15, "color": Color(1.0, 0.75, 0.3), "glyph": "x2"},
+	"triple": {"name": "Triple élimination", "xp": 30, "color": Color(1.0, 0.6, 0.2), "glyph": "x3"},
+	"multi": {"name": "Multi-élimination", "xp": 50, "color": Color(1.0, 0.4, 0.15), "glyph": "x4"},
+	"head": {"name": "Tir à la tête", "xp": 5, "color": Color(1.0, 0.9, 0.35), "glyph": ""},
+	"long": {"name": "Longue distance", "xp": 10, "color": Color(0.45, 0.8, 1.0), "glyph": "35m"},
+	"knife": {"name": "Coup de couteau", "xp": 10, "color": Color(0.8, 0.85, 0.9), "glyph": ""},
+	"revenge": {"name": "Revanche", "xp": 15, "color": Color(0.85, 0.4, 1.0), "glyph": "R"},
+	"stop": {"name": "Fin de série", "xp": 20, "color": Color(0.4, 1.0, 0.55), "glyph": "!"},
+	"save": {"name": "Sauvetage", "xp": 15, "color": Color(0.35, 0.65, 1.0), "glyph": "+"},
+}
+const MEDAL_MULTI_TIME := 4.0   # secondes max entre deux éliminations pour une double / triple
+const MEDAL_LONG_DIST := 35.0
 const ADRENALINE_TIME := 20.0
 const RADAR_TIME := 12.0
 

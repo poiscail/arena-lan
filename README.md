@@ -162,6 +162,14 @@ Armes de base des classes :
 - **5** : Radar, les ennemis sont marqués à travers les murs pendant 12 s.
 - **7** : Frappe aérienne, une explosion tombe sur chaque ennemi 2 secondes après une alerte au sol.
 
+## Médailles
+Chaque élimination peut rapporter des médailles, affichées sous le viseur avec l'expérience gagnée :
+- **Premier sang** (première élimination du match), **Double**, **Triple** et **Multi-élimination** (moins de 4 s entre chaque) ;
+- **Tir à la tête**, **Longue distance** (35 m ou plus), **Coup de couteau** ;
+- **Revanche** (éliminer celui qui vient de t'éliminer), **Fin de série** (éliminer un ennemi en série de 3 ou plus), **Sauvetage** (éliminer un ennemi qui vient de toucher un coéquipier).
+
+Le tableau de fin de match récapitule tes médailles, et leur expérience s'ajoute à celle du match.
+
 ## Options
 Bouton **Options** dans le menu ou dans la pause. Tous les réglages sont appliqués tout de suite et sauvegardés :
 - préréglages Basse / Moyenne / Haute / Ultra ;
