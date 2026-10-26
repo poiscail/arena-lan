@@ -115,6 +115,7 @@ L'hôte choisit le jeu dans le salon :
 - **Match à mort** : le plus d'éliminations gagne (en équipes ou chacun pour soi).
 - **Capture du drapeau** (équipes) : prends le drapeau ennemi et ramène-le à ta base pendant que le tien y est. Premier à 3 captures.
 - **Roi de la colline** : reste seul (ou avec ton équipe) dans la zone du centre, 1 point par seconde. Premier à 100.
+- **Domination** (équipes) : trois points A, B et C entre les deux camps. Reste sur un point pour faire monter la jauge de ton équipe (plus vite à plusieurs, rien ne bouge si un ennemi est dessus) ; un point ennemi doit d'abord être neutralisé. Chaque seconde, chaque point tenu rapporte 1 point à son équipe. Premier à 200.
 - **Course aux armes** : chaque élimination donne l'arme suivante (10 niveaux). Un coup de couteau fait reculer la victime d'un niveau.
 - **Élimination** (équipes) : une vie par manche, la dernière équipe debout gagne la manche. Premier à 5 manches.
 - **Recherche et destruction** (équipes) : une vie par manche. Les attaquants posent la bombe sur le site A ou B (maintenir F 3 s), elle explose au bout de 35 s ; les défenseurs la désamorcent (maintenir F 6 s). Si le porteur meurt, la bombe tombe au sol et un attaquant peut la ramasser. Changement de camp toutes les 2 manches, premier à 4 manches.
@@ -184,7 +185,7 @@ Si le jeu rame, choisis **Basse**.
 | `minimap.gd` | Mini-carte du HUD |
 | `sfx.gd` | Sons, flash du canon, douilles, impacts, tremblement de caméra |
 | `spectator.gd` | Caméra spectateur après la mort (coéquipier ou caméra libre) |
-| `modes.gd` | Modes de jeu : drapeau, colline, course aux armes, élimination |
+| `modes.gd` | Modes de jeu : drapeau, colline, domination, course aux armes, élimination, bombe, zombies, battle royale |
 | `armory.gd` | Écran Armurerie (skins, accessoires, aperçu 3D) |
 | `arms.gd` | Mains et avant-bras à la première personne |
 | `loadout.gd` | Écran Classes et armes (armes 1, 2 et 3 de chaque classe) |

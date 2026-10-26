@@ -1015,7 +1015,7 @@ func _award_xp() -> void:
 	var m: Dictionary = scores[local_char.char_id]
 	var gain := 25 + int(m["kills"]) * 10
 	var pts := int(m.get("pts", 0))
-	gain += pts * {"ctf": 50, "koth": 1, "gungame": 10, "elim": 0, "dm": 0, "snd": 30, "zombies": 2}.get(rules, 0)
+	gain += pts * {"ctf": 50, "koth": 1, "dom": 3, "gungame": 10, "elim": 0, "dm": 0, "snd": 30, "zombies": 2}.get(rules, 0)
 	var won := false
 	if settings.mode == "team":
 		var t := team_scores()

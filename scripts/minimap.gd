@@ -128,6 +128,14 @@ func _draw_objectives(c, to_screen: Callable, ppm: float) -> void:
 			var s: Vector2 = to_screen.call(Vector2(ModesScript.HILL_POS.x, ModesScript.HILL_POS.z))
 			draw_circle(s, ModesScript.HILL_RADIUS * ppm, Color(col, 0.18))
 			draw_arc(s, ModesScript.HILL_RADIUS * ppm, 0.0, TAU, 40, col, 2.0)
+		"dom":
+			for i in m.dom_points.size():
+				var dp: Vector3 = m.dom_points[i]
+				var s := _clamp_edge(to_screen.call(Vector2(dp.x, dp.z)), size / 2.0)
+				var col: Color = m.dom_color(i)
+				draw_circle(s, 8.0, Color(col, 0.3))
+				draw_arc(s, 8.0, 0.0, TAU, 20, col, 1.5)
+				draw_string(font, s + Vector2(-4.5, 5), ModesScript.DOM_NAMES[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
 		"snd":
 			for i in m.sites.size():
 				var sp: Vector3 = m.sites[i]

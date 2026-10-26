@@ -61,6 +61,18 @@ var _zatk := {}                 # (serveur) zombie -> recharge de son attaque
 var _was_inter := {}            # (serveur) joueur -> touche d'action déjà maintenue
 var shops := []                 # [{pos, item}] : achats aux murs (Data.ZOMBIE_SHOP)
 
+# Domination : points A, B et C entre les deux camps
+const DOM_RADIUS := 3.5
+const DOM_CAP_TIME := 5.0             # secondes pour prendre seul un point neutre (le double pour un point ennemi)
+const DOM_NAMES := ["A", "B", "C"]
+var dom_points: Array[Vector3] = []
+var dom_val := [0.0, 0.0, 0.0]        # jauge de -1 (pris par les ROUGES) à +1 (pris par les BLEUS)
+var dom_owner := [-1, -1, -1]         # -1 neutre, sinon équipe
+var _dom_marks := []                  # [anneau, matériau, étiquette] de chaque point
+var _dom_t := 0.0
+var _dom_sync_t := 0.0
+var _dom_dirty := false
+
 # Battle Royale : zone qui rétrécit par phases, armes à ramasser, pas de réapparition
 # Phases : [attente avant de rétrécir (s), durée du rétrécissement (s), rayon visé, dégâts / s hors zone]
 const BR_PHASES := [[25.0, 25.0, 28.0, 2.0], [20.0, 20.0, 16.0, 4.0], [15.0, 20.0, 8.0, 7.0], [10.0, 15.0, 3.0, 12.0], [9999.0, 1.0, 3.0, 20.0]]
@@ -85,6 +97,8 @@ func setup(p_rules: String) -> void:
 				"node": _make_flag(t)})
 	elif rules == "koth":
 		_make_hill()
+	elif rules == "dom":
+		_make_dom()
 	elif rules == "snd":
 		_make_sites()
 	elif rules == "zombies":
@@ -184,36 +198,14 @@ func _make_hill() -> void:
 ## Sites A et B : de part et d'autre du centre, entre les deux camps, sur un endroit dégagé.
 ## Calculés pareil sur toutes les machines (même carte).
 func _make_sites() -> void:
-	var map = game.map
-	var c0 := Vector3.ZERO
-	var c1 := Vector3.ZERO
-	for p in map.team_spawns[0]:
-		c0 += p
-	for p in map.team_spawns[1]:
-		c1 += p
-	c0 /= maxf(map.team_spawns[0].size(), 1)
-	c1 /= maxf(map.team_spawns[1].size(), 1)
-	var mid := (c0 + c1) / 2.0
-	var axis := (c1 - c0)
+	var camps := _camp_centers()
+	var mid: Vector3 = (camps[0] + camps[1]) / 2.0
+	var axis: Vector3 = camps[1] - camps[0]
 	axis.y = 0
 	axis = axis.normalized() if axis.length() > 0.1 else Vector3.FORWARD
 	var side := axis.cross(Vector3.UP).normalized()
 	for s in [-1.0, 1.0]:
-		var want: Vector3 = mid + side * s * 15.0
-		want.y = 0
-		var best := want
-		var found := false
-		for ring in 12:
-			for k in 8:
-				var a := TAU * k / 8.0
-				var p: Vector3 = want + Vector3(cos(a), 0, sin(a)) * ring * 1.5
-				if map.is_clear(p) and map.is_clear(p + Vector3(1.5, 0, 0)) and map.is_clear(p - Vector3(1.5, 0, 0)):
-					best = p
-					found = true
-					break
-			if found:
-				break
-		sites.append(best)
+		sites.append(_clear_spot(mid + side * s * 15.0))
 	var names := ["A", "B"]
 	for i in 2:
 		var ring := MeshInstance3D.new()
@@ -278,6 +270,68 @@ func _make_sites() -> void:
 	_bomb_node.add_child(bl)
 	_bomb_node.visible = false
 	add_child(_bomb_node)
+
+
+## Centre des points d'apparition de chaque équipe.
+func _camp_centers() -> Array:
+	var map = game.map
+	var c := []
+	for t in 2:
+		var sum := Vector3.ZERO
+		for p in map.team_spawns[t]:
+			sum += p
+		sum /= maxf(map.team_spawns[t].size(), 1)
+		sum.y = 0
+		c.append(sum)
+	return c
+
+
+## Endroit dégagé le plus proche de « want » (en spirale autour).
+func _clear_spot(want: Vector3) -> Vector3:
+	var map = game.map
+	want.y = 0
+	for ring in 12:
+		for k in 8:
+			var a := TAU * k / 8.0
+			var p: Vector3 = want + Vector3(cos(a), 0, sin(a)) * ring * 1.5
+			if map.is_clear(p) and map.is_clear(p + Vector3(1.5, 0, 0)) and map.is_clear(p - Vector3(1.5, 0, 0)):
+				return p
+	return want
+
+
+## Points A, B et C de la Domination : sur l'axe entre les deux camps (A côté BLEUS, C côté ROUGES).
+## Calculés pareil sur toutes les machines (même carte).
+func _make_dom() -> void:
+	var camps := _camp_centers()
+	for i in 3:
+		dom_points.append(_clear_spot((camps[0] as Vector3).lerp(camps[1], [0.22, 0.5, 0.78][i])))
+		var ring := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = DOM_RADIUS
+		cm.bottom_radius = DOM_RADIUS
+		cm.height = 0.04
+		ring.mesh = cm
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.albedo_color = Color(1, 1, 1, 0.22)
+		ring.material_override = mat
+		ring.position = dom_points[i] + Vector3(0, 0.04, 0)
+		add_child(ring)
+		var label := Label3D.new()
+		label.text = DOM_NAMES[i]
+		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		label.no_depth_test = true
+		label.font_size = 88
+		label.outline_size = 16
+		label.position = dom_points[i] + Vector3(0, 3.5, 0)
+		add_child(label)
+		_dom_marks.append([ring, mat, label])
+
+
+## Couleur d'un point de Domination selon son propriétaire.
+func dom_color(i: int) -> Color:
+	return Data.TEAM_COLORS[dom_owner[i]] if int(dom_owner[i]) >= 0 else Color(0.92, 0.92, 0.92)
 
 
 ## Équipe qui attaque (pose la bombe) pendant la manche en cours.
@@ -935,6 +989,10 @@ func _process(delta: float) -> void:
 		else:
 			n.position = f["pos"]
 			n.visible = true
+	for i in _dom_marks.size():
+		var col := dom_color(i)
+		(_dom_marks[i][1] as StandardMaterial3D).albedo_color = Color(col, 0.3 if int(dom_owner[i]) >= 0 else 0.18)
+		(_dom_marks[i][2] as Label3D).modulate = col
 	if _hill != null:
 		var col := Color(1, 1, 1, 0.25)
 		if hill_owner >= 0:
@@ -953,6 +1011,8 @@ func _physics_process(delta: float) -> void:
 		_update_ctf(delta)
 	elif rules == "koth":
 		_update_koth(delta)
+	elif rules == "dom":
+		_update_dom(delta)
 	elif rules == "snd":
 		_update_snd(delta)
 	elif rules == "zombies":
@@ -1065,6 +1125,69 @@ func _update_koth(delta: float) -> void:
 		_broadcast("hill_state", [holder])
 	_sync_pts()
 	game.check_win()
+
+
+## (Serveur) Les joueurs présents font monter la jauge de leur équipe (plus vite à plusieurs),
+## un point disputé ne bouge pas, un point vide revient vers son propriétaire.
+## Chaque seconde, chaque point tenu rapporte 1 point à son équipe.
+func _update_dom(delta: float) -> void:
+	for i in dom_points.size():
+		var n := [0, 0]
+		var inside := []
+		for id in game.chars:
+			var c = game.chars[id]
+			if c.alive and c.team >= 0 and _dist2d(c.position, dom_points[i]) < DOM_RADIUS:
+				n[c.team] += 1
+				inside.append(c)
+		var v: float = dom_val[i]
+		var old := v
+		var owner: int = dom_owner[i]
+		var team := -1
+		if n[0] > 0 and n[1] == 0:
+			team = 0
+		elif n[1] > 0 and n[0] == 0:
+			team = 1
+		if team >= 0:
+			var rate := (1.0 + 0.5 * (mini(n[team], 3) - 1)) / DOM_CAP_TIME
+			v = clampf(v + (1.0 if team == 0 else -1.0) * rate * delta, -1.0, 1.0)
+		elif n[0] == 0 and n[1] == 0:
+			var rest := 0.0 if owner < 0 else (1.0 if owner == 0 else -1.0)
+			v = move_toward(v, rest, delta * 0.5 / DOM_CAP_TIME)
+		if v == old:
+			continue
+		dom_val[i] = v
+		_dom_dirty = true
+		if owner == 0 and v <= 0.0 or owner == 1 and v >= 0.0:
+			dom_owner[i] = -1
+			_dom_sync()
+			_event("%s ont neutralisé %s" % [Data.TEAM_NAMES[1 - owner], DOM_NAMES[i]], 1 - owner)
+			for c in inside:
+				_add_pts(c, 5)
+		elif owner != 0 and v >= 1.0 or owner != 1 and v <= -1.0:
+			var t := 0 if v >= 1.0 else 1
+			dom_owner[i] = t
+			_dom_sync()
+			_event("%s ont capturé %s" % [Data.TEAM_NAMES[t], DOM_NAMES[i]], t)
+			for c in inside:
+				_add_pts(c, 10)
+	_dom_sync_t -= delta
+	if _dom_dirty and _dom_sync_t <= 0.0:
+		_dom_sync()
+	_dom_t += delta
+	if _dom_t < 1.0:
+		return
+	_dom_t = 0.0
+	for o in dom_owner:
+		if int(o) >= 0:
+			team_pts[o] += 1
+	_sync_pts()
+	game.check_win()
+
+
+func _dom_sync() -> void:
+	_dom_dirty = false
+	_dom_sync_t = 0.2
+	_broadcast("dom_state", [dom_val, dom_owner])
 
 
 func _dist2d(a: Vector3, b: Vector3) -> float:
@@ -1206,6 +1329,23 @@ func bot_goal(c):
 			return own["pos"]
 		if enemy["state"] != "carried" and randf() < 0.75:
 			return enemy["pos"]
+	elif rules == "dom" and c.team >= 0 and not dom_points.is_empty():
+		var spot := func(i: int) -> Vector3:
+			var a := randf() * TAU
+			return dom_points[i] + Vector3(cos(a), 0, sin(a)) * randf_range(0.5, DOM_RADIUS - 1.0)
+		# Sur un point pas encore à nous : y rester jusqu'à la capture
+		for i in dom_points.size():
+			if int(dom_owner[i]) != c.team and _dist2d(c.position, dom_points[i]) < DOM_RADIUS:
+				return spot.call(i)
+		var targets := []
+		for i in dom_points.size():
+			if int(dom_owner[i]) != c.team:
+				targets.append(i)
+		if targets.is_empty() or randf() < 0.2:
+			return spot.call(randi() % dom_points.size())  # défendre
+		# Le plus proche le plus souvent, parfois un autre pour se répartir
+		targets.sort_custom(func(a: int, b: int) -> bool: return _dist2d(c.position, dom_points[a]) < _dist2d(c.position, dom_points[b]))
+		return spot.call(targets[0] if randf() < 0.65 else targets[randi() % targets.size()])
 	elif rules == "koth" and randf() < 0.6:
 		var a := randf() * TAU
 		return HILL_POS + Vector3(cos(a), 0, sin(a)) * randf_range(3.5, HILL_RADIUS - 1.0)
@@ -1290,6 +1430,8 @@ func sync_to(peer: int) -> void:
 		flag_state.rpc_id(peer, f["team"], f["state"], f["pos"], f["carrier"])
 	if _hill != null:
 		hill_state.rpc_id(peer, hill_owner)
+	if rules == "dom":
+		dom_state.rpc_id(peer, dom_val, dom_owner)
 	if rules == "snd":
 		bomb_state.rpc_id(peer, bomb["state"], bomb["pos"], bomb["carrier"], bomb["site"], float(bomb["timer"]))
 	if rules == "zombies":
@@ -1327,6 +1469,12 @@ func sync_pts(pts: Array, rn: int) -> void:
 @rpc("authority", "call_remote", "reliable")
 func hill_state(h: int) -> void:
 	hill_owner = h
+
+
+@rpc("authority", "call_remote", "reliable")
+func dom_state(vals: Array, owners: Array) -> void:
+	dom_val = vals
+	dom_owner = owners
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -1376,6 +1524,8 @@ func objective_text() -> String:
 			return "CAPTURE DU DRAPEAU · PREMIER À %d" % limit()
 		"koth":
 			return "ROI DE LA COLLINE · TIENS LA ZONE · PREMIER À %d" % limit()
+		"dom":
+			return _dom_text()
 		"gungame":
 			if c != null and game.scores.has(c.char_id):
 				var lvl := int(game.scores[c.char_id].get("pts", 0))
@@ -1390,6 +1540,31 @@ func objective_text() -> String:
 		"br":
 			return _br_text()
 	return ""
+
+
+func _dom_text() -> String:
+	var c = game.local_char
+	if c != null and c.alive and c.team >= 0:
+		for i in dom_points.size():
+			if _dist2d(c.position, dom_points[i]) >= DOM_RADIUS:
+				continue
+			var enemies := false
+			for id in game.chars:
+				var o = game.chars[id]
+				if o.alive and o.team == 1 - c.team and _dist2d(o.position, dom_points[i]) < DOM_RADIUS:
+					enemies = true
+			if int(dom_owner[i]) == c.team:
+				return "POINT %s TENU%s" % [DOM_NAMES[i], " · ENNEMIS SUR LE POINT !" if enemies else ""]
+			var v: float = float(dom_val[i]) * (1.0 if c.team == 0 else -1.0)  # vers nous : positif
+			var what := "CAPTURE DE %s" % DOM_NAMES[i] if v >= 0.0 else "NEUTRALISATION DE %s" % DOM_NAMES[i]
+			var k := v if v >= 0.0 else 1.0 + v
+			var n := clampi(int(k * 20.0), 0, 20)
+			return "%s%s  %s%s" % [what, " (DISPUTÉ)" if enemies else "", "█".repeat(n), "░".repeat(20 - n)]
+	var parts := []
+	for i in dom_points.size():
+		var o := int(dom_owner[i])
+		parts.append("%s : %s" % [DOM_NAMES[i], Data.TEAM_NAMES[o] if o >= 0 else "—"])
+	return "DOMINATION · %s · PREMIER À %d" % ["   ".join(parts), limit()]
 
 
 func _snd_text() -> String:

@@ -137,6 +137,8 @@ const RULES := {
 		"desc": "Rapporte le drapeau ennemi à ta base pendant que le tien y est."},
 	"koth": {"name": "Roi de la colline", "unit": "points", "limit": 100, "teams": false,
 		"desc": "Reste seul dans la zone du centre : 1 point par seconde."},
+	"dom": {"name": "Domination", "unit": "points", "limit": 200, "teams": true,
+		"desc": "Capture et tiens les points A, B et C. Chaque seconde, ton équipe gagne 1 point par point tenu."},
 	"gungame": {"name": "Course aux armes", "unit": "niveaux", "limit": 10, "teams": false,
 		"desc": "Chaque élimination donne l'arme suivante. Le couteau fait reculer la victime."},
 	"elim": {"name": "Élimination", "unit": "manches", "limit": 5, "teams": true,
@@ -148,7 +150,7 @@ const RULES := {
 	"br": {"name": "Battle Royale", "unit": "victoires", "limit": 999, "teams": false, "ffa": true,
 		"desc": "Chacun pour soi, une seule vie. Ramasse des armes au sol (touche F) et reste dans la zone qui rétrécit : le dernier debout gagne."},
 }
-const RULE_ORDER := ["dm", "ctf", "koth", "gungame", "elim", "snd", "zombies", "br"]
+const RULE_ORDER := ["dm", "ctf", "koth", "dom", "gungame", "elim", "snd", "zombies", "br"]
 # Course aux armes : ordre des armes (indices dans WEAPONS)
 const GUNGAME_LADDER := [0, 3, 1, 6, 2, 7, 5, 8, 9, 4]
 
